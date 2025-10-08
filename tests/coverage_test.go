@@ -4,12 +4,11 @@ package schemaflow
 import (
 	"context"
 	"errors"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
-	
+
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -18,28 +17,28 @@ import (
 func TestInterfaceSlice(t *testing.T) {
 	// Test conversion of various slice types to []interface{}
 	// Note: interfaceSlice is a generic function, need to test with specific types
-	
+
 	// Test with string slice
 	strSlice := []string{"a", "b", "c"}
 	strResult := interfaceSlice(strSlice)
 	if len(strResult) != 3 {
 		t.Errorf("interfaceSlice(string) returned %d items, want 3", len(strResult))
 	}
-	
+
 	// Test with int slice
 	intSlice := []int{1, 2, 3}
 	intResult := interfaceSlice(intSlice)
 	if len(intResult) != 3 {
 		t.Errorf("interfaceSlice(int) returned %d items, want 3", len(intResult))
 	}
-	
+
 	// Test with struct slice
 	personSlice := []Person{{Name: "John"}, {Name: "Jane"}}
 	personResult := interfaceSlice(personSlice)
 	if len(personResult) != 2 {
 		t.Errorf("interfaceSlice(Person) returned %d items, want 2", len(personResult))
 	}
-	
+
 	// Test with empty slice
 	emptySlice := []string{}
 	emptyResult := interfaceSlice(emptySlice)
@@ -57,11 +56,11 @@ func TestLike(t *testing.T) {
 	testCase := Like("template", func() {
 		// This should be executed when matched
 	})
-	
+
 	if testCase.condition != "template" {
 		t.Errorf("Like() condition = %v, want 'template'", testCase.condition)
 	}
-	
+
 	if testCase.action == nil {
 		t.Error("Like() action should not be nil")
 	}
@@ -172,11 +171,11 @@ func TestNormalizeInput(t *testing.T) {
 
 func TestCalculateParsingConfidence(t *testing.T) {
 	tests := []struct {
-		name         string
-		response     string
-		targetType   reflect.Type
-		wantMin      float64
-		wantMax      float64
+		name       string
+		response   string
+		targetType reflect.Type
+		wantMin    float64
+		wantMax    float64
 	}{
 		{
 			name:       "valid JSON for struct",
@@ -253,9 +252,9 @@ func TestAllErrorTypes(t *testing.T) {
 func TestAdditionalSteeringPresets(t *testing.T) {
 	// Test steering presets that exist
 	tests := []struct {
-		name   string
-		fn     func(...string) string
-		check  string
+		name  string
+		fn    func(...string) string
+		check string
 	}{
 		{"EffortSort", Steering.EffortSort, "effort"},
 		{"DeadlineSort", Steering.DeadlineSort, "deadline"},
@@ -301,7 +300,7 @@ func TestLLMRetryLogic(t *testing.T) {
 
 	maxRetries = 2
 	retryBackoff = 1 * time.Millisecond
-	
+
 	// Set a non-nil client so defaultCallLLM doesn't fail early
 	client = &openai.Client{} // This will be enough to pass the nil check
 
@@ -315,13 +314,13 @@ func TestLLMRetryLogic(t *testing.T) {
 		}
 		return `"success"`, nil // Success on second attempt
 	}
-	
+
 	// Call the mock directly to simulate what would happen
 	mockResponse(context.Background(), "test", "test", OpOptions{Mode: TransformMode})
-	
+
 	// Reset for actual retry test
 	retryCount = 0
-	
+
 	// The retry logic is in defaultCallLLM, but we can't easily test it without mocking
 	// the OpenAI client. Let's at least verify the retry detection works.
 	// This test now just verifies our mock behavior, not the actual retry logic.
@@ -331,9 +330,9 @@ func TestLLMRetryLogic(t *testing.T) {
 
 func TestIsRetryableErrorAllCases(t *testing.T) {
 	tests := []struct {
-		name    string
-		err     error
-		want    bool
+		name string
+		err  error
+		want bool
 	}{
 		{"rate limit", errors.New("rate limit exceeded"), true},
 		{"timeout", errors.New("request timeout"), true},
@@ -362,7 +361,7 @@ func TestMatchesFilters(t *testing.T) {
 		Timestamp: time.Now(),
 		Model:     "gpt-4",
 		Provider:  "openai",
-		Operation: "extract",  // Add the Operation field
+		Operation: "extract", // Add the Operation field
 		TokenUsage: TokenUsage{
 			PromptTokens:     100,
 			CompletionTokens: 50,
@@ -423,16 +422,16 @@ func TestBudgetTracking(t *testing.T) {
 		CompletionTokens: 500,
 		TotalTokens:      1500,
 	}
-	
+
 	cost := CalculateCost(usage, "gpt-4", "openai")
 	metadata := &ResultMetadata{
 		RequestID: "test-budget",
 		Operation: "test",
 	}
-	
+
 	// Track costs
 	TrackCost(cost, metadata)
-	
+
 	// Get total cost to ensure tracking works
 	total := GetTotalCost(time.Now().Add(-1*time.Hour), nil)
 	if total < 0 {
@@ -448,7 +447,7 @@ func TestRecordSpanEvent(t *testing.T) {
 		Mode:         TransformMode,
 		Intelligence: Fast,
 	}
-	
+
 	newCtx, span := StartSpan(ctx, "test-operation", opts)
 	defer span.End()
 
@@ -457,7 +456,7 @@ func TestRecordSpanEvent(t *testing.T) {
 		"key1": "value1",
 		"key2": 42,
 	})
-	
+
 	// Should not panic
 }
 
@@ -468,19 +467,19 @@ func TestOTELSpanOperations(t *testing.T) {
 		Mode:         TransformMode,
 		Intelligence: Fast,
 	}
-	
+
 	// Create span
 	newCtx, span := StartSpan(ctx, "test-op", opts)
 	if span == nil {
 		t.Error("Expected span to be created")
 	}
 	defer span.End()
-	
+
 	// Add tags
 	AddSpanTags(newCtx, map[string]string{
 		"test": "value",
 	})
-	
+
 	// Get span ID
 	spanID := GetSpanID(newCtx)
 	if spanID == "" {
@@ -538,7 +537,7 @@ func TestComplexOperationChains(t *testing.T) {
 
 	// Test Extract -> Transform -> Score -> Classify chain
 	input := "John Doe, 30 years old, software engineer"
-	
+
 	// Extract
 	person, err := Extract[Person](input, NewExtractOptions().WithMode(TransformMode))
 	if err != nil {
@@ -699,7 +698,7 @@ func TestValidateExtractedDataEdgeCases(t *testing.T) {
 			name:      "empty struct",
 			data:      Person{},
 			threshold: 0.5,
-			wantErr:   true,  // Person has required fields without omitempty tags
+			wantErr:   true, // Person has required fields without omitempty tags
 		},
 		{
 			name:      "zero values allowed",
