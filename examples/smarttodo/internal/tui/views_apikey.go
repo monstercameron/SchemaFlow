@@ -93,18 +93,18 @@ Press Esc to quit`)
 func validateAPIKey(apiKey string) error {
 	// Temporarily set the API key for validation
 	os.Setenv("OPENAI_API_KEY", apiKey)
-	
+
 	// Try a simple API call to validate
 	_, err := schemaflow.Generate[string]("Say 'test'", schemaflow.OpOptions{
 		Intelligence: schemaflow.Fast,
 	})
-	
+
 	if err != nil {
 		// Clear the invalid key
 		os.Unsetenv("OPENAI_API_KEY")
-		return fmt.Errorf("Invalid API key: %v", err)
+		return fmt.Errorf("invalid API key: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -112,14 +112,14 @@ func validateAPIKey(apiKey string) error {
 func saveAPIKey(apiKey string) error {
 	// Create or append to .env file
 	envPath := ".env"
-	
+
 	// Read existing .env content
 	content, err := os.ReadFile(envPath)
 	existingLines := []string{}
 	if err == nil {
 		existingLines = strings.Split(string(content), "\n")
 	}
-	
+
 	// Update or add OPENAI_API_KEY
 	found := false
 	for i, line := range existingLines {
@@ -129,11 +129,11 @@ func saveAPIKey(apiKey string) error {
 			break
 		}
 	}
-	
+
 	if !found {
 		existingLines = append(existingLines, fmt.Sprintf("OPENAI_API_KEY=%s", apiKey))
 	}
-	
+
 	// Write back to file
 	newContent := strings.Join(existingLines, "\n")
 	return os.WriteFile(envPath, []byte(newContent), 0600)

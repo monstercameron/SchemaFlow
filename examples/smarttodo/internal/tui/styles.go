@@ -19,16 +19,8 @@ var (
 			Background(lipgloss.Color("#1a1a1a")).
 			Padding(0, 1)
 
-	statusBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFFDF5")).
-			Background(lipgloss.Color("#25283D"))
-
 	helpStyle = lipgloss.NewStyle().
 			Foreground(mutedColor)
-
-	selectedStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(primaryColor)
 
 	priorityHighStyle = lipgloss.NewStyle().
 				Bold(true).
@@ -40,20 +32,10 @@ var (
 	priorityLowStyle = lipgloss.NewStyle().
 				Foreground(successColor)
 
-	deadlineStyle = lipgloss.NewStyle().
-			Foreground(secondaryColor)
-
-	categoryStyle = lipgloss.NewStyle().
-			Foreground(primaryColor).
-			Bold(true)
-
 	borderStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(primaryColor).
 			Padding(1, 2)
-
-	inputStyle = lipgloss.NewStyle().
-			Foreground(primaryColor)
 
 	focusedStyle = lipgloss.NewStyle().
 			Foreground(primaryColor).

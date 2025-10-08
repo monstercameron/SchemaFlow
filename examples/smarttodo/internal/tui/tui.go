@@ -12,92 +12,87 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	
+
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/database"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/models"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/processor"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/pkg/notifier"
 )
 
-
 // View modes
 type viewMode int
 
 const (
-	setupView viewMode = iota
-	splashView    // Welcome splash screen
+	setupView  viewMode = iota
+	splashView          // Welcome splash screen
 	listView
-	idleView      // Idle mode summary view
-	taskView      // Inline task view for managing subtasks
+	idleView // Idle mode summary view
+	taskView // Inline task view for managing subtasks
 	addView
-	editView      // Edit todo with context modal
+	editView // Edit todo with context modal
 	detailView
 	suggestView
 	statsView
 	quitConfirmView
-	closingView   // Closing animation view
-	calendarView  // Daily calendar view with time slots
+	closingView     // Closing animation view
+	calendarView    // Daily calendar view with time slots
 	apiKeySetupView // API key setup for first-time users
 )
 
-
 // Model represents the main TUI application state
 type Model struct {
-	db           *database.Database
-	processor    *processor.TodoProcessor
-	notifier     *notifier.Notifier
-	todos        []*models.SmartTodo
-	list         list.Model
-	input        textinput.Model
-	textarea     textarea.Model
-	help         help.Model
-	keys         keyMap
-	mode         viewMode
-	previousMode viewMode // Store previous mode for returning from quit confirm
-	selectedTodo *models.SmartTodo
-	selectedTask   int      // Index of selected task in task edit view
-	newTasks       []string // Temporary storage for new tasks being added
-	taskInput      textinput.Model // Input for adding tasks
-	taskInputMode  bool     // Whether we're in input mode in task view
-	pendingTasks    []string // Queue of tasks being processed for grammar fixing
-	processingTask  bool     // Whether we're processing a task
-	editInput       textinput.Model // Input for edit modal
-	closingFrame    int      // Animation frame for closing
-	closingProgress int      // Progress for closing animation
-	splashTimer     int      // Timer for splash screen auto-dismiss
-	idleMode        bool     // Idle mode to save CPU
-	lastActivity    time.Time // Track last user activity
-	statusMsg       string
-	statusType   string // "success", "error", "info"
-	width        int
-	height       int
-	loading      bool
-	stats        map[string]int
-	userName     string
-	listTitle    string
-	pendingTodos []string // Queue of todos being processed
-	loadingFrame int // For animation
-	setupInput   textinput.Model // For initial setup
-	consoleLogs  []string // Store console messages
-	maxLogs      int // Maximum number of logs to keep
-	needsAPIKey  bool // Whether API key setup is needed
-	aiQuote      string // AI-generated motivational quote for idle mode
-	editProcessing bool // Whether edit is being processed with AI
-	lastFilterString string // Store last filter string to restore
+	db               *database.Database
+	processor        *processor.TodoProcessor
+	notifier         *notifier.Notifier
+	todos            []*models.SmartTodo
+	list             list.Model
+	input            textinput.Model
+	textarea         textarea.Model
+	help             help.Model
+	keys             keyMap
+	mode             viewMode
+	previousMode     viewMode // Store previous mode for returning from quit confirm
+	selectedTodo     *models.SmartTodo
+	selectedTask     int             // Index of selected task in task edit view
+	newTasks         []string        // Temporary storage for new tasks being added
+	taskInput        textinput.Model // Input for adding tasks
+	taskInputMode    bool            // Whether we're in input mode in task view
+	pendingTasks     []string        // Queue of tasks being processed for grammar fixing
+	processingTask   bool            // Whether we're processing a task
+	editInput        textinput.Model // Input for edit modal
+	closingFrame     int             // Animation frame for closing
+	closingProgress  int             // Progress for closing animation
+	idleMode         bool            // Idle mode to save CPU
+	lastActivity     time.Time       // Track last user activity
+	statusMsg        string
+	statusType       string // "success", "error", "info"
+	width            int
+	height           int
+	loading          bool
+	stats            map[string]int
+	userName         string
+	listTitle        string
+	pendingTodos     []string        // Queue of todos being processed
+	loadingFrame     int             // For animation
+	setupInput       textinput.Model // For initial setup
+	consoleLogs      []string        // Store console messages
+	maxLogs          int             // Maximum number of logs to keep
+	needsAPIKey      bool            // Whether API key setup is needed
+	aiQuote          string          // AI-generated motivational quote for idle mode
+	editProcessing   bool            // Whether edit is being processed with AI
+	lastFilterString string          // Store last filter string to restore
 }
-
-
 
 // InitialModel creates the initial TUI model
 func InitialModel(db *database.Database) Model {
 	// Check if user preferences exist in database
 	userName, listTitle, _ := db.GetUserPrefs()
-	
+
 	// Create list with custom delegate
 	items := []list.Item{}
 	delegate := itemDelegate{}
 	l := list.New(items, delegate, 0, 0)
-	l.Title = ""  // Remove the title from the list
+	l.Title = "" // Remove the title from the list
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(true)
 	l.Styles.Title = titleStyle
@@ -117,7 +112,7 @@ func InitialModel(db *database.Database) Model {
 	ta.Placeholder = "Describe your task in natural language..."
 	ta.SetWidth(60)
 	ta.SetHeight(4)
-	
+
 	// Create task input for subtasks
 	taskInput := textinput.New()
 	taskInput.Placeholder = "Enter a subtask..."
@@ -131,14 +126,14 @@ func InitialModel(db *database.Database) Model {
 	setupInput.Placeholder = "Enter your name..."
 	setupInput.CharLimit = 50
 	setupInput.Width = 40
-	
+
 	// Create edit input
 	editInput := textinput.New()
 	editInput.Placeholder = "Add context or updates to this todo..."
 	editInput.CharLimit = 200
 	editInput.Width = 60
 
-	initialMode := splashView  // Always start with splash
+	initialMode := splashView // Always start with splash
 	if userName == "" {
 		// Will transition to setup after splash
 		setupInput.Focus()
@@ -182,8 +177,8 @@ func (m Model) Init() tea.Cmd {
 		m.updateDeadlines(),
 		m.loadTodos(),
 		m.loadStats(),
-		splashTimerCmd(),  // Start splash timer
-		idleCheckCmd(),    // Start idle checking
+		splashTimerCmd(), // Start splash timer
+		idleCheckCmd(),   // Start idle checking
 	)
 }
 
@@ -228,12 +223,12 @@ func (m *Model) processTodo(input string) tea.Cmd {
 		if err != nil {
 			return models.ErrMsg{Err: err}
 		}
-		
+
 		id, err := m.db.AddTodo(todo)
 		if err != nil {
 			return models.ErrMsg{Err: err}
 		}
-		
+
 		todo.ID = strconv.FormatInt(id, 10)
 		return models.TodoAddedMsg{Todo: todo}
 	}
@@ -244,12 +239,12 @@ func (m *Model) suggestNextTodo() tea.Cmd {
 		if len(m.todos) == 0 {
 			return models.ErrMsg{Err: fmt.Errorf("no pending tasks")}
 		}
-		
+
 		best, err := m.processor.SuggestNext(m.todos)
 		if err != nil {
 			return models.ErrMsg{Err: err}
 		}
-		
+
 		return models.TodoSuggestedMsg{Todo: best}
 	}
 }
@@ -260,13 +255,13 @@ func (m *Model) processEditContext(todo *models.SmartTodo, context string) tea.C
 		if err != nil {
 			return models.EditProcessedMsg{Todo: todo, Err: err}
 		}
-		
+
 		// Save to database
 		err = m.db.UpdateTodo(updatedTodo)
 		if err != nil {
 			return models.EditProcessedMsg{Todo: todo, Err: err}
 		}
-		
+
 		return models.EditProcessedMsg{Todo: updatedTodo, Err: nil}
 	}
 }
@@ -288,7 +283,7 @@ func (m *Model) processTaskGrammar(taskText string, todoID string) tea.Cmd {
 			// Use simple refinement as fallback
 			fixed = m.processor.RefineTaskText(taskText)
 		}
-		
+
 		return models.TaskProcessedMsg{
 			OriginalText: taskText,
 			FixedText:    fixed,
@@ -308,7 +303,6 @@ func (m *Model) generateQuoteCmd() tea.Cmd {
 		return models.AiQuoteMsg{Quote: quote}
 	}
 }
-
 
 // Update
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -366,21 +360,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.todos = newTodos
-		
+
 		// Remove from pending queue
 		if len(m.pendingTodos) > 0 {
 			m.pendingTodos = m.pendingTodos[1:]
 		}
-		
+
 		m.statusMsg = fmt.Sprintf("✅ Added: %s", msg.Todo.Title)
 		m.statusType = "success"
 		m.addLog(fmt.Sprintf("✅ Added: %s", msg.Todo.Title))
-		
+
 		// Log cost if tracked
 		if m.processor != nil && m.processor.LastCost > 0 {
 			m.addLog(fmt.Sprintf("💰 Cost: $%.4f (Total: $%.4f)", m.processor.LastCost, m.processor.TotalCost))
 		}
-		
+
 		// Process next in queue if any
 		var nextCmd tea.Cmd
 		if len(m.pendingTodos) > 0 {
@@ -394,7 +388,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				CreatedAt:   time.Now(),
 			}
 			m.todos = append([]*models.SmartTodo{placeholderTodo}, m.todos...)
-			
+
 			nextCmd = m.processTodo(m.pendingTodos[0])
 			m.statusMsg = fmt.Sprintf("⏳ Processing %d more tasks...", len(m.pendingTodos))
 			m.addLog(fmt.Sprintf("⏳ Processing %d more tasks...", len(m.pendingTodos)))
@@ -403,12 +397,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Always refresh and clear screen to ensure proper redraw
 		return m, tea.Batch(m.loadTodos(), m.loadStats(), nextCmd, tea.ClearScreen)
-	
+
 	case models.TodoProcessingMsg:
 		// Add to queue and start processing if not already
 		m.pendingTodos = append(m.pendingTodos, msg.Input)
 		m.addLog(fmt.Sprintf("📋 Queued task: %.50s...", msg.Input))
-		
+
 		// Add a placeholder todo to the list immediately
 		placeholderTodo := &models.SmartTodo{
 			ID:          fmt.Sprintf("pending-%d", time.Now().Unix()),
@@ -418,17 +412,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Category:    "pending",
 			CreatedAt:   time.Now(),
 		}
-		
+
 		// Add placeholder to the beginning of the todos list
 		m.todos = append([]*models.SmartTodo{placeholderTodo}, m.todos...)
-		
+
 		// Update the list view
 		items := make([]list.Item, len(m.todos))
 		for i, todo := range m.todos {
 			items[i] = todoItem{todo: todo}
 		}
 		m.list.SetItems(items)
-		
+
 		if len(m.pendingTodos) == 1 {
 			m.loading = true
 			m.addLog("🤖 Starting AI processing...")
@@ -437,7 +431,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusMsg = fmt.Sprintf("📋 Queued (%d tasks pending)", len(m.pendingTodos))
 		m.statusType = "info"
 		return m, tickCmd()
-	
+
 	case models.IdleCheckMsg:
 		// Check if we should enter idle mode (no activity for 1 minute)
 		if time.Since(m.lastActivity) > 1*time.Minute && !m.idleMode && m.mode == listView {
@@ -461,7 +455,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Tick(checkInterval, func(t time.Time) tea.Msg {
 			return models.IdleCheckMsg{}
 		})
-	
+
 	case models.WakeupMsg:
 		// Wake up from idle mode
 		if m.idleMode {
@@ -473,13 +467,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tickCmd()
 		}
 		return m, nil
-	
+
 	case models.AiQuoteMsg:
 		// Store the AI-generated quote
 		m.aiQuote = msg.Quote
 		m.addLog("💭 Generated motivational quote")
 		return m, nil
-	
+
 	case models.SmartPrioritizeMsg:
 		// Handle smart prioritization result
 		m.loading = false
@@ -492,12 +486,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "✨ Tasks reordered by AI priority"
 			m.statusType = "success"
 			m.addLog(fmt.Sprintf("✨ Reordered %d tasks with AI", len(msg.Todos)))
-			
+
 			// Log cost for smart prioritization
 			if m.processor != nil && m.processor.LastCost > 0 {
 				m.addLog(fmt.Sprintf("💰 Cost: $%.4f (Total: $%.4f)", m.processor.LastCost, m.processor.TotalCost))
 			}
-			
+
 			// Update list items with new order
 			items := make([]list.Item, len(msg.Todos))
 			for i, todo := range msg.Todos {
@@ -506,7 +500,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.list.SetItems(items)
 		}
 		return m, tea.ClearScreen
-	
+
 	case models.EditProcessedMsg:
 		// Handle edit processing result
 		m.editProcessing = false
@@ -518,7 +512,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = fmt.Sprintf("✅ Updated: %s", msg.Todo.Title)
 			m.statusType = "success"
 			m.addLog(fmt.Sprintf("✅ Updated todo with AI: %s", msg.Todo.Title))
-			
+
 			// Log cost for edit processing
 			if m.processor != nil && m.processor.LastCost > 0 {
 				m.addLog(fmt.Sprintf("💰 Cost: $%.4f (Total: $%.4f)", m.processor.LastCost, m.processor.TotalCost))
@@ -528,21 +522,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.editInput.SetValue("")
 		}
 		return m, m.loadTodos()
-	
+
 	case models.TickMsg:
 		// Don't animate if in idle mode
 		if m.idleMode {
 			return m, nil
 		}
-		
+
 		// Update loading animation
 		m.loadingFrame++
-		
+
 		// Update placeholder todos with animation
 		if len(m.pendingTodos) > 0 {
 			spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 			frame := spinner[m.loadingFrame%len(spinner)]
-			
+
 			// Update any pending todos in the list
 			for _, todo := range m.todos {
 				if strings.HasPrefix(todo.ID, "pending-") {
@@ -552,7 +546,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						originalInput = originalInput[:30] + "..."
 					}
 					todo.Title = fmt.Sprintf("%s Processing: %s", frame, originalInput)
-					
+
 					// Cycle through different status messages
 					statusMessages := []string{
 						"🤖 AI is analyzing your task...",
@@ -563,22 +557,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					todo.Description = statusMessages[(m.loadingFrame/10)%len(statusMessages)]
 				}
 			}
-			
+
 			// Update the list view
 			items := make([]list.Item, len(m.todos))
 			for i, todo := range m.todos {
 				items[i] = todoItem{todo: todo}
 			}
 			m.list.SetItems(items)
-			
+
 			return m, tickCmd()
 		}
-		
+
 		if m.loading {
 			return m, tickCmd()
 		}
 		return m, nil
-	
+
 	case models.SetupCompleteMsg:
 		m.userName = msg.UserName
 		m.listTitle = msg.ListTitle
@@ -594,7 +588,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusType = "info"
 		m.loading = false
 		m.addLog(fmt.Sprintf("💡 AI suggests: %s", msg.Todo.Title))
-		
+
 		// Log cost for suggestion
 		if m.processor != nil && m.processor.LastCost > 0 {
 			m.addLog(fmt.Sprintf("💰 Cost: $%.4f (Total: $%.4f)", m.processor.LastCost, m.processor.TotalCost))
@@ -612,7 +606,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					break
 				}
 			}
-			
+
 			// Save to database
 			err := m.db.UpdateTodo(m.selectedTodo)
 			if err != nil {
@@ -623,23 +617,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.statusType = "success"
 				m.addLog(fmt.Sprintf("✅ Added task: %s", msg.FixedText))
 			}
-			
+
 			// Remove from pending queue
 			if len(m.pendingTasks) > 0 {
 				m.pendingTasks = m.pendingTasks[1:]
 			}
-			
+
 			// Process next task if any
 			if len(m.pendingTasks) > 0 {
 				return m, m.processTaskGrammar(m.pendingTasks[0], m.selectedTodo.ID)
 			} else {
 				m.processingTask = false
 			}
-			
+
 			return m, m.loadTodos()
 		}
 		return m, nil
-	
+
 	case models.StartClosingMsg:
 		// External signal to start closing
 		if m.mode != closingView {
@@ -652,19 +646,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, closingTickCmd()
 		}
 		return m, nil
-	
+
 	case models.ClosingTickMsg:
 		// Update closing animation
 		m.closingFrame++
 		m.closingProgress += 5
-		
+
 		if m.closingProgress >= 100 {
 			// Animation complete, quit
 			return m, tea.Quit
 		}
-		
+
 		return m, closingTickCmd()
-	
+
 	case models.SplashDismissMsg:
 		// Transition from splash to appropriate view
 		if m.needsAPIKey {
@@ -679,7 +673,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.mode = listView
 		}
 		return m, tea.ClearScreen
-	
+
 	case models.ErrMsg:
 		m.statusMsg = fmt.Sprintf("❌ Error: %v", msg.Err)
 		m.statusType = "error"
@@ -699,7 +693,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, tickCmd(), idleCheckCmd())
 			return m, tea.Batch(cmds...)
 		}
-		
+
 		// Global keys
 		if msg.Type == tea.KeyCtrlC {
 			// Start closing animation for Ctrl+C
@@ -714,7 +708,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		
+
 		// Force refresh on Ctrl+L (standard terminal clear)
 		if msg.Type == tea.KeyCtrlL {
 			return m, tea.ClearScreen
@@ -727,7 +721,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, func() tea.Msg { return models.SplashDismissMsg{} }
 			}
 			return m, nil
-		
+
 		case apiKeySetupView:
 			switch {
 			case msg.Type == tea.KeyEsc:
@@ -739,21 +733,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Validate the API key
 					m.statusMsg = "Validating API key..."
 					m.statusType = "info"
-					
+
 					// Test the API key
 					if err := validateAPIKey(apiKey); err != nil {
 						m.statusMsg = "Invalid API key. Please check and try again."
 						m.statusType = "error"
 						return m, nil
 					}
-					
+
 					// Save the API key
 					if err := saveAPIKey(apiKey); err != nil {
 						m.statusMsg = fmt.Sprintf("Failed to save API key: %v", err)
 						m.statusType = "error"
 						return m, nil
 					}
-					
+
 					// API key is valid, proceed to setup or list view
 					m.needsAPIKey = false
 					if m.userName == "" {
@@ -772,7 +766,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.setupInput, cmd = m.setupInput.Update(msg)
 				return m, cmd
 			}
-		
+
 		case setupView:
 			switch {
 			case msg.Type == tea.KeyEnter:
@@ -796,7 +790,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.setupInput, cmd = m.setupInput.Update(msg)
 				return m, cmd
 			}
-		
+
 		case listView:
 			// Check if we're in filter mode and handle Left arrow to exit
 			if m.list.SettingFilter() && msg.Type == tea.KeyLeft {
@@ -806,7 +800,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.addLog("🔍 Exited filter mode (filter saved)")
 				return m, nil
 			}
-			
+
 			switch {
 			case msg.Type == tea.KeyEsc || key.Matches(msg, m.keys.Quit):
 				m.previousMode = m.mode
@@ -851,9 +845,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.list.FilterInput.SetValue(m.lastFilterString)
 				m.addLog(fmt.Sprintf("🔍 Restored filter: %s", m.lastFilterString))
 				// Trigger filter mode
-				cmds = append(cmds, func() tea.Msg {
+				filterCmd := func() tea.Msg {
 					return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
-				}())
+				}
+				cmds = append(cmds, filterCmd)
 				return m, tea.Batch(cmds...)
 			case msg.Type == tea.KeySpace || key.Matches(msg, m.keys.Complete):
 				// Space bar or Ctrl+X marks as complete (toggle)
@@ -884,7 +879,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.statusType = "warning"
 						return m, nil
 					}
-					
+
 					m.selectedTodo = i.todo
 					m.mode = editView
 					m.editInput.SetValue("")
@@ -897,7 +892,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Get the currently selected item from the list
 				selectedIndex := m.list.Index()
 				items := m.list.Items()
-				
+
 				if selectedIndex >= 0 && selectedIndex < len(items) {
 					if todoItem, ok := items[selectedIndex].(todoItem); ok {
 						// Don't delete pending items that are being processed
@@ -906,7 +901,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							m.statusType = "warning"
 							return m, nil
 						}
-						
+
 						// Actually delete the todo from database
 						id, err := strconv.Atoi(todoItem.todo.ID)
 						if err != nil {
@@ -914,7 +909,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							m.statusType = "error"
 							return m, nil
 						}
-						
+
 						err = m.db.DeleteTodo(id)
 						if err != nil {
 							m.statusMsg = fmt.Sprintf("❌ Failed to delete: %v", err)
@@ -995,7 +990,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
-			
+
 			// Update input field
 			var cmd tea.Cmd
 			m.input, cmd = m.input.Update(msg)
@@ -1019,10 +1014,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.statusMsg = "🤖 Processing edit with AI..."
 					m.statusType = "info"
 					m.addLog(fmt.Sprintf("🤖 Processing edit for: %s", m.selectedTodo.Title))
-					
+
 					// Keep the edit modal open but disable input
 					m.editInput.Blur()
-					
+
 					// Process the edit asynchronously
 					return m, tea.Batch(
 						m.processEditContext(m.selectedTodo, context),
@@ -1035,7 +1030,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			m.editInput, cmd = m.editInput.Update(msg)
 			return m, cmd
-		
+
 		case detailView, suggestView, statsView, calendarView:
 			if msg.Type == tea.KeyEsc || key.Matches(msg, m.keys.Enter) {
 				m.mode = listView
@@ -1047,7 +1042,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.mode = listView
 				return m, tea.ClearScreen
 			}
-		
+
 		case taskView:
 			// If in input mode, handle input first
 			if m.taskInputMode {
@@ -1058,12 +1053,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.taskInput.SetValue("")
 					m.taskInput.Blur()
 					return m, nil
-					
+
 				case msg.Type == tea.KeyEnter:
 					// Add the task to processing queue
 					if m.taskInput.Value() != "" && m.selectedTodo != nil {
 						taskText := m.taskInput.Value()
-						
+
 						// Add placeholder task immediately for responsiveness
 						placeholderTask := models.Task{
 							Text:      fmt.Sprintf("⏳ Processing: %s", taskText),
@@ -1071,18 +1066,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 						m.selectedTodo.Tasks = append(m.selectedTodo.Tasks, placeholderTask)
 						m.selectedTask = len(m.selectedTodo.Tasks) - 1 // Select the new task
-						
+
 						// Add to pending queue
 						m.pendingTasks = append(m.pendingTasks, taskText)
 						m.processingTask = true
-						
+
 						m.statusMsg = "🤖 Fixing grammar..."
 						m.statusType = "info"
 						m.addLog(fmt.Sprintf("⏳ Processing task: %s", taskText))
-						
+
 						// Clear input for next task
 						m.taskInput.SetValue("")
-						
+
 						// Start processing
 						return m, tea.Batch(
 							m.processTaskGrammar(taskText, m.selectedTodo.ID),
@@ -1090,7 +1085,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						)
 					}
 					return m, nil
-					
+
 				default:
 					// Update the input field
 					var cmd tea.Cmd
@@ -1098,7 +1093,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, cmd
 				}
 			}
-			
+
 			// Normal task view navigation
 			switch {
 			case key.Matches(msg, m.keys.Add):
@@ -1109,7 +1104,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.statusMsg = "Type task and press Enter. Esc to cancel"
 				m.statusType = "info"
 				return m, textinput.Blink
-				
+
 			case msg.Type == tea.KeyLeft || msg.Type == tea.KeyEsc:
 				// Left arrow or Esc goes back to list view
 				if m.selectedTodo != nil {
@@ -1123,13 +1118,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.taskInput.Blur()
 				m.addLog("⬅️ Back to todo list")
 				return m, m.loadTodos()
-				
+
 			case msg.Type == tea.KeyUp:
 				if m.selectedTodo != nil && len(m.selectedTodo.Tasks) > 0 {
 					// Build sorted task list to find current position
 					var uncompletedTasks []int
 					var completedTasks []int
-					
+
 					for i, task := range m.selectedTodo.Tasks {
 						if task.Completed {
 							completedTasks = append(completedTasks, i)
@@ -1137,9 +1132,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							uncompletedTasks = append(uncompletedTasks, i)
 						}
 					}
-					
+
 					sortedIndices := append(uncompletedTasks, completedTasks...)
-					
+
 					// Find current position in sorted list
 					currentSortedPos := -1
 					for pos, idx := range sortedIndices {
@@ -1148,20 +1143,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							break
 						}
 					}
-					
+
 					// Move up in sorted order
 					if currentSortedPos > 0 {
 						m.selectedTask = sortedIndices[currentSortedPos-1]
 					}
 				}
 				return m, nil
-				
+
 			case msg.Type == tea.KeyDown:
 				if m.selectedTodo != nil && len(m.selectedTodo.Tasks) > 0 {
 					// Build sorted task list to find current position
 					var uncompletedTasks []int
 					var completedTasks []int
-					
+
 					for i, task := range m.selectedTodo.Tasks {
 						if task.Completed {
 							completedTasks = append(completedTasks, i)
@@ -1169,9 +1164,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							uncompletedTasks = append(uncompletedTasks, i)
 						}
 					}
-					
+
 					sortedIndices := append(uncompletedTasks, completedTasks...)
-					
+
 					// Find current position in sorted list
 					currentSortedPos := -1
 					for pos, idx := range sortedIndices {
@@ -1180,19 +1175,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							break
 						}
 					}
-					
+
 					// Move down in sorted order
 					if currentSortedPos < len(sortedIndices)-1 {
 						m.selectedTask = sortedIndices[currentSortedPos+1]
 					}
 				}
 				return m, nil
-				
+
 			case msg.Type == tea.KeySpace || msg.Type == tea.KeyEnter:
 				// Toggle task completion
 				if m.selectedTodo != nil && m.selectedTask < len(m.selectedTodo.Tasks) {
 					m.selectedTodo.Tasks[m.selectedTask].Completed = !m.selectedTodo.Tasks[m.selectedTask].Completed
-					
+
 					// Update in database
 					err := m.db.UpdateTaskStatus(m.selectedTodo.ID, m.selectedTask, m.selectedTodo.Tasks[m.selectedTask].Completed)
 					if err != nil {
@@ -1211,18 +1206,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, m.loadTodos()
 				}
 				return m, nil
-				
+
 			case key.Matches(msg, m.keys.Delete):
 				// Ctrl+D deletes the selected subtask
 				if m.selectedTodo != nil && m.selectedTask < len(m.selectedTodo.Tasks) {
 					taskText := m.selectedTodo.Tasks[m.selectedTask].Text
-					
+
 					// Remove the task from the slice
 					m.selectedTodo.Tasks = append(
 						m.selectedTodo.Tasks[:m.selectedTask],
 						m.selectedTodo.Tasks[m.selectedTask+1:]...,
 					)
-					
+
 					// Update in database
 					err := m.db.UpdateTodo(m.selectedTodo)
 					if err != nil {
@@ -1232,12 +1227,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.statusMsg = fmt.Sprintf("🗑️ Deleted subtask: %s", taskText)
 						m.statusType = "success"
 						m.addLog(fmt.Sprintf("🗑️ Deleted subtask: %s", taskText))
-						
+
 						// Adjust selected index if needed
 						if m.selectedTask >= len(m.selectedTodo.Tasks) && m.selectedTask > 0 {
 							m.selectedTask--
 						}
-						
+
 						// If no more tasks, stay in task view but show empty state
 						if len(m.selectedTodo.Tasks) == 0 {
 							m.statusMsg = "📋 All subtasks deleted. Press Ctrl+A to add new tasks"
@@ -1250,8 +1245,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
-		
-		
+
 		case quitConfirmView:
 			switch msg.Type {
 			case tea.KeyEsc:

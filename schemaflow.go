@@ -1,0 +1,167 @@
+// Package schemaflow provides the main API for SchemaFlow operations.
+// This file re-exports the core package for easier imports.
+package schemaflow
+
+import (
+	"github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/ops"
+)
+
+// Re-export core types for convenience
+type (
+	Client    = core.Client
+	OpOptions = core.OpOptions
+	Speed     = core.Speed
+	Mode      = core.Mode
+	Logger    = core.Logger
+)
+
+// Result is a generic type that must be used with a type parameter
+type Result[T any] = core.Result[T]
+
+// Intelligence levels (Speed)
+const (
+	Quick = core.Quick
+	Fast  = core.Fast
+	Smart = core.Smart
+)
+
+// Modes
+const (
+	Strict        = core.Strict
+	TransformMode = core.TransformMode
+	Creative      = core.Creative
+)
+
+// Configuration functions
+var (
+	Init         = core.Init
+	InitWithEnv  = core.InitWithEnv
+	NewClient    = core.NewClient
+	SetDebugMode = core.SetDebugMode
+	GetDebugMode = core.GetDebugMode
+)
+
+// Operation functions - these are generic and must be used with type parameters
+// Example: schemaflow.Extract[Person](input, opts)
+
+// Extract converts unstructured data into strongly-typed Go structs
+// This function accepts either core.OpOptions or ops.ExtractOptions for backward compatibility
+func Extract[T any](input any, opts ...interface{}) (T, error) {
+	if len(opts) == 0 {
+		return ops.Extract[T](input, ops.NewExtractOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.ExtractOptions:
+		return ops.Extract[T](input, opt)
+	case OpOptions:
+		// Convert OpOptions to ExtractOptions for backward compatibility
+		extractOpts := ops.NewExtractOptions()
+		// Just set the OpOptions field directly - it has precedence
+		extractOpts.OpOptions = opt
+		return ops.Extract[T](input, extractOpts)
+	default:
+		return ops.Extract[T](input, ops.NewExtractOptions())
+	}
+}
+
+// Transform converts data from one type to another using LLM intelligence
+// This function accepts either core.OpOptions or ops.TransformOptions for backward compatibility
+func Transform[T any, U any](input T, opts ...interface{}) (U, error) {
+	if len(opts) == 0 {
+		return ops.Transform[T, U](input, ops.NewTransformOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.TransformOptions:
+		return ops.Transform[T, U](input, opt)
+	case OpOptions:
+		// Convert OpOptions to TransformOptions for backward compatibility
+		transformOpts := ops.NewTransformOptions()
+		transformOpts.OpOptions = opt
+		return ops.Transform[T, U](input, transformOpts)
+	default:
+		return ops.Transform[T, U](input, ops.NewTransformOptions())
+	}
+}
+
+// Generate creates new data based on templates and examples
+// This function accepts either core.OpOptions or ops.GenerateOptions for backward compatibility
+func Generate[T any](prompt string, opts ...interface{}) (T, error) {
+	if len(opts) == 0 {
+		return ops.Generate[T](prompt, ops.NewGenerateOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.GenerateOptions:
+		return ops.Generate[T](prompt, opt)
+	case OpOptions:
+		// Convert OpOptions to GenerateOptions for backward compatibility
+		generateOpts := ops.NewGenerateOptions()
+		generateOpts.OpOptions = opt
+		return ops.Generate[T](prompt, generateOpts)
+	default:
+		return ops.Generate[T](prompt, ops.NewGenerateOptions())
+	}
+}
+
+// Choose selects the best option from a list based on criteria
+// This function accepts either core.OpOptions or ops.ChooseOptions for backward compatibility
+func Choose[T any](options []T, opts ...interface{}) (T, error) {
+	if len(opts) == 0 {
+		return ops.Choose(options, ops.NewChooseOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.ChooseOptions:
+		return ops.Choose(options, opt)
+	case OpOptions:
+		// Convert OpOptions to ChooseOptions for backward compatibility
+		chooseOpts := ops.NewChooseOptions()
+		chooseOpts.OpOptions = opt
+		return ops.Choose(options, chooseOpts)
+	default:
+		return ops.Choose(options, ops.NewChooseOptions())
+	}
+}
+
+// Filter filters items based on natural language criteria
+// This function accepts either core.OpOptions or ops.FilterOptions for backward compatibility
+func Filter[T any](items []T, opts ...interface{}) ([]T, error) {
+	if len(opts) == 0 {
+		return ops.Filter(items, ops.NewFilterOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.FilterOptions:
+		return ops.Filter(items, opt)
+	case OpOptions:
+		// Convert OpOptions to FilterOptions for backward compatibility
+		filterOpts := ops.NewFilterOptions()
+		filterOpts.OpOptions = opt
+		return ops.Filter(items, filterOpts)
+	default:
+		return ops.Filter(items, ops.NewFilterOptions())
+	}
+}
+
+// Sort sorts items based on natural language criteria
+// This function accepts either core.OpOptions or ops.SortOptions for backward compatibility
+func Sort[T any](items []T, opts ...interface{}) ([]T, error) {
+	if len(opts) == 0 {
+		return ops.Sort(items, ops.NewSortOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.SortOptions:
+		return ops.Sort(items, opt)
+	case OpOptions:
+		// Convert OpOptions to SortOptions for backward compatibility
+		sortOpts := ops.NewSortOptions()
+		sortOpts.OpOptions = opt
+		return ops.Sort(items, sortOpts)
+	default:
+		return ops.Sort(items, ops.NewSortOptions())
+	}
+}

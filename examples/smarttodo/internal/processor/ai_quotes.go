@@ -3,7 +3,6 @@ package processor
 import (
 	"fmt"
 	"math/rand"
-	"time"
 
 	"github.com/monstercameron/schemaflow"
 )
@@ -33,7 +32,7 @@ func GenerateAIQuote() (string, error) {
 		"Lao Tzu",
 		"Seneca",
 	}
-	
+
 	// Themes for quotes
 	themes := []string{
 		"the importance of consistency and daily habits",
@@ -52,12 +51,11 @@ func GenerateAIQuote() (string, error) {
 		"persistence through challenges",
 		"the wisdom of planning ahead",
 	}
-	
+
 	// Randomly select a figure and theme
-	rand.Seed(time.Now().UnixNano())
 	figure := figures[rand.Intn(len(figures))]
 	theme := themes[rand.Intn(len(themes))]
-	
+
 	prompt := fmt.Sprintf(`Generate a single motivational quote about %s, written in the style of %s.
 The quote should be:
 - Concise (under 20 words)
@@ -66,12 +64,12 @@ The quote should be:
 - Something that person might have actually said
 
 Format: Just the quote text, no attribution or quotation marks.`, theme, figure)
-	
+
 	quote, err := schemaflow.Generate[string](prompt, schemaflow.OpOptions{
 		Intelligence: schemaflow.Fast,
 		Mode:         schemaflow.Creative,
 	})
-	
+
 	if err != nil {
 		// Fallback to static quotes if AI fails
 		fallbackQuotes := []string{
@@ -84,7 +82,6 @@ Format: Just the quote text, no attribution or quotation marks.`, theme, figure)
 		quote = fallbackQuotes[rand.Intn(len(fallbackQuotes))]
 		figure = "Unknown"
 	}
-	
+
 	return fmt.Sprintf("\"%s\" - %s", quote, figure), nil
 }
-
