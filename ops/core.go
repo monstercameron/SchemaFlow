@@ -53,51 +53,51 @@ func ClientExtract[T any](c *Client, input any, opts ExtractOptions) (T, error) 
 	oldTimeout := timeout
 	oldMaxRetries := maxRetries
 	oldLogger := logger
-	
+
 	c.mu.RLock()
 	client = c.openaiClient
 	timeout = c.timeout
 	maxRetries = c.maxRetries
 	logger = c.logger
 	c.mu.RUnlock()
-	
+
 	defer func() {
 		client = oldClient
 		timeout = oldTimeout
 		maxRetries = oldMaxRetries
 		logger = oldLogger
 	}()
-	
+
 	return extractImpl[T](input, opts)
 }
 
 // extractImpl contains the actual implementation of Extract
 func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 	var result T
-	
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
 		return result, fmt.Errorf("invalid options: %w", err)
 	}
-	
+
 	// Convert to legacy OpOptions for internal use
 	opt := opts.toOpOptions()
-	
+
 	// Enhance steering with extraction-specific options
 	if opts.SchemaHints != nil || opts.Examples != nil || opts.FieldRules != nil {
 		var steeringParts []string
 		if opts.Steering != "" {
 			steeringParts = append(steeringParts, opts.Steering)
 		}
-		
+
 		if opts.StrictSchema {
 			steeringParts = append(steeringParts, "Enforce strict schema validation. All fields must be present and valid.")
 		}
-		
+
 		if opts.AllowPartial {
 			steeringParts = append(steeringParts, "Allow partial extraction if some fields are missing.")
 		}
-		
+
 		if len(opts.SchemaHints) > 0 {
 			hints := "Schema hints: "
 			for field, hint := range opts.SchemaHints {
@@ -105,7 +105,7 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 			}
 			steeringParts = append(steeringParts, strings.TrimSuffix(hints, ", "))
 		}
-		
+
 		if len(opts.FieldRules) > 0 {
 			rules := "Field rules: "
 			for field, rule := range opts.FieldRules {
@@ -113,15 +113,15 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 			}
 			steeringParts = append(steeringParts, strings.TrimSuffix(rules, "; "))
 		}
-		
+
 		if len(opts.Examples) > 0 {
 			examplesJSON, _ := json.Marshal(opts.Examples)
 			steeringParts = append(steeringParts, fmt.Sprintf("Follow these examples: %s", string(examplesJSON)))
 		}
-		
+
 		opt.Steering = strings.Join(steeringParts, ". ")
 	}
-	
+
 	// Start operation timing
 	startTime := time.Now()
 	defer func() {
@@ -132,7 +132,7 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 			})
 		}
 	}()
-	
+
 	// Log operation start
 	logger.Info("Extract operation started",
 		"requestID", opt.requestID,
@@ -140,7 +140,7 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 		"mode", opt.Mode.String(),
 		"intelligence", opt.Intelligence.String(),
 	)
-	
+
 	// Validate input
 	if input == nil {
 		err := ExtractError{
@@ -153,17 +153,17 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 		logger.Error("Extract failed: nil input", "requestID", opt.requestID, "error", err)
 		return result, err
 	}
-	
+
 	// Get context with timeout
 	ctx := opt.context
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	
+
 	// Generate type schema for the target type
 	targetType := reflect.TypeOf(result)
 	typeInfo := generateTypeSchema(targetType)
-	
+
 	// Convert input to string format for LLM processing
 	inputStr, err := normalizeInput(input)
 	if err != nil {
@@ -180,7 +180,7 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 		)
 		return result, extractErr
 	}
-	
+
 	// Log input details in debug mode
 	if debugMode || false {
 		logger.Debug("Extract input normalized",
@@ -189,13 +189,13 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 			"inputPreview", inputStr[:min(len(inputStr), 100)],
 		)
 	}
-	
+
 	// Build system prompt based on mode
 	systemPrompt := buildExtractSystemPrompt(typeInfo, opt.Mode)
-	
+
 	// Build user prompt
 	userPrompt := fmt.Sprintf("Extract structured data from this input:\n%s", inputStr)
-	
+
 	// Call LLM for extraction
 	response, err := callLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
@@ -213,12 +213,12 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 		)
 		return result, extractErr
 	}
-	
+
 	// Parse JSON response into target type
 	if err := parseJSON(response, &result); err != nil {
 		// Calculate partial confidence based on parsing attempt
 		confidence := calculateParsingConfidence(response, targetType)
-		
+
 		extractErr := ExtractError{
 			Input:      input,
 			TargetType: targetType.String(),
@@ -227,7 +227,7 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 			RequestID:  opt.requestID,
 			Timestamp:  time.Now(),
 		}
-		
+
 		logger.Error("Extract failed: JSON parsing error",
 			"requestID", opt.requestID,
 			"confidence", confidence,
@@ -235,7 +235,7 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 		)
 		return result, extractErr
 	}
-	
+
 	// Validate extracted data if in Strict mode
 	if opt.Mode == Strict {
 		if err := validateExtractedData(result, opt.Threshold); err != nil {
@@ -254,12 +254,12 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 			return result, extractErr
 		}
 	}
-	
+
 	logger.Info("Extract operation completed",
 		"requestID", opt.requestID,
 		"duration", time.Since(startTime),
 	)
-	
+
 	return result, nil
 }
 
@@ -300,47 +300,46 @@ func ClientTransform[T any, U any](c *Client, input T, opts TransformOptions) (U
 	oldTimeout := timeout
 	oldMaxRetries := maxRetries
 	oldLogger := logger
-	
+
 	c.mu.RLock()
 	client = c.openaiClient
 	timeout = c.timeout
 	maxRetries = c.maxRetries
 	logger = c.logger
 	c.mu.RUnlock()
-	
+
 	defer func() {
 		client = oldClient
 		timeout = oldTimeout
 		maxRetries = oldMaxRetries
 		logger = oldLogger
 	}()
-	
+
 	return transformImpl[T, U](input, opts)
 }
-
 
 // transformImpl contains the actual implementation
 func transformImpl[T any, U any](input T, opts TransformOptions) (U, error) {
 	var result U
-	
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
 		return result, fmt.Errorf("invalid options: %w", err)
 	}
-	
+
 	// Convert to legacy OpOptions
 	opt := opts.toOpOptions()
-	
+
 	// Enhance steering with transformation-specific options
 	var steeringParts []string
 	if opts.Steering != "" {
 		steeringParts = append(steeringParts, opts.Steering)
 	}
-	
+
 	if opts.TransformLogic != "" {
 		steeringParts = append(steeringParts, fmt.Sprintf("Apply this transformation: %s", opts.TransformLogic))
 	}
-	
+
 	if len(opts.MappingRules) > 0 {
 		rules := "Field mappings: "
 		for target, source := range opts.MappingRules {
@@ -348,19 +347,19 @@ func transformImpl[T any, U any](input T, opts TransformOptions) (U, error) {
 		}
 		steeringParts = append(steeringParts, strings.TrimSuffix(rules, "; "))
 	}
-	
+
 	if len(opts.PreserveFields) > 0 {
 		steeringParts = append(steeringParts, fmt.Sprintf("Preserve these fields: %s", strings.Join(opts.PreserveFields, ", ")))
 	}
-	
+
 	if opts.MergeStrategy != "" {
 		steeringParts = append(steeringParts, fmt.Sprintf("Use %s merge strategy", opts.MergeStrategy))
 	}
-	
+
 	if len(steeringParts) > 0 {
 		opt.Steering = strings.Join(steeringParts, ". ")
 	}
-	
+
 	startTime := time.Now()
 	defer func() {
 		if metricsEnabled {
@@ -371,13 +370,13 @@ func transformImpl[T any, U any](input T, opts TransformOptions) (U, error) {
 			})
 		}
 	}()
-	
+
 	logger.Info("Transform operation started",
 		"requestID", opt.requestID,
 		"fromType", reflect.TypeOf(input).String(),
 		"toType", reflect.TypeOf(result).String(),
 	)
-	
+
 	// Validate input
 	if reflect.ValueOf(input).IsZero() {
 		logger.Warn("Transform received zero value input",
@@ -385,19 +384,19 @@ func transformImpl[T any, U any](input T, opts TransformOptions) (U, error) {
 			"type", reflect.TypeOf(input).String(),
 		)
 	}
-	
+
 	ctx := opt.context
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	
+
 	// Get type information
 	fromType := reflect.TypeOf(input)
 	toType := reflect.TypeOf(result)
-	
+
 	fromSchema := generateTypeSchema(fromType)
 	toSchema := generateTypeSchema(toType)
-	
+
 	// Marshal input to JSON
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
@@ -415,7 +414,7 @@ func transformImpl[T any, U any](input T, opts TransformOptions) (U, error) {
 		)
 		return result, transformErr
 	}
-	
+
 	// Build transformation prompt
 	systemPrompt := fmt.Sprintf(`You are a data transformation expert. Transform data from one type to another using semantic mapping.
 
@@ -433,9 +432,9 @@ Transformation rules:
 - Use reasonable defaults for missing required fields
 - Preserve data integrity and meaning
 - Return ONLY valid JSON matching the target schema`, fromSchema, toSchema)
-	
+
 	userPrompt := fmt.Sprintf("Transform this data:\n%s", string(inputJSON))
-	
+
 	// Log transformation details in debug mode
 	if debugMode || false {
 		logger.Debug("Transform schemas",
@@ -444,7 +443,7 @@ Transformation rules:
 			"toSchema", toSchema,
 		)
 	}
-	
+
 	// Call LLM for transformation
 	response, err := callLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
@@ -462,7 +461,7 @@ Transformation rules:
 		)
 		return result, transformErr
 	}
-	
+
 	// Parse transformed data
 	if err := parseJSON(response, &result); err != nil {
 		transformErr := TransformError{
@@ -480,12 +479,12 @@ Transformation rules:
 		)
 		return result, transformErr
 	}
-	
+
 	logger.Info("Transform operation completed",
 		"requestID", opt.requestID,
 		"duration", time.Since(startTime),
 	)
-	
+
 	return result, nil
 }
 
@@ -518,33 +517,33 @@ Transformation rules:
 // appropriate data that conforms to the schema.
 func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 	var result T
-	
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
 		return result, fmt.Errorf("invalid options: %w", err)
 	}
-	
+
 	// Handle batch generation if Count > 1
 	if opts.Count > 1 {
 		// This would need special handling for slice types
 		return result, fmt.Errorf("batch generation not yet supported - use Count=1")
 	}
-	
+
 	// Convert to legacy OpOptions
 	opt := opts.toOpOptions()
-	
+
 	// Build enhanced prompt
 	var promptParts []string
 	promptParts = append(promptParts, prompt)
-	
+
 	if opts.Template != "" {
 		promptParts = append(promptParts, fmt.Sprintf("Use this template: %s", opts.Template))
 	}
-	
+
 	if opts.Style != "" {
 		promptParts = append(promptParts, fmt.Sprintf("Style: %s", opts.Style))
 	}
-	
+
 	if len(opts.Constraints) > 0 {
 		constraints := "Constraints: "
 		for key, value := range opts.Constraints {
@@ -552,22 +551,22 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 		}
 		promptParts = append(promptParts, strings.TrimSuffix(constraints, "; "))
 	}
-	
+
 	if opts.SeedData != nil {
 		seedJSON, _ := json.Marshal(opts.SeedData)
 		promptParts = append(promptParts, fmt.Sprintf("Base on this seed data: %s", string(seedJSON)))
 	}
-	
+
 	if len(opts.Examples) > 0 {
 		examplesJSON, _ := json.Marshal(opts.Examples)
 		promptParts = append(promptParts, fmt.Sprintf("Follow these examples: %s", string(examplesJSON)))
 	}
-	
+
 	prompt = strings.Join(promptParts, ". ")
 	if opts.Steering != "" {
 		opt.Steering = opts.Steering
 	}
-	
+
 	startTime := time.Now()
 	defer func() {
 		if metricsEnabled {
@@ -577,13 +576,13 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 			})
 		}
 	}()
-	
+
 	logger.Info("Generate operation started",
 		"requestID", opt.requestID,
 		"targetType", reflect.TypeOf(result).String(),
 		"promptLength", len(prompt),
 	)
-	
+
 	// Validate prompt
 	prompt = strings.TrimSpace(prompt)
 	if prompt == "" {
@@ -600,7 +599,7 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 		)
 		return result, err
 	}
-	
+
 	// Sanitize prompt length
 	const maxPromptLength = 10000
 	if len(prompt) > maxPromptLength {
@@ -611,18 +610,18 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 		)
 		prompt = prompt[:maxPromptLength]
 	}
-	
+
 	ctx := opt.context
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	
+
 	targetType := reflect.TypeOf(result)
-	
+
 	// Handle string generation differently (simpler)
 	if targetType.Kind() == reflect.String {
 		systemPrompt := buildGenerateStringPrompt(opt.Mode)
-		
+
 		response, err := callLLM(ctx, systemPrompt, prompt, opt)
 		if err != nil {
 			genErr := GenerateError{
@@ -638,10 +637,10 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 			)
 			return result, genErr
 		}
-		
+
 		// Set string result using reflection
 		reflect.ValueOf(&result).Elem().SetString(response)
-		
+
 		logger.Info("Generate operation completed (string)",
 			"requestID", opt.requestID,
 			"duration", time.Since(startTime),
@@ -649,10 +648,10 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 		)
 		return result, nil
 	}
-	
+
 	// Handle structured type generation
 	typeSchema := generateTypeSchema(targetType)
-	
+
 	systemPrompt := fmt.Sprintf(`You are a data generation expert. Generate structured data based on the prompt.
 
 Target schema:
@@ -665,7 +664,7 @@ Generation rules:
 - Use sensible defaults where not specified
 - Maintain internal consistency (e.g., related fields should make sense together)
 - Return ONLY valid JSON matching the schema, no explanations`, typeSchema)
-	
+
 	// Log generation details in debug mode
 	if debugMode || false {
 		logger.Debug("Generate schema",
@@ -674,7 +673,7 @@ Generation rules:
 			"prompt", prompt[:min(len(prompt), 200)],
 		)
 	}
-	
+
 	response, err := callLLM(ctx, systemPrompt, prompt, opt)
 	if err != nil {
 		genErr := GenerateError{
@@ -690,7 +689,7 @@ Generation rules:
 		)
 		return result, genErr
 	}
-	
+
 	// Parse generated data
 	if err := parseJSON(response, &result); err != nil {
 		genErr := GenerateError{
@@ -707,12 +706,12 @@ Generation rules:
 		)
 		return result, genErr
 	}
-	
+
 	logger.Info("Generate operation completed",
 		"requestID", opt.requestID,
 		"duration", time.Since(startTime),
 	)
-	
+
 	return result, nil
 }
 
@@ -723,18 +722,18 @@ func generateTypeSchema(targetType reflect.Type) string {
 	if targetType.Kind() == reflect.Ptr {
 		targetType = targetType.Elem()
 	}
-	
+
 	switch targetType.Kind() {
 	case reflect.Struct:
 		var fields []string
 		for i := 0; i < targetType.NumField(); i++ {
 			field := targetType.Field(i)
-			
+
 			// Skip unexported fields
 			if !field.IsExported() {
 				continue
 			}
-			
+
 			// Get JSON tag or use field name
 			jsonTag := field.Tag.Get("json")
 			fieldName := field.Name
@@ -744,31 +743,31 @@ func generateTypeSchema(targetType reflect.Type) string {
 					fieldName = parts[0]
 				}
 			}
-			
+
 			// Get field type description
 			fieldType := getTypeDescription(field.Type)
-			
+
 			// Check if field is required (no omitempty tag)
 			required := !strings.Contains(jsonTag, "omitempty")
 			requiredStr := ""
 			if required {
 				requiredStr = " (required)"
 			}
-			
+
 			// Add field description
 			fields = append(fields, fmt.Sprintf("  %s: %s%s", fieldName, fieldType, requiredStr))
 		}
 		return fmt.Sprintf("{\n%s\n}", strings.Join(fields, "\n"))
-		
+
 	case reflect.Slice:
 		elemType := targetType.Elem()
 		return fmt.Sprintf("[]%s", generateTypeSchema(elemType))
-		
+
 	case reflect.Map:
 		keyType := targetType.Key()
 		valueType := targetType.Elem()
 		return fmt.Sprintf("map[%s]%s", keyType.String(), generateTypeSchema(valueType))
-		
+
 	default:
 		return getTypeDescription(targetType)
 	}
@@ -799,13 +798,12 @@ func getTypeDescription(targetType reflect.Type) string {
 	}
 }
 
-
 // normalizeInput converts various input types to string for LLM processing
 func normalizeInput(input any) (string, error) {
 	if input == nil {
 		return "", fmt.Errorf("input is nil")
 	}
-	
+
 	switch inputValue := input.(type) {
 	case string:
 		return inputValue, nil
@@ -832,7 +830,7 @@ Target schema:
 Rules:
 - Extract all relevant information that maps to the schema
 - Return ONLY valid JSON, no explanations or markdown`, typeSchema)
-	
+
 	switch mode {
 	case Strict:
 		return base + `
@@ -840,21 +838,21 @@ Rules:
 - Fail if any required field cannot be extracted
 - Use null only for explicitly optional fields
 - Validate data types strictly`
-		
+
 	case TransformMode:
 		return base + `
 - Infer missing fields intelligently when possible
 - Use reasonable defaults for missing data
 - Be flexible with type conversions
 - Preserve as much information as possible`
-		
+
 	case Creative:
 		return base + `
 - Creatively interpret ambiguous data
 - Generate plausible values for missing fields
 - Use context to enrich extracted data
 - Prioritize completeness over strict accuracy`
-		
+
 	default:
 		return base
 	}
@@ -893,40 +891,40 @@ func validateExtractedData(data any, threshold float64) error {
 	if data == nil {
 		return fmt.Errorf("data cannot be nil")
 	}
-	
+
 	value := reflect.ValueOf(data)
 	if !value.IsValid() {
 		return fmt.Errorf("invalid data")
 	}
-	
+
 	if value.Kind() == reflect.Ptr {
 		if value.IsNil() {
 			return fmt.Errorf("data cannot be nil pointer")
 		}
 		value = value.Elem()
 	}
-	
+
 	if value.Kind() != reflect.Struct {
 		return nil // Only validate structs for now
 	}
-	
+
 	// Check for zero values in required fields
 	t := value.Type()
 	for i := 0; i < value.NumField(); i++ {
 		field := t.Field(i)
 		fieldValue := value.Field(i)
-		
+
 		// Skip unexported fields
 		if !field.IsExported() {
 			continue
 		}
-		
+
 		// Check if field is required (no omitempty tag)
 		jsonTag := field.Tag.Get("json")
 		if !strings.Contains(jsonTag, "omitempty") && fieldValue.IsZero() {
 			return fmt.Errorf("required field %s is empty", field.Name)
 		}
 	}
-	
+
 	return nil
 }
