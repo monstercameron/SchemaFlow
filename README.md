@@ -265,7 +265,7 @@ schemaflow.Init(os.Getenv("SCHEMAFLOW_API_KEY"))
 
 Stop wrestling with JSON strings. Start writing type-safe LLM operations.
 
-[**📚 Full API Documentation →**](API.md)
+[**📚 Full API Documentation →**](docs/reference/API.md)
 
 [**⭐ Star on GitHub**](https://github.com/monstercameron/schemaflow) | [**🐛 Report Issues**](https://github.com/monstercameron/schemaflow/issues) | [**💬 Discussions**](https://github.com/monstercameron/schemaflow/discussions)
 

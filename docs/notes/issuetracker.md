@@ -201,7 +201,7 @@ s document tra- **Logging]** Line 205: `SetDebugMode` logs a message when debug 
 
 s issues found in the codebase.
 
-## API.md
+## docs/reference/API.md
 
 - **[Doc]** Lines 16, 108, 113, 119: The file contains several string-based DSLs (for provider, filtering, sorting, and validation) that are not documented. It would be beneficial to add documentation explaining the grammar and available options for these DSLs.
 - **[Design]** Line 30: The `schemaflow.ClientExtract` function and similar functions could be simplified to `client.Extract` for a more idiomatic Go API. This is a design choice, but the current naming is a bit redundant.
@@ -209,7 +209,7 @@ s issues found in the codebase.
 - **[Doc]** Line 220: The local provider for testing is a great feature, but the documentation could be expanded to provide more examples of how to use it effectively for different scenarios.
 - **[Doc]** General: The API is extensive. A "Common Patterns" or "Cookbook" section with more real-world examples for combining different operations would be very helpful for users.
 
-## BUILD.md
+## docs/guides/BUILD.md
 
 - **[Doc]** Line 9: The Go version is specified as `1.24.6`, which is very specific. It would be better to specify a minimum version, like `1.24`.
 - **[Doc]** Line 12: The instructions for installing `protoc` are only for macOS. Instructions for other operating systems should be added.
@@ -388,14 +388,14 @@ s issues found in the codebase.
     *   `schemaflow.Batch()` should be `schemaflow.NewBatchOptions()`.
     *   `schemaflow.ProcessBatch()` is not a function in the codebase.
     *   `results.Metadata.EstimatedCost` and `results.Metadata.TokensSaved` do not exist on the batch result struct.
-*   **[Doc] Broken Links**: The link `[**📚 Full API Documentation →**](API.md)` is a relative link that will work on GitHub, but the other links to issues and discussions are full URLs. For consistency, all links should be full URLs.
+*   **[Doc] Broken Links**: The link `[**📚 Full API Documentation →**](docs/reference/API.md)` is a relative link that will work on GitHub, but the other links to issues and discussions are full URLs. For consistency, all links should be full URLs.
 *   **[Doc] Inconsistent Initialization**: The "Simple Example" shows `schemaflow.Init("your-api-key")`, while the "Get Started" section recommends using environment variables with `schemaflow.Init(os.Getenv("SCHEMAFLOW_API_KEY"))`. The "Complex Example" uses `schemaflow.NewClient(apiKey)`, which is the more modern, preferred approach. The documentation should be consistent and strongly recommend the client-based approach over the global `Init`.
 *   **[Doc] Misleading "Circuit Breakers" Claim**: The "Why It Makes Sense" section claims the library has "circuit breakers," but there is no implementation of a circuit breaker pattern in the codebase. This is a misleading claim.
 *   **[Doc] Confusing `otel.Start` Example**: The observability example shows `ctx = otel.Start(ctx, "process-batch")`. The `otel` package in Go is the OpenTelemetry API, and it does not have a `Start` function. The correct way to start a span is `tracer.Start(...)`. This example is incorrect and will not compile.
 *   **[Doc] Inconsistent `ExtractBatch` Examples**: The `ExtractBatch` examples show two different ways of calling it, one with `schemaflow.Batch()` and another with `schemaflow.ExtractBatch[Invoice](...)`. The function signatures and builder patterns are inconsistent with the actual code.
 *   **[Doc] Missing `go mod tidy`**: The "Get Started" section should include `go mod tidy` after `go get` to ensure dependencies are clean.
 
-### run_tests.sh
+### scripts/run_tests.sh
 
 *   **[Build] Not Cross-Platform**: The script is a bash script (`#!/bin/bash`) and uses Unix-specific commands and syntax (e.g., `[[ ... ]]`, `fswatch`, `open`). It is not compatible with Windows, which is the user's operating system.
 *   **[Build] Missing Dependencies and OS-Specific Instructions**: The `watch` mode requires `fswatch`, and the script provides installation instructions using `brew`, which is specific to macOS. The `badge` mode requires `gocov`, which it attempts to install, but the comment also mentions `gocov-xml` which is not handled.
@@ -403,7 +403,7 @@ s issues found in the codebase.
 *   **[Build] Bash-Specific Features**: The script uses `PIPESTATUS`, which is a bash-specific feature, to determine the exit code of the test command. This makes the script less portable to other shells.
 *   **[Doc] Incomplete Badge Generation Documentation**: The comment for the `badge` target mentions that it requires `gocov-xml` and `gocov`, but the script only attempts to install `gocov`.
 
-### SCHEMAFLOWDSLSPEC.md
+### docs/specs/SCHEMAFLOWDSLSPEC.md
 
 *   **[Doc] Out-of-Date Spec**: This file appears to be a design specification for a workflow engine DSL. However, the concepts and node types described in this document (e.g., `task.service`, `router`, `wait.timer`) do not match the operations implemented in the `schemaflow` library (e.g., `Extract`, `Classify`, `Decide`). This indicates that the implementation has diverged significantly from the original specification.
 *   **[Doc] Mismatch with `ops_procedural.go`**: The `Workflow` and `StateMachine` structs defined in `ops_procedural.go` are a Go implementation of a workflow engine, but they do not seem to be related to the JSON-based DSL described in this document. The DSL spec is for a configurable, UI-agnostic engine, while the Go code provides a programmatic, code-first approach.
