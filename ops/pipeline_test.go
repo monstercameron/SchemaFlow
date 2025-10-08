@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/monstercameron/SchemaFlow/core"
 )
 
 func TestPipeline(t *testing.T) {
@@ -197,7 +199,7 @@ func TestThen(t *testing.T) {
 func TestMap(t *testing.T) {
 	t.Run("MapOperation", func(t *testing.T) {
 		items := []string{"a", "bb", "ccc"}
-		
+
 		operation := func(s string) (int, error) {
 			return len(s), nil
 		}
@@ -218,7 +220,7 @@ func TestMap(t *testing.T) {
 
 	t.Run("MapWithError", func(t *testing.T) {
 		items := []string{"a", "error", "c"}
-		
+
 		operation := func(s string) (int, error) {
 			if s == "error" {
 				return 0, fmt.Errorf("error item")
@@ -241,7 +243,7 @@ func TestMap(t *testing.T) {
 func TestMapConcurrent(t *testing.T) {
 	t.Run("MapConcurrentOperation", func(t *testing.T) {
 		items := []int{1, 2, 3, 4, 5}
-		
+
 		operation := func(n int) (int, error) {
 			return n * 2, nil
 		}
@@ -262,7 +264,7 @@ func TestMapConcurrent(t *testing.T) {
 
 	t.Run("MapConcurrentWithError", func(t *testing.T) {
 		items := []int{1, 2, 3}
-		
+
 		operation := func(n int) (int, error) {
 			if n == 2 {
 				return 0, fmt.Errorf("error at 2")
@@ -285,7 +287,7 @@ func TestMapConcurrent(t *testing.T) {
 func TestReduce(t *testing.T) {
 	t.Run("ReduceNumbers", func(t *testing.T) {
 		items := []int{1, 2, 3, 4, 5}
-		
+
 		sum := func(a, b int) int {
 			return a + b
 		}
@@ -304,7 +306,7 @@ func TestReduce(t *testing.T) {
 
 	t.Run("ReduceStrings", func(t *testing.T) {
 		items := []string{"a", "b", "c"}
-		
+
 		concat := func(a, b string) string {
 			return a + b
 		}
@@ -323,7 +325,7 @@ func TestReduce(t *testing.T) {
 
 	t.Run("ReduceEmpty", func(t *testing.T) {
 		items := []int{}
-		
+
 		sum := func(a, b int) int {
 			return a + b
 		}
@@ -337,7 +339,7 @@ func TestReduce(t *testing.T) {
 
 	t.Run("ReduceSingle", func(t *testing.T) {
 		items := []int{42}
-		
+
 		sum := func(a, b int) int {
 			return a + b
 		}
@@ -357,7 +359,7 @@ func TestReduce(t *testing.T) {
 func TestTap(t *testing.T) {
 	t.Run("TapSideEffect", func(t *testing.T) {
 		var sideEffect string
-		
+
 		tap := Tap(func(s string) {
 			sideEffect = "tapped: " + s
 		})
@@ -516,10 +518,10 @@ func TestCachedOperation(t *testing.T) {
 
 func TestClientPipeline(t *testing.T) {
 	setupMockClient()
-	client := NewClient("")
+	client := core.NewClient("")
 
 	t.Run("ClientBoundPipeline", func(t *testing.T) {
-		p := client.Pipeline("client-pipeline").
+		p := ClientPipeline(client, "client-pipeline").
 			Add("step1", func(ctx context.Context, input any) (any, error) {
 				return fmt.Sprintf("%v-client", input), nil
 			})

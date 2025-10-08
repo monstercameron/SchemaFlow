@@ -1,9 +1,7 @@
-// Package schemaflow - LLM interaction and communication
-package schemaflow
+package core
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -13,6 +11,11 @@ import (
 
 // callLLM is the actual LLM call function (can be replaced for testing)
 var callLLM callLLMFunc
+
+// SetLLMCaller allows replacing the LLM call function for testing purposes.
+func SetLLMCaller(caller callLLMFunc) {
+	callLLM = caller
+}
 
 func init() {
 	// Initialize callLLM with default implementation
@@ -25,34 +28,34 @@ func defaultCallLLM(ctx context.Context, systemPrompt, userPrompt string, opts O
 	if defaultClient != nil && defaultClient.provider != nil {
 		return providerCallLLM(ctx, systemPrompt, userPrompt, opts)
 	}
-	
+
 	// Fallback to legacy OpenAI client
 	if client == nil {
 		return "", fmt.Errorf("schemaflow not initialized, call Init() first")
 	}
-	
+
 	// Use operation context or create one
-	if opts.context == nil {
-		opts.context = context.Background()
+	if opts.Context == nil {
+		opts.Context = context.Background()
 	}
-	
+
 	// Create context with timeout
-	ctx, cancel := context.WithTimeout(opts.context, timeout)
+	ctx, cancel := context.WithTimeout(opts.Context, timeout)
 	defer cancel()
-	
+
 	// Add request ID to context for tracing
-	if opts.requestID != "" {
-		ctx = context.WithValue(ctx, "requestID", opts.requestID)
+	if opts.RequestID != "" {
+		ctx = context.WithValue(ctx, requestIDKey, opts.RequestID)
 	}
-	
+
 	model := GetModel(opts.Intelligence)
 	maxTokens := getMaxTokens(opts.Intelligence)
 	temperature := getTemperature(opts.Mode)
-	
+
 	// Log the request if debug is enabled
 	if debugMode {
 		logger.Debug("LLM request",
-			"requestID", opts.requestID,
+			"requestID", opts.RequestID,
 			"model", model,
 			"temperature", temperature,
 			"maxTokens", maxTokens,
@@ -60,7 +63,7 @@ func defaultCallLLM(ctx context.Context, systemPrompt, userPrompt string, opts O
 			"intelligence", opts.Intelligence.String(),
 		)
 	}
-	
+
 	// Build messages
 	messages := []openai.ChatCompletionMessage{
 		{
@@ -72,29 +75,29 @@ func defaultCallLLM(ctx context.Context, systemPrompt, userPrompt string, opts O
 			Content: userPrompt,
 		},
 	}
-	
+
 	// Add steering if provided
 	if opts.Steering != "" {
 		messages = append(messages, openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleSystem,
 			Content: "Additional guidance: " + opts.Steering,
 		})
-		
+
 		if debugMode {
-			logger.Debug("Steering applied", "requestID", opts.requestID, "steering", opts.Steering)
+			logger.Debug("Steering applied", "requestID", opts.RequestID, "steering", opts.Steering)
 		}
 	}
-	
+
 	// Retry logic with exponential backoff
 	retries := maxRetries
-	
+
 	var lastErr error
 	backoff := retryBackoff
-	
+
 	for attempt := 0; attempt <= retries; attempt++ {
 		if attempt > 0 {
 			logger.Warn("Retrying LLM request",
-				"requestID", opts.requestID,
+				"requestID", opts.RequestID,
 				"attempt", attempt,
 				"maxRetries", retries,
 				"backoff", backoff,
@@ -102,15 +105,15 @@ func defaultCallLLM(ctx context.Context, systemPrompt, userPrompt string, opts O
 			time.Sleep(backoff)
 			backoff *= 2 // Exponential backoff
 		}
-		
+
 		startTime := time.Now()
-		
+
 		// Build request
 		request := openai.ChatCompletionRequest{
-			Model:       model,
-			Messages:    messages,
+			Model:    model,
+			Messages: messages,
 		}
-		
+
 		// GPT-5 models have specific requirements
 		if strings.Contains(model, "gpt-5") {
 			// GPT-5 only supports temperature = 1
@@ -122,125 +125,96 @@ func defaultCallLLM(ctx context.Context, systemPrompt, userPrompt string, opts O
 			request.Temperature = temperature
 			request.MaxTokens = maxTokens
 		}
-		
+
 		resp, err := client.CreateChatCompletion(ctx, request)
-		
+
 		duration := time.Since(startTime)
-		
+
 		// Log metrics if enabled
 		if metricsEnabled {
 			recordMetric("llm_request_duration", duration.Milliseconds(), map[string]string{
-				"model": model,
-				"mode": opts.Mode.String(),
+				"model":        model,
+				"mode":         opts.Mode.String(),
 				"intelligence": opts.Intelligence.String(),
 			})
 		}
-		
+
 		if err != nil {
 			lastErr = err
 			logger.Error("LLM request failed",
-				"requestID", opts.requestID,
+				"requestID", opts.RequestID,
 				"attempt", attempt,
 				"error", err,
 				"duration", duration,
 			)
-			
+
 			// Check if error is retryable
-			if !isRetryableError(err) {
+			if !IsRetryableError(err) {
 				break
 			}
 			continue
 		}
-		
+
 		if len(resp.Choices) == 0 {
 			lastErr = fmt.Errorf("no response from LLM")
 			logger.Error("Empty LLM response",
-				"requestID", opts.requestID,
+				"requestID", opts.RequestID,
 				"attempt", attempt,
 				"duration", duration,
 			)
 			continue
 		}
-		
+
 		result := resp.Choices[0].Message.Content
-		
+
 		// Log successful response
 		if debugMode {
 			logger.Debug("LLM response received",
-				"requestID", opts.requestID,
+				"requestID", opts.RequestID,
 				"duration", duration,
 				"responseLength", len(result),
 				"tokensUsed", resp.Usage.TotalTokens,
 			)
 		}
-		
+
 		return result, nil
 	}
-	
+
 	return "", fmt.Errorf("failed after %d retries: %w", retries, lastErr)
 }
 
-// parseJSON attempts to parse JSON from LLM response, handling common formatting issues
-func parseJSON[T any](response string, target *T) error {
-	response = strings.TrimSpace(response)
-	
-	// Remove markdown code blocks if present
-	if strings.HasPrefix(response, "```json") {
-		response = strings.TrimPrefix(response, "```json")
-		response = strings.TrimSuffix(response, "```")
-		response = strings.TrimSpace(response)
-	} else if strings.HasPrefix(response, "```") {
-		response = strings.TrimPrefix(response, "```")
-		response = strings.TrimSuffix(response, "```")
-		response = strings.TrimSpace(response)
-	}
-	
-	// Try standard unmarshaling first
-	if err := json.Unmarshal([]byte(response), target); err != nil {
-		// Try with a decoder for better error messages
-		decoder := json.NewDecoder(strings.NewReader(response))
-		decoder.DisallowUnknownFields()
-		if decodeErr := decoder.Decode(target); decodeErr != nil {
-			logger.Error("JSON parsing failed",
-				"error", decodeErr,
-				"response", response[:min(len(response), 200)], // Log first 200 chars
-			)
-			return fmt.Errorf("JSON decode error: %w", decodeErr)
-		}
-	}
-	
-	return nil
-}
-
 // providerCallLLM makes a request using the provider abstraction
-func providerCallLLM(ctx context.Context, systemPrompt, userPrompt string, opts OpOptions) (string, error) {
+func providerCallLLM(_ context.Context, systemPrompt, userPrompt string, opts OpOptions) (string, error) {
 	provider := defaultClient.provider
 	if provider == nil {
 		return "", fmt.Errorf("no provider configured")
 	}
-	
+
 	// Use operation context or create one
-	if opts.context == nil {
-		opts.context = context.Background()
+	var ctx context.Context
+	if opts.Context == nil {
+		ctx = context.Background()
+	} else {
+		ctx = opts.Context
 	}
-	
+
 	// Create context with timeout
-	ctx, cancel := context.WithTimeout(opts.context, timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	
+
 	// Add request ID to context for tracing
-	if opts.requestID != "" {
-		ctx = context.WithValue(ctx, "requestID", opts.requestID)
+	if opts.RequestID != "" {
+		ctx = context.WithValue(ctx, requestIDKey, opts.RequestID)
 	}
-	
+
 	model := GetModel(opts.Intelligence)
 	maxTokens := getMaxTokens(opts.Intelligence)
 	temperature := float64(getTemperature(opts.Mode))
-	
+
 	// Log the request if debug is enabled
 	if debugMode {
 		logger.Debug("Provider LLM request",
-			"requestID", opts.requestID,
+			"requestID", opts.RequestID,
 			"provider", provider.Name(),
 			"model", model,
 			"temperature", temperature,
@@ -249,7 +223,7 @@ func providerCallLLM(ctx context.Context, systemPrompt, userPrompt string, opts 
 			"intelligence", opts.Intelligence.String(),
 		)
 	}
-	
+
 	// Create provider request
 	request := CompletionRequest{
 		Model:        model,
@@ -258,30 +232,30 @@ func providerCallLLM(ctx context.Context, systemPrompt, userPrompt string, opts 
 		Temperature:  temperature,
 		MaxTokens:    maxTokens,
 	}
-	
+
 	// Add response format hint if needed
 	if strings.Contains(systemPrompt, "JSON") || strings.Contains(systemPrompt, "json") {
 		request.ResponseFormat = "json"
 	}
-	
+
 	// Add steering if provided
 	if opts.Steering != "" {
 		request.SystemPrompt += "\n\nAdditional guidance: " + opts.Steering
-		
+
 		if debugMode {
-			logger.Debug("Steering applied", "requestID", opts.requestID, "steering", opts.Steering)
+			logger.Debug("Steering applied", "requestID", opts.RequestID, "steering", opts.Steering)
 		}
 	}
-	
+
 	// Retry logic with exponential backoff
 	retries := maxRetries
 	var lastErr error
 	backoff := retryBackoff
-	
+
 	for attempt := 0; attempt <= retries; attempt++ {
 		if attempt > 0 {
 			logger.Warn("Retrying provider request",
-				"requestID", opts.requestID,
+				"requestID", opts.RequestID,
 				"provider", provider.Name(),
 				"attempt", attempt,
 				"maxRetries", retries,
@@ -290,98 +264,104 @@ func providerCallLLM(ctx context.Context, systemPrompt, userPrompt string, opts 
 			time.Sleep(backoff)
 			backoff *= 2 // Exponential backoff
 		}
-		
+
 		startTime := time.Now()
-		
+
 		// Make the provider request
 		resp, err := provider.Complete(ctx, request)
-		
+
 		duration := time.Since(startTime)
-		
+
 		// Log metrics if enabled
 		if metricsEnabled {
 			recordMetric("provider_request_duration", duration.Milliseconds(), map[string]string{
-				"provider": provider.Name(),
-				"model": model,
-				"mode": opts.Mode.String(),
+				"provider":     provider.Name(),
+				"model":        model,
+				"mode":         opts.Mode.String(),
 				"intelligence": opts.Intelligence.String(),
 			})
 		}
-		
+
 		if err != nil {
 			lastErr = err
 			logger.Error("Provider request failed",
-				"requestID", opts.requestID,
+				"requestID", opts.RequestID,
 				"provider", provider.Name(),
 				"attempt", attempt,
 				"error", err,
 				"duration", duration,
 			)
-			
+
 			// Check if error is retryable
-			if !isRetryableError(err) {
+			if !IsRetryableError(err) {
 				break
 			}
 			continue
 		}
-		
+
 		if resp.Content == "" {
 			lastErr = fmt.Errorf("empty response from provider")
 			logger.Error("Empty provider response",
-				"requestID", opts.requestID,
+				"requestID", opts.RequestID,
 				"provider", provider.Name(),
 				"attempt", attempt,
 				"duration", duration,
 			)
 			continue
 		}
-		
+
 		// Log successful response
 		if debugMode {
 			logger.Debug("Provider response received",
-				"requestID", opts.requestID,
+				"requestID", opts.RequestID,
 				"provider", provider.Name(),
 				"duration", duration,
 				"responseLength", len(resp.Content),
 				"tokensUsed", resp.Usage.TotalTokens,
 			)
 		}
-		
+
 		return resp.Content, nil
 	}
-	
+
 	return "", fmt.Errorf("failed after %d retries: %w", retries, lastErr)
 }
 
-// isRetryableError determines if an error should trigger a retry
-func isRetryableError(err error) bool {
+// IsRetryableError checks if an error is retryable.
+func IsRetryableError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
-	errorString := err.Error()
-	
-	// Retry on rate limits, timeouts, and temporary failures
-	retryablePatterns := []string{
+	errStr := strings.ToLower(err.Error())
+	retryableSubstrings := []string{
 		"rate limit",
+		"server overloaded",
+		"bad gateway",
 		"timeout",
-		"temporary",
-		"unavailable",
-		"connection",
-		"429", // Rate limit status code
-		"503", // Service unavailable
-		"504", // Gateway timeout
+		"connection refused",
+		"status 429",
+		"status 503",
+		"status 504",
+		"temporary failure",
+		"service unavailable",
 	}
-	
-	for _, pattern := range retryablePatterns {
-		if strings.Contains(strings.ToLower(errorString), pattern) {
+
+	for _, sub := range retryableSubstrings {
+		if strings.Contains(errStr, sub) {
 			return true
 		}
 	}
-	
 	return false
 }
+
 // CallLLM is the exported function for making LLM calls from subpackages
 func CallLLM(ctx context.Context, systemPrompt, userPrompt string, opts OpOptions) (string, error) {
 	return callLLM(ctx, systemPrompt, userPrompt, opts)
 }
+
+// A private type to prevent context key collisions
+type contextKey string
+
+const (
+	requestIDKey contextKey = "requestID"
+)

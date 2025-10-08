@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/monstercameron/SchemaFlow/core"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -24,13 +25,13 @@ import (
 var (
 	// Global tracer instance
 	tracer trace.Tracer
-	
+
 	// Trace provider for shutdown
 	traceProvider *sdktrace.TracerProvider
-	
+
 	// Sampling rate for traces
 	traceSampleRate float64 = 0.1
-	
+
 	// Enable/disable tracing
 	tracingEnabled bool = false
 )
@@ -39,12 +40,12 @@ var (
 func InitTracing(serviceName string) error {
 	// Check if tracing is enabled
 	if enabled := os.Getenv("SCHEMAFLOW_ENABLE_TRACING"); enabled != "true" && enabled != "1" {
-		logger.Info("Tracing disabled")
+		core.GetLogger().Info("Tracing disabled")
 		return nil
 	}
-	
+
 	tracingEnabled = true
-	
+
 	// Parse sample rate
 	if rate := os.Getenv("SCHEMAFLOW_TRACE_SAMPLE_RATE"); rate != "" {
 		var r float64
@@ -52,7 +53,7 @@ func InitTracing(serviceName string) error {
 			traceSampleRate = r
 		}
 	}
-	
+
 	// Create resource with service information
 	res, err := resource.Merge(
 		resource.Default(),
@@ -67,36 +68,36 @@ func InitTracing(serviceName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create resource: %w", err)
 	}
-	
+
 	// Create exporters based on configuration
 	var exporters []sdktrace.SpanExporter
-	
+
 	// Stdout exporter (for debugging)
 	if stdout := os.Getenv("SCHEMAFLOW_EXPORT_TRACES_STDOUT"); stdout == "true" || stdout == "1" {
 		stdoutExporter, err := stdouttrace.New(
 			stdouttrace.WithPrettyPrint(),
 		)
 		if err != nil {
-			logger.Error("Failed to create stdout exporter", "error", err)
+			core.GetLogger().Error("Failed to create stdout exporter", "error", err)
 		} else {
 			exporters = append(exporters, stdoutExporter)
-			logger.Info("Stdout trace exporter enabled")
+			core.GetLogger().Info("Stdout trace exporter enabled")
 		}
 	}
-	
+
 	// Jaeger exporter
 	if endpoint := os.Getenv("SCHEMAFLOW_JAEGER_ENDPOINT"); endpoint != "" {
 		jaegerExporter, err := jaeger.New(
 			jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(endpoint)),
 		)
 		if err != nil {
-			logger.Error("Failed to create Jaeger exporter", "error", err, "endpoint", endpoint)
+			core.GetLogger().Error("Failed to create Jaeger exporter", "error", err, "endpoint", endpoint)
 		} else {
 			exporters = append(exporters, jaegerExporter)
-			logger.Info("Jaeger trace exporter enabled", "endpoint", endpoint)
+			core.GetLogger().Info("Jaeger trace exporter enabled", "endpoint", endpoint)
 		}
 	}
-	
+
 	// OTLP exporter
 	if endpoint := os.Getenv("SCHEMAFLOW_OTLP_ENDPOINT"); endpoint != "" {
 		ctx := context.Background()
@@ -104,48 +105,48 @@ func InitTracing(serviceName string) error {
 			otlptracegrpc.WithEndpoint(endpoint),
 			otlptracegrpc.WithInsecure(),
 		)
-		
+
 		otlpExporter, err := otlptrace.New(ctx, client)
 		if err != nil {
-			logger.Error("Failed to create OTLP exporter", "error", err, "endpoint", endpoint)
+			core.GetLogger().Error("Failed to create OTLP exporter", "error", err, "endpoint", endpoint)
 		} else {
 			exporters = append(exporters, otlpExporter)
-			logger.Info("OTLP trace exporter enabled", "endpoint", endpoint)
+			core.GetLogger().Info("OTLP trace exporter enabled", "endpoint", endpoint)
 		}
 	}
-	
+
 	// Create trace provider with exporters
 	var opts []sdktrace.TracerProviderOption
 	opts = append(opts, sdktrace.WithResource(res))
-	
+
 	// Add batch span processors for each exporter
 	for _, exp := range exporters {
 		opts = append(opts, sdktrace.WithBatcher(exp))
 	}
-	
+
 	// Add sampler
 	opts = append(opts, sdktrace.WithSampler(
 		sdktrace.TraceIDRatioBased(traceSampleRate),
 	))
-	
+
 	traceProvider = sdktrace.NewTracerProvider(opts...)
-	
+
 	// Register as global provider
 	otel.SetTracerProvider(traceProvider)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
-	
+
 	// Create tracer
 	tracer = otel.Tracer("github.com/monstercameron/schemaflow")
-	
-	logger.Info("Tracing initialized", 
-		"serviceName", serviceName, 
+
+	core.GetLogger().Info("Tracing initialized",
+		"serviceName", serviceName,
 		"sampleRate", traceSampleRate,
 		"exporters", len(exporters),
 	)
-	
+
 	return nil
 }
 
@@ -158,17 +159,17 @@ func ShutdownTracing(ctx context.Context) error {
 }
 
 // StartSpan starts a new trace span for an operation
-func StartSpan(ctx context.Context, operation string, opts OpOptions) (context.Context, trace.Span) {
+func StartSpan(ctx context.Context, operation string, opts core.OpOptions) (context.Context, trace.Span) {
 	if !tracingEnabled || tracer == nil {
 		// Return no-op span if tracing is disabled
 		return ctx, trace.SpanFromContext(ctx)
 	}
-	
+
 	// Start span with operation name
 	ctx, span := tracer.Start(ctx, fmt.Sprintf("schemaflow.%s", operation),
 		trace.WithSpanKind(trace.SpanKindClient),
 	)
-	
+
 	// Add standard attributes
 	span.SetAttributes(
 		attribute.String("schemaflow.operation", operation),
@@ -176,33 +177,33 @@ func StartSpan(ctx context.Context, operation string, opts OpOptions) (context.C
 		attribute.String("schemaflow.intelligence", opts.Intelligence.String()),
 		attribute.Float64("schemaflow.threshold", opts.Threshold),
 	)
-	
+
 	// Add request ID if present
-	if opts.requestID != "" {
-		span.SetAttributes(attribute.String("schemaflow.request_id", opts.requestID))
+	if opts.RequestID != "" {
+		span.SetAttributes(attribute.String("schemaflow.request_id", opts.RequestID))
 	}
-	
+
 	// Add steering if present
 	if opts.Steering != "" {
 		span.SetAttributes(attribute.String("schemaflow.steering", truncateString(opts.Steering, 200)))
 	}
-	
+
 	return ctx, span
 }
 
 // RecordLLMCall records details of an LLM API call in the span
-func RecordLLMCall(span trace.Span, model string, provider string, usage *TokenUsage, cost *CostInfo, duration time.Duration, err error) {
+func RecordLLMCall(span trace.Span, model string, provider string, usage *core.TokenUsage, cost *core.CostInfo, duration time.Duration, err error) {
 	if span == nil || !span.IsRecording() {
 		return
 	}
-	
+
 	// Record model and provider
 	span.SetAttributes(
 		attribute.String("llm.model", model),
 		attribute.String("llm.provider", provider),
 		attribute.Int64("llm.duration_ms", duration.Milliseconds()),
 	)
-	
+
 	// Record token usage
 	if usage != nil {
 		span.SetAttributes(
@@ -210,7 +211,7 @@ func RecordLLMCall(span trace.Span, model string, provider string, usage *TokenU
 			attribute.Int("llm.tokens.completion", usage.CompletionTokens),
 			attribute.Int("llm.tokens.total", usage.TotalTokens),
 		)
-		
+
 		if usage.CachedTokens > 0 {
 			span.SetAttributes(attribute.Int("llm.tokens.cached", usage.CachedTokens))
 		}
@@ -218,7 +219,7 @@ func RecordLLMCall(span trace.Span, model string, provider string, usage *TokenU
 			span.SetAttributes(attribute.Int("llm.tokens.reasoning", usage.ReasoningTokens))
 		}
 	}
-	
+
 	// Record cost information
 	if cost != nil {
 		span.SetAttributes(
@@ -227,7 +228,7 @@ func RecordLLMCall(span trace.Span, model string, provider string, usage *TokenU
 			attribute.Float64("llm.cost.completion_usd", cost.CompletionCost),
 			attribute.String("llm.cost.currency", cost.Currency),
 		)
-		
+
 		if cost.CachedCost > 0 {
 			span.SetAttributes(attribute.Float64("llm.cost.cached_usd", cost.CachedCost))
 		}
@@ -235,7 +236,7 @@ func RecordLLMCall(span trace.Span, model string, provider string, usage *TokenU
 			span.SetAttributes(attribute.Float64("llm.cost.reasoning_usd", cost.ReasoningCost))
 		}
 	}
-	
+
 	// Record error if present
 	if err != nil {
 		span.RecordError(err)
@@ -252,7 +253,7 @@ func AddSpanTags(ctx context.Context, tags map[string]string) {
 	if span == nil || !span.IsRecording() {
 		return
 	}
-	
+
 	for k, v := range tags {
 		span.SetAttributes(attribute.String(k, v))
 	}
@@ -264,7 +265,7 @@ func RecordSpanEvent(ctx context.Context, name string, attributes map[string]any
 	if span == nil || !span.IsRecording() {
 		return
 	}
-	
+
 	var attrs []attribute.KeyValue
 	for k, v := range attributes {
 		switch val := v.(type) {
@@ -282,7 +283,7 @@ func RecordSpanEvent(ctx context.Context, name string, attributes map[string]any
 			attrs = append(attrs, attribute.String(k, fmt.Sprintf("%v", val)))
 		}
 	}
-	
+
 	span.AddEvent(name, trace.WithAttributes(attrs...))
 }
 
@@ -291,7 +292,7 @@ func ExtractTraceContext(ctx context.Context, carrier map[string]string) context
 	if !tracingEnabled {
 		return ctx
 	}
-	
+
 	propagator := otel.GetTextMapPropagator()
 	return propagator.Extract(ctx, propagation.MapCarrier(carrier))
 }
@@ -301,7 +302,7 @@ func InjectTraceContext(ctx context.Context, carrier map[string]string) {
 	if !tracingEnabled {
 		return
 	}
-	
+
 	propagator := otel.GetTextMapPropagator()
 	propagator.Inject(ctx, propagation.MapCarrier(carrier))
 }

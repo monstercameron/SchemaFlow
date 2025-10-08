@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	schemaflow "github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/core"
 )
 
 // Choose selects the best option from a list with specialized options.
@@ -30,7 +30,7 @@ func Choose[T any](options []T, opts ChooseOptions) (T, error) {
 	}
 
 	if len(options) == 0 {
-		return result, schemaflow.ChooseError{
+		return result, core.ChooseError{
 			Options: []any{},
 			Reason:  "no options provided",
 		}
@@ -63,18 +63,18 @@ func Choose[T any](options []T, opts ChooseOptions) (T, error) {
 
 	if len(instructions) > 0 {
 		steering := strings.Join(instructions, ". ")
-		if opts.Steering != "" {
-			steering = opts.Steering + ". " + steering
+		if opts.OpOptions.Steering != "" {
+			steering = opts.OpOptions.Steering + ". " + steering
 		}
 		opOptions.Steering = steering
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), schemaflow.GetTimeout())
+	ctx, cancel := context.WithTimeout(context.Background(), core.GetTimeout())
 	defer cancel()
 
 	optionsJSON, err := json.Marshal(options)
 	if err != nil {
-		return result, schemaflow.ChooseError{
+		return result, core.ChooseError{
 			Options: interfaceSlice(options),
 			Reason:  fmt.Sprintf("failed to marshal options: %v", err),
 		}
@@ -90,9 +90,9 @@ Rules:
 
 	userPrompt := fmt.Sprintf("Choose the best option from this list:\n%s", string(optionsJSON))
 
-	response, err := schemaflow.CallLLM(ctx, systemPrompt, userPrompt, opOptions)
+	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opOptions)
 	if err != nil {
-		return result, schemaflow.ChooseError{
+		return result, core.ChooseError{
 			Options: interfaceSlice(options),
 			Reason:  err.Error(),
 		}
@@ -101,14 +101,14 @@ Rules:
 	response = strings.TrimSpace(response)
 	var index int
 	if _, err := fmt.Sscanf(response, "%d", &index); err != nil {
-		return result, schemaflow.ChooseError{
+		return result, core.ChooseError{
 			Options: interfaceSlice(options),
 			Reason:  fmt.Sprintf("failed to parse index: %v", err),
 		}
 	}
 
 	if index < 0 || index >= len(options) {
-		return result, schemaflow.ChooseError{
+		return result, core.ChooseError{
 			Options: interfaceSlice(options),
 			Reason:  fmt.Sprintf("index %d out of range", index),
 		}
@@ -162,17 +162,17 @@ func Filter[T any](items []T, opts FilterOptions) ([]T, error) {
 	}
 
 	steering := strings.Join(instructions, ". ")
-	if opts.Steering != "" {
-		steering = opts.Steering + ". " + steering
+	if opts.CommonOptions.Steering != "" {
+		steering = opts.CommonOptions.Steering + ". " + steering
 	}
 	opOptions.Steering = steering
 
-	ctx, cancel := context.WithTimeout(context.Background(), schemaflow.GetTimeout())
+	ctx, cancel := context.WithTimeout(context.Background(), core.GetTimeout())
 	defer cancel()
 
 	itemsJSON, err := json.Marshal(items)
 	if err != nil {
-		return nil, schemaflow.FilterError{
+		return nil, core.FilterError{
 			Items:  interfaceSlice(items),
 			Reason: fmt.Sprintf("failed to marshal items: %v", err),
 		}
@@ -188,9 +188,9 @@ Rules:
 
 	userPrompt := fmt.Sprintf("Filter these items:\n%s", string(itemsJSON))
 
-	response, err := schemaflow.CallLLM(ctx, systemPrompt, userPrompt, opOptions)
+	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opOptions)
 	if err != nil {
-		return nil, schemaflow.FilterError{
+		return nil, core.FilterError{
 			Items:  interfaceSlice(items),
 			Reason: err.Error(),
 		}
@@ -198,7 +198,7 @@ Rules:
 
 	var indices []int
 	if err := json.Unmarshal([]byte(response), &indices); err != nil {
-		return nil, schemaflow.FilterError{
+		return nil, core.FilterError{
 			Items:  interfaceSlice(items),
 			Reason: fmt.Sprintf("failed to parse indices: %v", err),
 		}
@@ -265,17 +265,17 @@ func Sort[T any](items []T, opts SortOptions) ([]T, error) {
 	}
 
 	steering := strings.Join(instructions, ". ")
-	if opts.Steering != "" {
-		steering = opts.Steering + ". " + steering
+	if opts.CommonOptions.Steering != "" {
+		steering = opts.CommonOptions.Steering + ". " + steering
 	}
 	opOptions.Steering = steering
 
-	ctx, cancel := context.WithTimeout(context.Background(), schemaflow.GetTimeout())
+	ctx, cancel := context.WithTimeout(context.Background(), core.GetTimeout())
 	defer cancel()
 
 	itemsJSON, err := json.Marshal(items)
 	if err != nil {
-		return nil, schemaflow.SortError{
+		return nil, core.SortError{
 			Items:  interfaceSlice(items),
 			Reason: fmt.Sprintf("failed to marshal items: %v", err),
 		}
@@ -291,9 +291,9 @@ Rules:
 
 	userPrompt := fmt.Sprintf("Sort these items:\n%s", string(itemsJSON))
 
-	response, err := schemaflow.CallLLM(ctx, systemPrompt, userPrompt, opOptions)
+	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opOptions)
 	if err != nil {
-		return nil, schemaflow.SortError{
+		return nil, core.SortError{
 			Items:  interfaceSlice(items),
 			Reason: err.Error(),
 		}
@@ -301,14 +301,14 @@ Rules:
 
 	var indices []int
 	if err := json.Unmarshal([]byte(response), &indices); err != nil {
-		return nil, schemaflow.SortError{
+		return nil, core.SortError{
 			Items:  interfaceSlice(items),
 			Reason: fmt.Sprintf("failed to parse indices: %v", err),
 		}
 	}
 
 	if len(indices) != len(items) {
-		return nil, schemaflow.SortError{
+		return nil, core.SortError{
 			Items:  interfaceSlice(items),
 			Reason: fmt.Sprintf("received %d indices for %d items", len(indices), len(items)),
 		}
@@ -317,7 +317,7 @@ Rules:
 	result := make([]T, len(items))
 	for i, idx := range indices {
 		if idx < 0 || idx >= len(items) {
-			return nil, schemaflow.SortError{
+			return nil, core.SortError{
 				Items:  interfaceSlice(items),
 				Reason: fmt.Sprintf("index %d out of range", idx),
 			}

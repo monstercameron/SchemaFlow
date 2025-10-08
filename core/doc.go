@@ -25,13 +25,13 @@ Initialize the library with your API key:
 
 	func main() {
 	    schemaflow.Init("your-api-key")
-	    
+
 	    // Extract structured data
 	    type Person struct {
 	        Name string `json:"name"`
 	        Age  int    `json:"age"`
 	    }
-	    
+
 	    person, err := schemaflow.Extract[Person]("John Doe, 30 years old")
 	}
 
@@ -102,14 +102,14 @@ Process multiple items efficiently:
 	batch := schemaflow.Batch().
 	    WithMode(schemaflow.ParallelMode).
 	    WithConcurrency(10)
-	
+
 	results := schemaflow.ExtractBatch[Person](batch, inputs)
 
 	// Merged processing for cost savings
 	batch := schemaflow.Batch().
 	    WithMode(schemaflow.MergedMode).
 	    WithBatchSize(50)
-	
+
 	results := schemaflow.ExtractBatch[Invoice](batch, invoices)
 
 # Pipelines
@@ -120,7 +120,7 @@ Chain operations together:
 	    Add("extract", extractOp).
 	    Add("validate", validateOp).
 	    Add("transform", transformOp)
-	
+
 	result := pipeline.Execute(ctx, input)
 
 # Provider Support
@@ -176,13 +176,13 @@ Different modes for different needs:
 Use the local provider for testing:
 
 	testClient := schemaflow.NewClient("").WithProvider("local")
-	
+
 	// Configure custom responses
 	provider := schemaflow.NewLocalProvider(schemaflow.ProviderConfig{})
 	provider.WithHandler(func(ctx context.Context, req schemaflow.CompletionRequest) (string, error) {
 	    return "test response", nil
 	})
-	
+
 	testClient.WithProviderInstance(provider)
 
 # Examples
@@ -213,4 +213,4 @@ Documentation: https://github.com/monstercameron/schemaflow
 Issues: https://github.com/monstercameron/schemaflow/issues
 Examples: https://github.com/monstercameron/schemaflow/examples
 */
-package schemaflow
+package core

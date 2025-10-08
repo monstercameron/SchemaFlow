@@ -1,7 +1,7 @@
-// Package schemaflow - Custom error types for all operations
-package schemaflow
+package core
 
 import (
+	"errors"
 	"fmt"
 	"time"
 )
@@ -25,15 +25,15 @@ func (e ExtractError) Error() string {
 
 // Unwrap returns the underlying error if any
 func (e ExtractError) Unwrap() error {
-	return fmt.Errorf(e.Reason)
+	return errors.New(e.Reason)
 }
 
 // GenerateError indicates a failure in the Generate operation.
 type GenerateError struct {
-	Prompt     string    // The generation prompt that failed
-	TargetType string    // The type we tried to generate
-	Reason     string    // Human-readable failure reason
-	RequestID  string    // Trace ID for debugging
+	Prompt     string // The generation prompt that failed
+	TargetType string // The type we tried to generate
+	Reason     string // Human-readable failure reason
+	RequestID  string // Trace ID for debugging
 	Timestamp  time.Time
 }
 
@@ -45,12 +45,12 @@ func (e GenerateError) Error() string {
 
 // TransformError indicates a failure in the Transform operation.
 type TransformError struct {
-	Input      any       // The input value that failed to transform
-	FromType   string    // Source type name
-	ToType     string    // Target type name
-	Reason     string    // Human-readable failure reason
-	Confidence float64   // Model confidence
-	RequestID  string    // Trace ID
+	Input      any     // The input value that failed to transform
+	FromType   string  // Source type name
+	ToType     string  // Target type name
+	Reason     string  // Human-readable failure reason
+	Confidence float64 // Model confidence
+	RequestID  string  // Trace ID
 	Timestamp  time.Time
 }
 
@@ -62,11 +62,11 @@ func (e TransformError) Error() string {
 
 // ClassifyError indicates a failure in the Classify operation.
 type ClassifyError struct {
-	Input      string    // The text that failed to classify
-	Categories []string  // Available categories
-	Reason     string    // Failure reason
-	Confidence float64   // Model confidence
-	RequestID  string    // Trace ID
+	Input      string   // The text that failed to classify
+	Categories []string // Available categories
+	Reason     string   // Failure reason
+	Confidence float64  // Model confidence
+	RequestID  string   // Trace ID
 	Timestamp  time.Time
 }
 

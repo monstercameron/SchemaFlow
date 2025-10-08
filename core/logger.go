@@ -1,5 +1,4 @@
-// Package schemaflow - Structured logging implementation
-package schemaflow
+package core
 
 import (
 	"encoding/json"

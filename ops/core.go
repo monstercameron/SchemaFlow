@@ -8,6 +8,9 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	core "github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/telemetry"
 )
 
 // Extract converts unstructured data into strongly-typed Go structs using LLM interpretation.
@@ -37,9 +40,9 @@ import (
 // In Strict mode, all required fields must be present. In Transform mode (default),
 // the LLM will intelligently infer missing fields.
 func Extract[T any](input any, opts ExtractOptions) (T, error) {
-	// Use default client if available, otherwise use global config
-	if defaultClient != nil {
-		return ClientExtract[T](defaultClient, input, opts)
+	// Use default client if available
+	if core.GetDefaultClient() != nil {
+		return ClientExtract[T](core.GetDefaultClient(), input, opts)
 	}
 	return extractImpl[T](input, opts)
 }
@@ -47,27 +50,11 @@ func Extract[T any](input any, opts ExtractOptions) (T, error) {
 // ClientExtract is a client method that converts unstructured data into strongly-typed Go structs.
 // This is the client-based version of the Extract operation.
 // Usage: result, err := ClientExtract[Person](client, input, NewExtractOptions())
-func ClientExtract[T any](c *Client, input any, opts ExtractOptions) (T, error) {
-	// Temporarily set global variables to client values for compatibility
-	oldClient := client
-	oldTimeout := timeout
-	oldMaxRetries := maxRetries
-	oldLogger := logger
-
-	c.mu.RLock()
-	client = c.openaiClient
-	timeout = c.timeout
-	maxRetries = c.maxRetries
-	logger = c.logger
-	c.mu.RUnlock()
-
-	defer func() {
-		client = oldClient
-		timeout = oldTimeout
-		maxRetries = oldMaxRetries
-		logger = oldLogger
-	}()
-
+func ClientExtract[T any](c *core.Client, input any, opts ExtractOptions) (T, error) {
+	// Pass client config through options
+	opOpts := opts.toOpOptions()
+	opOpts.Client = c
+	opts.OpOptions = opOpts
 	return extractImpl[T](input, opts)
 }
 
@@ -86,8 +73,8 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 	// Enhance steering with extraction-specific options
 	if opts.SchemaHints != nil || opts.Examples != nil || opts.FieldRules != nil {
 		var steeringParts []string
-		if opts.Steering != "" {
-			steeringParts = append(steeringParts, opts.Steering)
+		if opts.OpOptions.Steering != "" {
+			steeringParts = append(steeringParts, opts.OpOptions.Steering)
 		}
 
 		if opts.StrictSchema {
@@ -125,8 +112,8 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 	// Start operation timing
 	startTime := time.Now()
 	defer func() {
-		if metricsEnabled {
-			recordMetric("extract_duration", time.Since(startTime).Milliseconds(), map[string]string{
+		if core.IsMetricsEnabled() {
+			telemetry.RecordMetric("extract_duration", time.Since(startTime).Milliseconds(), map[string]string{
 				"type": reflect.TypeOf(result).String(),
 				"mode": opt.Mode.String(),
 			})
@@ -134,8 +121,8 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 	}()
 
 	// Log operation start
-	logger.Info("Extract operation started",
-		"requestID", opt.requestID,
+	core.GetLogger().Info("Extract operation started",
+		"requestID", opt.RequestID,
 		"targetType", reflect.TypeOf(result).String(),
 		"mode", opt.Mode.String(),
 		"intelligence", opt.Intelligence.String(),
@@ -143,93 +130,93 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 
 	// Validate input
 	if input == nil {
-		err := ExtractError{
+		err := core.ExtractError{
 			Input:      input,
 			TargetType: reflect.TypeOf(result).String(),
 			Reason:     "input cannot be nil",
-			RequestID:  opt.requestID,
+			RequestID:  opt.RequestID,
 			Timestamp:  time.Now(),
 		}
-		logger.Error("Extract failed: nil input", "requestID", opt.requestID, "error", err)
+		core.GetLogger().Error("Extract failed: nil input", "requestID", opt.RequestID, "error", err)
 		return result, err
 	}
 
 	// Get context with timeout
-	ctx := opt.context
+	ctx := opt.Context
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	// Generate type schema for the target type
 	targetType := reflect.TypeOf(result)
-	typeInfo := generateTypeSchema(targetType)
+	typeInfo := GenerateTypeSchema(targetType)
 
 	// Convert input to string format for LLM processing
-	inputStr, err := normalizeInput(input)
+	inputStr, err := NormalizeInput(input)
 	if err != nil {
-		extractErr := ExtractError{
+		extractErr := core.ExtractError{
 			Input:      input,
 			TargetType: targetType.String(),
 			Reason:     fmt.Sprintf("failed to normalize input: %v", err),
-			RequestID:  opt.requestID,
+			RequestID:  opt.RequestID,
 			Timestamp:  time.Now(),
 		}
-		logger.Error("Extract failed: input normalization error",
-			"requestID", opt.requestID,
+		core.GetLogger().Error("Extract failed: input normalization error",
+			"requestID", opt.RequestID,
 			"error", extractErr,
 		)
 		return result, extractErr
 	}
 
 	// Log input details in debug mode
-	if debugMode || false {
-		logger.Debug("Extract input normalized",
-			"requestID", opt.requestID,
+	if core.GetDebugMode() {
+		core.GetLogger().Debug("Extract input normalized",
+			"requestID", opt.RequestID,
 			"inputLength", len(inputStr),
-			"inputPreview", inputStr[:min(len(inputStr), 100)],
+			"inputPreview", inputStr[:Min(len(inputStr), 100)],
 		)
 	}
 
 	// Build system prompt based on mode
-	systemPrompt := buildExtractSystemPrompt(typeInfo, opt.Mode)
+	systemPrompt := BuildExtractSystemPrompt(typeInfo, opt.Mode)
 
 	// Build user prompt
 	userPrompt := fmt.Sprintf("Extract structured data from this input:\n%s", inputStr)
 
 	// Call LLM for extraction
-	response, err := callLLM(ctx, systemPrompt, userPrompt, opt)
+	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
-		extractErr := ExtractError{
+		extractErr := core.ExtractError{
 			Input:      input,
 			TargetType: targetType.String(),
 			Reason:     err.Error(),
 			Confidence: 0,
-			RequestID:  opt.requestID,
+			RequestID:  opt.RequestID,
 			Timestamp:  time.Now(),
 		}
-		logger.Error("Extract failed: LLM error",
-			"requestID", opt.requestID,
+		core.GetLogger().Error("Extract failed: LLM error",
+			"requestID", opt.RequestID,
 			"error", extractErr,
 		)
 		return result, extractErr
 	}
 
 	// Parse JSON response into target type
-	if err := parseJSON(response, &result); err != nil {
+	if err := core.ParseJSON(response, &result); err != nil {
 		// Calculate partial confidence based on parsing attempt
-		confidence := calculateParsingConfidence(response, targetType)
+		confidence := CalculateParsingConfidence(response, targetType)
 
-		extractErr := ExtractError{
+		extractErr := core.ExtractError{
 			Input:      input,
 			TargetType: targetType.String(),
 			Reason:     fmt.Sprintf("failed to parse response: %v", err),
 			Confidence: confidence,
-			RequestID:  opt.requestID,
+			RequestID:  opt.RequestID,
 			Timestamp:  time.Now(),
 		}
 
-		logger.Error("Extract failed: JSON parsing error",
-			"requestID", opt.requestID,
+		core.GetLogger().Error("Extract failed: JSON parsing error",
+			"requestID", opt.RequestID,
 			"confidence", confidence,
 			"error", extractErr,
 		)
@@ -237,26 +224,26 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 	}
 
 	// Validate extracted data if in Strict mode
-	if opt.Mode == Strict {
-		if err := validateExtractedData(result, opt.Threshold); err != nil {
-			extractErr := ExtractError{
+	if opt.Mode == core.Strict {
+		if err := ValidateExtractedData(result, opt.Threshold); err != nil {
+			extractErr := core.ExtractError{
 				Input:      input,
 				TargetType: targetType.String(),
 				Reason:     fmt.Sprintf("validation failed: %v", err),
 				Confidence: opt.Threshold - 0.1, // Just below threshold
-				RequestID:  opt.requestID,
+				RequestID:  opt.RequestID,
 				Timestamp:  time.Now(),
 			}
-			logger.Error("Extract failed: validation error",
-				"requestID", opt.requestID,
+			core.GetLogger().Error("Extract failed: validation error",
+				"requestID", opt.RequestID,
 				"error", extractErr,
 			)
 			return result, extractErr
 		}
 	}
 
-	logger.Info("Extract operation completed",
-		"requestID", opt.requestID,
+	core.GetLogger().Info("Extract operation completed",
+		"requestID", opt.RequestID,
 		"duration", time.Since(startTime),
 	)
 
@@ -286,35 +273,19 @@ func extractImpl[T any](input any, opts ExtractOptions) (T, error) {
 // The operation uses semantic understanding to map between related but structurally
 // different types. It can handle field renaming, type conversion, and derived fields.
 func Transform[T any, U any](input T, opts TransformOptions) (U, error) {
-	if defaultClient != nil {
-		return ClientTransform[T, U](defaultClient, input, opts)
+	if core.GetDefaultClient() != nil {
+		return ClientTransform[T, U](core.GetDefaultClient(), input, opts)
 	}
 	return transformImpl[T, U](input, opts)
 }
 
 // ClientTransform is a client method that converts data from one type to another.
 // Usage: result, err := ClientTransform[Person, Employee](client, input)
-func ClientTransform[T any, U any](c *Client, input T, opts TransformOptions) (U, error) {
-	// Temporarily set global variables to client values
-	oldClient := client
-	oldTimeout := timeout
-	oldMaxRetries := maxRetries
-	oldLogger := logger
-
-	c.mu.RLock()
-	client = c.openaiClient
-	timeout = c.timeout
-	maxRetries = c.maxRetries
-	logger = c.logger
-	c.mu.RUnlock()
-
-	defer func() {
-		client = oldClient
-		timeout = oldTimeout
-		maxRetries = oldMaxRetries
-		logger = oldLogger
-	}()
-
+func ClientTransform[T any, U any](c *core.Client, input T, opts TransformOptions) (U, error) {
+	// Pass client config through options
+	opOpts := opts.toOpOptions()
+	opOpts.Client = c
+	opts.OpOptions = opOpts
 	return transformImpl[T, U](input, opts)
 }
 
@@ -332,8 +303,8 @@ func transformImpl[T any, U any](input T, opts TransformOptions) (U, error) {
 
 	// Enhance steering with transformation-specific options
 	var steeringParts []string
-	if opts.Steering != "" {
-		steeringParts = append(steeringParts, opts.Steering)
+	if opts.OpOptions.Steering != "" {
+		steeringParts = append(steeringParts, opts.OpOptions.Steering)
 	}
 
 	if opts.TransformLogic != "" {
@@ -362,8 +333,8 @@ func transformImpl[T any, U any](input T, opts TransformOptions) (U, error) {
 
 	startTime := time.Now()
 	defer func() {
-		if metricsEnabled {
-			recordMetric("transform_duration", time.Since(startTime).Milliseconds(), map[string]string{
+		if core.IsMetricsEnabled() {
+			telemetry.RecordMetric("transform_duration", time.Since(startTime).Milliseconds(), map[string]string{
 				"from_type": reflect.TypeOf(input).String(),
 				"to_type":   reflect.TypeOf(result).String(),
 				"mode":      opt.Mode.String(),
@@ -371,21 +342,21 @@ func transformImpl[T any, U any](input T, opts TransformOptions) (U, error) {
 		}
 	}()
 
-	logger.Info("Transform operation started",
-		"requestID", opt.requestID,
+	core.GetLogger().Info("Transform operation started",
+		"requestID", opt.RequestID,
 		"fromType", reflect.TypeOf(input).String(),
 		"toType", reflect.TypeOf(result).String(),
 	)
 
 	// Validate input
 	if reflect.ValueOf(input).IsZero() {
-		logger.Warn("Transform received zero value input",
-			"requestID", opt.requestID,
+		core.GetLogger().Warn("Transform received zero value input",
+			"requestID", opt.RequestID,
 			"type", reflect.TypeOf(input).String(),
 		)
 	}
 
-	ctx := opt.context
+	ctx := opt.Context
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -394,22 +365,22 @@ func transformImpl[T any, U any](input T, opts TransformOptions) (U, error) {
 	fromType := reflect.TypeOf(input)
 	toType := reflect.TypeOf(result)
 
-	fromSchema := generateTypeSchema(fromType)
-	toSchema := generateTypeSchema(toType)
+	fromSchema := GenerateTypeSchema(fromType)
+	toSchema := GenerateTypeSchema(toType)
 
 	// Marshal input to JSON
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
-		transformErr := TransformError{
+		transformErr := core.TransformError{
 			Input:     input,
 			FromType:  fromType.String(),
 			ToType:    toType.String(),
 			Reason:    fmt.Sprintf("failed to marshal input: %v", err),
-			RequestID: opt.requestID,
+			RequestID: opt.RequestID,
 			Timestamp: time.Now(),
 		}
-		logger.Error("Transform failed: marshaling error",
-			"requestID", opt.requestID,
+		core.GetLogger().Error("Transform failed: marshaling error",
+			"requestID", opt.RequestID,
 			"error", transformErr,
 		)
 		return result, transformErr
@@ -436,52 +407,52 @@ Transformation rules:
 	userPrompt := fmt.Sprintf("Transform this data:\n%s", string(inputJSON))
 
 	// Log transformation details in debug mode
-	if debugMode || false {
-		logger.Debug("Transform schemas",
-			"requestID", opt.requestID,
+	if core.GetDebugMode() {
+		core.GetLogger().Debug("Transform schemas",
+			"requestID", opt.RequestID,
 			"fromSchema", fromSchema,
 			"toSchema", toSchema,
 		)
 	}
 
 	// Call LLM for transformation
-	response, err := callLLM(ctx, systemPrompt, userPrompt, opt)
+	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
-		transformErr := TransformError{
+		transformErr := core.TransformError{
 			Input:     input,
 			FromType:  fromType.String(),
 			ToType:    toType.String(),
 			Reason:    err.Error(),
-			RequestID: opt.requestID,
+			RequestID: opt.RequestID,
 			Timestamp: time.Now(),
 		}
-		logger.Error("Transform failed: LLM error",
-			"requestID", opt.requestID,
+		core.GetLogger().Error("Transform failed: LLM error",
+			"requestID", opt.RequestID,
 			"error", transformErr,
 		)
 		return result, transformErr
 	}
 
 	// Parse transformed data
-	if err := parseJSON(response, &result); err != nil {
-		transformErr := TransformError{
+	if err := core.ParseJSON(response, &result); err != nil {
+		transformErr := core.TransformError{
 			Input:      input,
 			FromType:   fromType.String(),
 			ToType:     toType.String(),
 			Reason:     fmt.Sprintf("failed to parse response: %v", err),
 			Confidence: 0.5,
-			RequestID:  opt.requestID,
+			RequestID:  opt.RequestID,
 			Timestamp:  time.Now(),
 		}
-		logger.Error("Transform failed: parsing error",
-			"requestID", opt.requestID,
+		core.GetLogger().Error("Transform failed: parsing error",
+			"requestID", opt.RequestID,
 			"error", transformErr,
 		)
 		return result, transformErr
 	}
 
-	logger.Info("Transform operation completed",
-		"requestID", opt.requestID,
+	core.GetLogger().Info("Transform operation completed",
+		"requestID", opt.RequestID,
 		"duration", time.Since(startTime),
 	)
 
@@ -563,22 +534,22 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 	}
 
 	prompt = strings.Join(promptParts, ". ")
-	if opts.Steering != "" {
-		opt.Steering = opts.Steering
+	if opts.OpOptions.Steering != "" {
+		opt.Steering = opts.OpOptions.Steering
 	}
 
 	startTime := time.Now()
 	defer func() {
-		if metricsEnabled {
-			recordMetric("generate_duration", time.Since(startTime).Milliseconds(), map[string]string{
+		if core.IsMetricsEnabled() {
+			telemetry.RecordMetric("generate_duration", time.Since(startTime).Milliseconds(), map[string]string{
 				"type": reflect.TypeOf(result).String(),
 				"mode": opt.Mode.String(),
 			})
 		}
 	}()
 
-	logger.Info("Generate operation started",
-		"requestID", opt.requestID,
+	core.GetLogger().Info("Generate operation started",
+		"requestID", opt.RequestID,
 		"targetType", reflect.TypeOf(result).String(),
 		"promptLength", len(prompt),
 	)
@@ -586,15 +557,15 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 	// Validate prompt
 	prompt = strings.TrimSpace(prompt)
 	if prompt == "" {
-		err := GenerateError{
+		err := core.GenerateError{
 			Prompt:     prompt,
 			TargetType: reflect.TypeOf(result).String(),
 			Reason:     "prompt cannot be empty",
-			RequestID:  opt.requestID,
+			RequestID:  opt.RequestID,
 			Timestamp:  time.Now(),
 		}
-		logger.Error("Generate failed: empty prompt",
-			"requestID", opt.requestID,
+		core.GetLogger().Error("Generate failed: empty prompt",
+			"requestID", opt.RequestID,
 			"error", err,
 		)
 		return result, err
@@ -603,15 +574,15 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 	// Sanitize prompt length
 	const maxPromptLength = 10000
 	if len(prompt) > maxPromptLength {
-		logger.Warn("Generate prompt truncated",
-			"requestID", opt.requestID,
+		core.GetLogger().Warn("Generate prompt truncated",
+			"requestID", opt.RequestID,
 			"originalLength", len(prompt),
 			"maxLength", maxPromptLength,
 		)
 		prompt = prompt[:maxPromptLength]
 	}
 
-	ctx := opt.context
+	ctx := opt.Context
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -620,19 +591,19 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 
 	// Handle string generation differently (simpler)
 	if targetType.Kind() == reflect.String {
-		systemPrompt := buildGenerateStringPrompt(opt.Mode)
+		systemPrompt := BuildGenerateStringPrompt(opt.Mode)
 
-		response, err := callLLM(ctx, systemPrompt, prompt, opt)
+		response, err := core.CallLLM(ctx, systemPrompt, prompt, opt)
 		if err != nil {
-			genErr := GenerateError{
+			genErr := core.GenerateError{
 				Prompt:     prompt,
 				TargetType: targetType.String(),
 				Reason:     err.Error(),
-				RequestID:  opt.requestID,
+				RequestID:  opt.RequestID,
 				Timestamp:  time.Now(),
 			}
-			logger.Error("Generate failed: LLM error",
-				"requestID", opt.requestID,
+			core.GetLogger().Error("Generate failed: LLM error",
+				"requestID", opt.RequestID,
 				"error", genErr,
 			)
 			return result, genErr
@@ -641,8 +612,8 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 		// Set string result using reflection
 		reflect.ValueOf(&result).Elem().SetString(response)
 
-		logger.Info("Generate operation completed (string)",
-			"requestID", opt.requestID,
+		core.GetLogger().Info("Generate operation completed (string)",
+			"requestID", opt.RequestID,
 			"duration", time.Since(startTime),
 			"responseLength", len(response),
 		)
@@ -650,7 +621,7 @@ func Generate[T any](prompt string, opts GenerateOptions) (T, error) {
 	}
 
 	// Handle structured type generation
-	typeSchema := generateTypeSchema(targetType)
+	typeSchema := GenerateTypeSchema(targetType)
 
 	systemPrompt := fmt.Sprintf(`You are a data generation expert. Generate structured data based on the prompt.
 
@@ -666,265 +637,51 @@ Generation rules:
 - Return ONLY valid JSON matching the schema, no explanations`, typeSchema)
 
 	// Log generation details in debug mode
-	if debugMode || false {
-		logger.Debug("Generate schema",
-			"requestID", opt.requestID,
+	if core.GetDebugMode() {
+		core.GetLogger().Debug("Generate schema",
+			"requestID", opt.RequestID,
 			"schema", typeSchema,
 			"prompt", prompt[:min(len(prompt), 200)],
 		)
 	}
 
-	response, err := callLLM(ctx, systemPrompt, prompt, opt)
+	response, err := core.CallLLM(ctx, systemPrompt, prompt, opt)
 	if err != nil {
-		genErr := GenerateError{
+		genErr := core.GenerateError{
 			Prompt:     prompt,
 			TargetType: targetType.String(),
 			Reason:     err.Error(),
-			RequestID:  opt.requestID,
+			RequestID:  opt.RequestID,
 			Timestamp:  time.Now(),
 		}
-		logger.Error("Generate failed: LLM error",
-			"requestID", opt.requestID,
+		core.GetLogger().Error("Generate failed: LLM error",
+			"requestID", opt.RequestID,
 			"error", genErr,
 		)
 		return result, genErr
 	}
 
 	// Parse generated data
-	if err := parseJSON(response, &result); err != nil {
-		genErr := GenerateError{
+	if err := core.ParseJSON(response, &result); err != nil {
+		genErr := core.GenerateError{
 			Prompt:     prompt,
 			TargetType: targetType.String(),
 			Reason:     fmt.Sprintf("failed to parse response: %v", err),
-			RequestID:  opt.requestID,
+			RequestID:  opt.RequestID,
 			Timestamp:  time.Now(),
 		}
-		logger.Error("Generate failed: parsing error",
-			"requestID", opt.requestID,
+		core.GetLogger().Error("Generate failed: parsing error",
+			"requestID", opt.RequestID,
 			"error", genErr,
 			"response", response[:min(len(response), 200)],
 		)
 		return result, genErr
 	}
 
-	logger.Info("Generate operation completed",
-		"requestID", opt.requestID,
+	core.GetLogger().Info("Generate operation completed",
+		"requestID", opt.RequestID,
 		"duration", time.Since(startTime),
 	)
 
 	return result, nil
-}
-
-// Helper functions for data operations
-
-// generateTypeSchema creates a human-readable schema description for a Go type
-func generateTypeSchema(targetType reflect.Type) string {
-	if targetType.Kind() == reflect.Ptr {
-		targetType = targetType.Elem()
-	}
-
-	switch targetType.Kind() {
-	case reflect.Struct:
-		var fields []string
-		for i := 0; i < targetType.NumField(); i++ {
-			field := targetType.Field(i)
-
-			// Skip unexported fields
-			if !field.IsExported() {
-				continue
-			}
-
-			// Get JSON tag or use field name
-			jsonTag := field.Tag.Get("json")
-			fieldName := field.Name
-			if jsonTag != "" {
-				parts := strings.Split(jsonTag, ",")
-				if parts[0] != "-" {
-					fieldName = parts[0]
-				}
-			}
-
-			// Get field type description
-			fieldType := getTypeDescription(field.Type)
-
-			// Check if field is required (no omitempty tag)
-			required := !strings.Contains(jsonTag, "omitempty")
-			requiredStr := ""
-			if required {
-				requiredStr = " (required)"
-			}
-
-			// Add field description
-			fields = append(fields, fmt.Sprintf("  %s: %s%s", fieldName, fieldType, requiredStr))
-		}
-		return fmt.Sprintf("{\n%s\n}", strings.Join(fields, "\n"))
-
-	case reflect.Slice:
-		elemType := targetType.Elem()
-		return fmt.Sprintf("[]%s", generateTypeSchema(elemType))
-
-	case reflect.Map:
-		keyType := targetType.Key()
-		valueType := targetType.Elem()
-		return fmt.Sprintf("map[%s]%s", keyType.String(), generateTypeSchema(valueType))
-
-	default:
-		return getTypeDescription(targetType)
-	}
-}
-
-// getTypeDescription returns a simple description of a type
-func getTypeDescription(targetType reflect.Type) string {
-	switch targetType.Kind() {
-	case reflect.String:
-		return "string"
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return "integer"
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return "unsigned integer"
-	case reflect.Float32, reflect.Float64:
-		return "number"
-	case reflect.Bool:
-		return "boolean"
-	case reflect.Struct:
-		if targetType.String() == "time.Time" {
-			return "datetime (RFC3339)"
-		}
-		return targetType.String()
-	case reflect.Ptr:
-		return getTypeDescription(targetType.Elem()) + " (optional)"
-	default:
-		return targetType.String()
-	}
-}
-
-// normalizeInput converts various input types to string for LLM processing
-func normalizeInput(input any) (string, error) {
-	if input == nil {
-		return "", fmt.Errorf("input is nil")
-	}
-
-	switch inputValue := input.(type) {
-	case string:
-		return inputValue, nil
-	case []byte:
-		return string(inputValue), nil
-	case fmt.Stringer:
-		return inputValue.String(), nil
-	default:
-		// Try JSON marshaling for complex types
-		if b, err := json.Marshal(input); err == nil {
-			return string(b), nil
-		}
-		// Fallback to fmt.Sprint
-		return fmt.Sprint(input), nil
-	}
-}
-
-// buildExtractSystemPrompt creates the system prompt for extraction based on mode
-func buildExtractSystemPrompt(typeSchema string, mode Mode) string {
-	base := fmt.Sprintf(`You are a data extraction expert. Extract structured data from the input and return it as JSON.
-Target schema:
-%s
-
-Rules:
-- Extract all relevant information that maps to the schema
-- Return ONLY valid JSON, no explanations or markdown`, typeSchema)
-
-	switch mode {
-	case Strict:
-		return base + `
-- All required fields MUST be present and valid
-- Fail if any required field cannot be extracted
-- Use null only for explicitly optional fields
-- Validate data types strictly`
-
-	case TransformMode:
-		return base + `
-- Infer missing fields intelligently when possible
-- Use reasonable defaults for missing data
-- Be flexible with type conversions
-- Preserve as much information as possible`
-
-	case Creative:
-		return base + `
-- Creatively interpret ambiguous data
-- Generate plausible values for missing fields
-- Use context to enrich extracted data
-- Prioritize completeness over strict accuracy`
-
-	default:
-		return base
-	}
-}
-
-// buildGenerateStringPrompt creates the system prompt for string generation
-func buildGenerateStringPrompt(mode Mode) string {
-	switch mode {
-	case Strict:
-		return "You are a precise content generator. Generate exactly what is requested, following all specifications strictly."
-	case TransformMode:
-		return "You are a creative content generator. Generate the requested content while maintaining quality and relevance."
-	case Creative:
-		return "You are a highly creative content generator. Generate engaging, original content based on the prompt."
-	default:
-		return "You are a content generator. Generate the requested content based on the prompt."
-	}
-}
-
-// calculateParsingConfidence estimates confidence when parsing partially fails
-func calculateParsingConfidence(response string, targetType reflect.Type) float64 {
-	// Basic heuristic: check if response looks like valid JSON
-	response = strings.TrimSpace(response)
-	if strings.HasPrefix(response, "{") && strings.HasSuffix(response, "}") {
-		return 0.3 // Looks like JSON but failed to parse
-	}
-	if strings.HasPrefix(response, "[") && strings.HasSuffix(response, "]") {
-		return 0.3 // Looks like JSON array but failed to parse
-	}
-	return 0.1 // Doesn't look like JSON at all
-}
-
-// validateExtractedData validates extracted data meets requirements
-func validateExtractedData(data any, threshold float64) error {
-	// Basic validation - can be extended based on needs
-	if data == nil {
-		return fmt.Errorf("data cannot be nil")
-	}
-
-	value := reflect.ValueOf(data)
-	if !value.IsValid() {
-		return fmt.Errorf("invalid data")
-	}
-
-	if value.Kind() == reflect.Ptr {
-		if value.IsNil() {
-			return fmt.Errorf("data cannot be nil pointer")
-		}
-		value = value.Elem()
-	}
-
-	if value.Kind() != reflect.Struct {
-		return nil // Only validate structs for now
-	}
-
-	// Check for zero values in required fields
-	t := value.Type()
-	for i := 0; i < value.NumField(); i++ {
-		field := t.Field(i)
-		fieldValue := value.Field(i)
-
-		// Skip unexported fields
-		if !field.IsExported() {
-			continue
-		}
-
-		// Check if field is required (no omitempty tag)
-		jsonTag := field.Tag.Get("json")
-		if !strings.Contains(jsonTag, "omitempty") && fieldValue.IsZero() {
-			return fmt.Errorf("required field %s is empty", field.Name)
-		}
-	}
-
-	return nil
 }

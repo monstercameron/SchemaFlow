@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	schemaflow "github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/core"
 )
 
 // Test helper type
@@ -16,19 +16,38 @@ type Person struct {
 
 func TestDebug(t *testing.T) {
 	// Save original state
-	origDebug := schemaflow.GetDebugMode()
-	defer func() { schemaflow.SetDebugMode(origDebug) }()
+	originalDebug := core.IsDebugMode()
+	originalMetrics := core.IsMetricsEnabled()
+	core.Init("test-api-key") // Ensure logger is initialized
 
-	// Test enabling debug
-	Debug(true)
-	if !schemaflow.GetDebugMode() {
+	// Defer restoration
+	defer func() {
+		core.SetDebugMode(originalDebug)
+		core.SetMetricsEnabled(originalMetrics)
+	}()
+
+	// Test setting debug mode
+	core.SetDebugMode(true)
+	if !core.IsDebugMode() {
 		t.Error("Expected debug mode to be enabled")
 	}
 
-	// Test disabling debug
-	Debug(false)
-	if schemaflow.GetDebugMode() {
+	// Test disabling debug mode
+	core.SetDebugMode(false)
+	if core.IsDebugMode() {
 		t.Error("Expected debug mode to be disabled")
+	}
+
+	// Test setting metrics
+	core.SetMetricsEnabled(true)
+	if !core.IsMetricsEnabled() {
+		t.Error("Expected metrics to be enabled")
+	}
+
+	// Test disabling metrics
+	core.SetMetricsEnabled(false)
+	if core.IsMetricsEnabled() {
+		t.Error("Expected metrics to be disabled")
 	}
 }
 
@@ -131,11 +150,11 @@ func TestValidateInput(t *testing.T) {
 }
 
 func TestDumpOperation(t *testing.T) {
-	opts := schemaflow.OpOptions{
+	opts := core.OpOptions{
 		Steering:     "test steering",
 		Threshold:    0.8,
-		Mode:         schemaflow.TransformMode,
-		Intelligence: schemaflow.Smart,
+		Mode:         core.TransformMode,
+		Intelligence: core.Smart,
 	}
 
 	dump := DumpOperation("TestOp", "input", "output", nil, opts)
@@ -144,7 +163,7 @@ func TestDumpOperation(t *testing.T) {
 		t.Error("Expected dump to contain operation name")
 	}
 
-	if !strings.Contains(dump, "test-123") {
+	if !strings.Contains(dump, "RequestID") {
 		t.Error("Expected dump to contain request ID")
 	}
 

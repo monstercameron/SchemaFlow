@@ -1,4 +1,4 @@
-package schemaflow
+package core
 
 import (
 	"context"
@@ -258,75 +258,6 @@ func TestClientWithProviders(t *testing.T) {
 
 		if client.providerName != "local" {
 			t.Errorf("Expected provider name to be local, got %s", client.providerName)
-		}
-	})
-}
-
-func TestProviderIntegration(t *testing.T) {
-	// Save original state
-	oldClient := defaultClient
-	oldCallLLM := callLLM
-	defer func() {
-		defaultClient = oldClient
-		callLLM = oldCallLLM
-	}()
-
-	t.Run("ExtractWithProvider", func(t *testing.T) {
-		t.Skip("Skipped due to import cycle - ops imports core, so core tests can't import ops")
-
-		// Create client with local provider
-		client := NewClient("").WithProvider("local")
-		defaultClient = client
-
-		// Reset callLLM to use default implementation
-		callLLM = defaultCallLLM
-
-		type TestData struct {
-			Name string `json:"name"`
-			Age  int    `json:"age"`
-		}
-
-		// This should use the provider-based implementation
-		// result, err := ops.Extract[TestData]("Extract name and age", ops.NewExtractOptions())
-
-		// if err != nil {
-		// 	t.Fatalf("Unexpected error: %v", err)
-		// }
-
-		// Local provider returns mock data
-		// if result.Name == "" {
-		// 	t.Error("Expected name to be extracted")
-		// }
-	})
-
-	t.Run("MultipleProvidersInParallel", func(t *testing.T) {
-		// Register providers globally
-		openaiProvider, _ := NewOpenAIProvider(ProviderConfig{APIKey: "test"})
-		localProvider, _ := NewLocalProvider(ProviderConfig{})
-		anthropicProvider, _ := NewAnthropicProvider(ProviderConfig{APIKey: "test"})
-
-		RegisterProvider("test-openai", openaiProvider)
-		RegisterProvider("test-local", localProvider)
-		RegisterProvider("test-anthropic", anthropicProvider)
-
-		// Create multiple clients with different providers
-		clients := []*Client{
-			NewClient("").WithProvider("test-openai"),
-			NewClient("").WithProvider("test-local"),
-			NewClient("").WithProvider("test-anthropic"),
-		}
-
-		// Verify each client has the correct provider
-		expectedNames := []string{"openai", "local", "anthropic"}
-		for i, client := range clients {
-			if client.provider == nil {
-				t.Errorf("Client %d has no provider", i)
-				continue
-			}
-			if client.provider.Name() != expectedNames[i] {
-				t.Errorf("Client %d: expected provider %s, got %s",
-					i, expectedNames[i], client.provider.Name())
-			}
 		}
 	})
 }

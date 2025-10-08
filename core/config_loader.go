@@ -1,4 +1,4 @@
-package schemaflow
+package core
 
 import (
 	"bufio"
@@ -39,7 +39,7 @@ func LoadEnv(filePath ...string) error {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -98,13 +98,13 @@ func InitWithEnv(envFile ...string) error {
 	} else if model := os.Getenv("OPENAI_SMART_MODEL"); model != "" {
 		SetModel(Smart, model)
 	}
-	
+
 	if model := os.Getenv("SCHEMAFLOW_MODEL_FAST"); model != "" {
 		SetModel(Fast, model)
 	} else if model := os.Getenv("OPENAI_FAST_MODEL"); model != "" {
 		SetModel(Fast, model)
 	}
-	
+
 	if model := os.Getenv("SCHEMAFLOW_MODEL_QUICK"); model != "" {
 		SetModel(Quick, model)
 	} else if model := os.Getenv("OPENAI_QUICK_MODEL"); model != "" {
@@ -132,9 +132,9 @@ func SetModel(intelligence Speed, model string) {
 	mu.Lock()
 	defer mu.Unlock()
 	modelOverrides[intelligence] = model
-	
+
 	if debugMode {
-		logger.Debug("Model override set", 
+		logger.Debug("Model override set",
 			"intelligence", intelligence.String(),
 			"model", model,
 		)
@@ -145,12 +145,12 @@ func SetModel(intelligence Speed, model string) {
 func GetModel(intelligence Speed) string {
 	mu.RLock()
 	defer mu.RUnlock()
-	
+
 	// Check for override first
 	if model, ok := modelOverrides[intelligence]; ok {
 		return model
 	}
-	
+
 	// Return default
 	return getModel(intelligence)
 }
@@ -160,7 +160,7 @@ func SetProvider(p string) {
 	mu.Lock()
 	defer mu.Unlock()
 	provider = p
-	
+
 	if debugMode {
 		logger.Info("Provider changed", "provider", provider)
 	}
@@ -178,13 +178,14 @@ func SetDebugMode(enabled bool) {
 	mu.Lock()
 	defer mu.Unlock()
 	debugMode = enabled
-	
+
+	l := GetLogger()
 	if enabled {
-		logger.SetLevel(DebugLevel)
-		logger.Debug("Debug mode enabled")
+		l.SetLevel(DebugLevel)
+		l.Debug("Debug mode enabled")
 	} else {
-		logger.SetLevel(InfoLevel)
-		logger.Info("Debug mode disabled")
+		l.SetLevel(InfoLevel)
+		l.Info("Debug mode disabled")
 	}
 }
 
@@ -200,7 +201,7 @@ func SetMetricsEnabled(enabled bool) {
 	mu.Lock()
 	defer mu.Unlock()
 	metricsEnabled = enabled
-	
+
 	if debugMode {
 		logger.Info("Metrics collection changed", "enabled", enabled)
 	}

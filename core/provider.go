@@ -1,5 +1,4 @@
-// Package schemaflow - Provider abstraction for multiple LLM backends
-package schemaflow
+package core
 
 import (
 	"context"
@@ -14,22 +13,22 @@ import (
 type Provider interface {
 	// Complete sends a completion request to the LLM
 	Complete(ctx context.Context, req CompletionRequest) (CompletionResponse, error)
-	
+
 	// Name returns the provider name
 	Name() string
-	
+
 	// EstimateCost estimates the cost for a request
 	EstimateCost(req CompletionRequest) float64
 }
 
 // CompletionRequest represents a unified request format
 type CompletionRequest struct {
-	Model            string
-	SystemPrompt     string
-	UserPrompt       string
-	Temperature      float64
-	MaxTokens        int
-	ResponseFormat   string // "json" or "text"
+	Model          string
+	SystemPrompt   string
+	UserPrompt     string
+	Temperature    float64
+	MaxTokens      int
+	ResponseFormat string // "json" or "text"
 }
 
 // CompletionResponse represents a unified response format
@@ -50,12 +49,12 @@ type ProviderTokenUsage struct {
 
 // ProviderConfig contains provider-specific configuration
 type ProviderConfig struct {
-	APIKey      string
-	BaseURL     string
-	OrgID       string
-	Timeout     time.Duration
-	MaxRetries  int
-	Debug       bool
+	APIKey     string
+	BaseURL    string
+	OrgID      string
+	Timeout    time.Duration
+	MaxRetries int
+	Debug      bool
 }
 
 // OpenAIProvider implements Provider for OpenAI
@@ -69,20 +68,20 @@ func NewOpenAIProvider(config ProviderConfig) (*OpenAIProvider, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("OpenAI API key is required")
 	}
-	
+
 	// Create client config
 	clientConfig := openai.DefaultConfig(config.APIKey)
-	
+
 	if config.BaseURL != "" {
 		clientConfig.BaseURL = config.BaseURL
 	}
-	
+
 	if config.OrgID != "" {
 		clientConfig.OrgID = config.OrgID
 	}
-	
+
 	client := openai.NewClientWithConfig(clientConfig)
-	
+
 	return &OpenAIProvider{
 		client: client,
 		config: config,
@@ -101,32 +100,32 @@ func (provider *OpenAIProvider) Complete(ctx context.Context, req CompletionRequ
 			Content: req.UserPrompt,
 		},
 	}
-	
+
 	chatRequest := openai.ChatCompletionRequest{
 		Model:    req.Model,
 		Messages: messages,
 	}
-	
+
 	if req.Temperature > 0 {
 		chatRequest.Temperature = float32(req.Temperature)
 	}
-	
+
 	if req.MaxTokens > 0 {
 		chatRequest.MaxTokens = req.MaxTokens
 	}
-	
+
 	// Note: go-openai doesn't support response_format directly in the same way
 	// We'll handle JSON formatting through prompt engineering
-	
+
 	completion, err := provider.client.CreateChatCompletion(ctx, chatRequest)
 	if err != nil {
 		return CompletionResponse{}, fmt.Errorf("OpenAI completion failed: %w", err)
 	}
-	
+
 	if len(completion.Choices) == 0 {
 		return CompletionResponse{}, fmt.Errorf("no completion choices returned")
 	}
-	
+
 	return CompletionResponse{
 		Content:      completion.Choices[0].Message.Content,
 		Provider:     provider.Name(),
@@ -154,10 +153,10 @@ func (provider *OpenAIProvider) EstimateCost(req CompletionRequest) float64 {
 	if req.MaxTokens > 0 {
 		estimatedCompletionTokens = req.MaxTokens
 	}
-	
+
 	promptCost := float64(estimatedPromptTokens) * 0.03 / 1000
 	completionCost := float64(estimatedCompletionTokens) * 0.06 / 1000
-	
+
 	return promptCost + completionCost
 }
 
@@ -171,14 +170,14 @@ type AnthropicProvider struct {
 // NewAnthropicProvider creates a new Anthropic provider
 func NewAnthropicProvider(config ProviderConfig) (*AnthropicProvider, error) {
 	if config.APIKey == "" {
-		return nil, fmt.Errorf("Anthropic API key is required")
+		return nil, fmt.Errorf("anthropic API key is required")
 	}
-	
+
 	baseURL := config.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.anthropic.com"
 	}
-	
+
 	return &AnthropicProvider{
 		config:  config,
 		apiKey:  config.APIKey,
@@ -190,16 +189,16 @@ func NewAnthropicProvider(config ProviderConfig) (*AnthropicProvider, error) {
 func (provider *AnthropicProvider) Complete(ctx context.Context, req CompletionRequest) (CompletionResponse, error) {
 	// Note: This is a simplified implementation
 	// In production, you would use the official Anthropic SDK
-	
+
 	model := req.Model
 	if model == "" || strings.HasPrefix(model, "gpt") {
 		// Map OpenAI models to Claude models
 		model = "claude-3-opus-20240229"
 	}
-	
+
 	// Anthropic uses a different message format
 	prompt := fmt.Sprintf("%s\n\nHuman: %s\n\nAssistant:", req.SystemPrompt, req.UserPrompt)
-	
+
 	// This would make an actual API call to Anthropic
 	// For now, return a mock response
 	return CompletionResponse{
@@ -215,7 +214,6 @@ func (provider *AnthropicProvider) Complete(ctx context.Context, req CompletionR
 	}, nil
 }
 
-
 // Name returns the provider name
 func (provider *AnthropicProvider) Name() string {
 	return "anthropic"
@@ -229,17 +227,17 @@ func (provider *AnthropicProvider) EstimateCost(req CompletionRequest) float64 {
 	if req.MaxTokens > 0 {
 		estimatedCompletionTokens = req.MaxTokens
 	}
-	
+
 	promptCost := float64(estimatedPromptTokens) * 15.0 / 1_000_000
 	completionCost := float64(estimatedCompletionTokens) * 75.0 / 1_000_000
-	
+
 	return promptCost + completionCost
 }
 
 // LocalProvider implements Provider for local/mock models
 type LocalProvider struct {
-	config   ProviderConfig
-	handler  func(context.Context, CompletionRequest) (string, error)
+	config  ProviderConfig
+	handler func(context.Context, CompletionRequest) (string, error)
 }
 
 // NewLocalProvider creates a new local/mock provider
@@ -259,7 +257,7 @@ func (provider *LocalProvider) WithHandler(handler func(context.Context, Complet
 func (provider *LocalProvider) Complete(ctx context.Context, req CompletionRequest) (CompletionResponse, error) {
 	var content string
 	var err error
-	
+
 	if provider.handler != nil {
 		content, err = provider.handler(ctx, req)
 		if err != nil {
@@ -269,7 +267,7 @@ func (provider *LocalProvider) Complete(ctx context.Context, req CompletionReque
 		// Default mock behavior for testing
 		content = provider.mockResponse(req)
 	}
-	
+
 	return CompletionResponse{
 		Content:      content,
 		Provider:     provider.Name(),
@@ -287,7 +285,7 @@ func (provider *LocalProvider) Complete(ctx context.Context, req CompletionReque
 func (provider *LocalProvider) mockResponse(req CompletionRequest) string {
 	// Analyze the prompt to generate appropriate mock responses
 	userPrompt := strings.ToLower(req.UserPrompt)
-	
+
 	// Check for extraction patterns
 	if strings.Contains(userPrompt, "extract") || strings.Contains(req.SystemPrompt, "extraction") {
 		if req.ResponseFormat == "json" {
@@ -295,22 +293,22 @@ func (provider *LocalProvider) mockResponse(req CompletionRequest) string {
 		}
 		return "Extracted data: John Doe, 30 years old"
 	}
-	
+
 	// Check for validation patterns
 	if strings.Contains(userPrompt, "validate") || strings.Contains(req.SystemPrompt, "validation") {
 		return `{"valid": true, "issues": [], "confidence": 0.95}`
 	}
-	
+
 	// Check for transformation patterns
 	if strings.Contains(userPrompt, "transform") || strings.Contains(req.SystemPrompt, "transform") {
 		return `{"result": "transformed data", "success": true}`
 	}
-	
+
 	// Default response
 	if req.ResponseFormat == "json" {
 		return `{"response": "Mock response for testing", "success": true}`
 	}
-	
+
 	return "Mock response for: " + req.UserPrompt
 }
 
@@ -354,12 +352,12 @@ func (registry *ProviderRegistry) Get(name string) (Provider, error) {
 	if name == "" {
 		name = registry.defaultProvider
 	}
-	
+
 	provider, ok := registry.providers[name]
 	if !ok {
 		return nil, fmt.Errorf("provider %s not found", name)
 	}
-	
+
 	return provider, nil
 }
 

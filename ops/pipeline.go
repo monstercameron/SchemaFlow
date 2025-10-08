@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/monstercameron/SchemaFlow/core"
 )
 
 // Pipeline represents a chain of operations that process data sequentially
 type Pipeline struct {
 	name   string
 	steps  []PipelineStep
-	client *Client
+	client *core.Client
 	opts   PipelineOptions
 }
 
@@ -25,11 +27,11 @@ type PipelineStep struct {
 
 // PipelineOptions configures pipeline execution
 type PipelineOptions struct {
-	FailFast      bool          // Stop on first error
-	Timeout       time.Duration // Overall pipeline timeout
-	RetryFailed   bool          // Retry failed steps
-	MaxRetries    int           // Maximum retry attempts
-	SaveProgress  bool          // Allow resuming from failure point
+	FailFast     bool          // Stop on first error
+	Timeout      time.Duration // Overall pipeline timeout
+	RetryFailed  bool          // Retry failed steps
+	MaxRetries   int           // Maximum retry attempts
+	SaveProgress bool          // Allow resuming from failure point
 }
 
 // PipelineResult contains the results of pipeline execution
@@ -47,7 +49,7 @@ func NewPipeline(name string, opts ...PipelineOptions) *Pipeline {
 		name:  name,
 		steps: []PipelineStep{},
 	}
-	
+
 	if len(opts) > 0 {
 		p.opts = opts[0]
 	} else {
@@ -58,12 +60,12 @@ func NewPipeline(name string, opts ...PipelineOptions) *Pipeline {
 			MaxRetries:  3,
 		}
 	}
-	
+
 	return p
 }
 
 // ClientPipeline creates a pipeline bound to a specific client
-func (c *Client) Pipeline(name string, opts ...PipelineOptions) *Pipeline {
+func ClientPipeline(c *core.Client, name string, opts ...PipelineOptions) *Pipeline {
 	p := NewPipeline(name, opts...)
 	p.client = c
 	return p
@@ -96,34 +98,34 @@ func (p *Pipeline) Execute(ctx context.Context, input any) PipelineResult {
 		Output: input,
 		Errors: []error{},
 	}
-	
+
 	// Apply timeout if specified
 	if p.opts.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, p.opts.Timeout)
 		defer cancel()
 	}
-	
+
 	// Set client context if available
 	if p.client != nil {
 		// Use client configuration
-		oldClient := client
-		oldTimeout := timeout
-		oldLogger := logger
-		
-		p.client.mu.RLock()
-		client = p.client.openaiClient
-		timeout = p.client.timeout
-		logger = p.client.logger
-		p.client.mu.RUnlock()
-		
-		defer func() {
-			client = oldClient
-			timeout = oldTimeout
-			logger = oldLogger
-		}()
+		// oldClient := client
+		// oldTimeout := timeout
+		// oldLogger := logger
+
+		// p.client.mu.RLock()
+		// client = p.client.openaiClient
+		// timeout = p.client.timeout
+		// logger = p.client.logger
+		// p.client.mu.RUnlock()
+
+		// defer func() {
+		// 	client = oldClient
+		// 	timeout = oldTimeout
+		// 	logger = oldLogger
+		// }()
 	}
-	
+
 	// Execute steps sequentially
 	current := input
 	for i, step := range p.steps {
@@ -134,20 +136,20 @@ func (p *Pipeline) Execute(ctx context.Context, input any) PipelineResult {
 			return result
 		default:
 		}
-		
-		logger.Debug("Executing pipeline step",
+
+		core.GetLogger().Debug("Executing pipeline step",
 			"pipeline", p.name,
 			"step", step.Name,
 			"index", i,
 		)
-		
+
 		// Execute with retry if configured
 		var stepErr error
 		attempts := 1
 		if p.opts.RetryFailed && !step.Optional {
 			attempts = p.opts.MaxRetries
 		}
-		
+
 		for attempt := 0; attempt < attempts; attempt++ {
 			output, err := step.Operation(ctx, current)
 			if err == nil {
@@ -155,10 +157,10 @@ func (p *Pipeline) Execute(ctx context.Context, input any) PipelineResult {
 				result.StepsExecuted++
 				break
 			}
-			
+
 			stepErr = err
 			if attempt < attempts-1 {
-				logger.Debug("Retrying failed step",
+				core.GetLogger().Debug("Retrying failed step",
 					"step", step.Name,
 					"attempt", attempt+1,
 					"error", err,
@@ -166,18 +168,18 @@ func (p *Pipeline) Execute(ctx context.Context, input any) PipelineResult {
 				time.Sleep(time.Duration(attempt+1) * time.Second)
 			}
 		}
-		
+
 		if stepErr != nil {
 			result.Errors = append(result.Errors, fmt.Errorf("step %s failed: %w", step.Name, stepErr))
 			result.StepsFailed++
-			
+
 			if !step.Optional && p.opts.FailFast {
 				result.Duration = time.Since(startTime)
 				return result
 			}
 		}
 	}
-	
+
 	result.Output = current
 	result.Duration = time.Since(startTime)
 	return result
@@ -190,19 +192,19 @@ func Compose[T any, U any](operations ...func(T) (U, error)) func(T) (U, error) 
 		if len(operations) == 0 {
 			return zero, fmt.Errorf("no operations to compose")
 		}
-		
+
 		// For single operation, just return it
 		if len(operations) == 1 {
 			return operations[0](input)
 		}
-		
+
 		// For multiple operations, they need to be type-compatible
 		// This is a simplified version - in practice you'd need more sophisticated type handling
 		result, err := operations[0](input)
 		if err != nil {
 			return zero, err
 		}
-		
+
 		return result, nil
 	}
 }
@@ -214,17 +216,17 @@ func Then[T any, U any, V any](
 ) func(T) (V, error) {
 	return func(input T) (V, error) {
 		var zero V
-		
+
 		intermediate, err := first(input)
 		if err != nil {
 			return zero, fmt.Errorf("first operation failed: %w", err)
 		}
-		
+
 		result, err := second(intermediate)
 		if err != nil {
 			return zero, fmt.Errorf("second operation failed: %w", err)
 		}
-		
+
 		return result, nil
 	}
 }
@@ -232,7 +234,7 @@ func Then[T any, U any, V any](
 // Map applies an operation to each element in a slice
 func Map[T any, U any](items []T, operation func(T) (U, error)) ([]U, error) {
 	results := make([]U, len(items))
-	
+
 	for i, item := range items {
 		result, err := operation(item)
 		if err != nil {
@@ -240,7 +242,7 @@ func Map[T any, U any](items []T, operation func(T) (U, error)) ([]U, error) {
 		}
 		results[i] = result
 	}
-	
+
 	return results, nil
 }
 
@@ -248,18 +250,18 @@ func Map[T any, U any](items []T, operation func(T) (U, error)) ([]U, error) {
 func MapConcurrent[T any, U any](items []T, operation func(T) (U, error), maxConcurrent int) ([]U, error) {
 	results := make([]U, len(items))
 	errors := make([]error, len(items))
-	
+
 	sem := make(chan struct{}, maxConcurrent)
 	var wg sync.WaitGroup
-	
+
 	for i, item := range items {
 		wg.Add(1)
 		go func(idx int, itm T) {
 			defer wg.Done()
-			
+
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			
+
 			result, err := operation(itm)
 			if err != nil {
 				errors[idx] = err
@@ -268,36 +270,36 @@ func MapConcurrent[T any, U any](items []T, operation func(T) (U, error), maxCon
 			}
 		}(i, item)
 	}
-	
+
 	wg.Wait()
-	
+
 	// Check for errors
 	for i, err := range errors {
 		if err != nil {
 			return nil, fmt.Errorf("concurrent map failed at index %d: %w", i, err)
 		}
 	}
-	
+
 	return results, nil
 }
 
 // Reduce applies a reduction operation to combine multiple items
 func Reduce[T any](items []T, operation func(T, T) T) (T, error) {
 	var zero T
-	
+
 	if len(items) == 0 {
 		return zero, fmt.Errorf("cannot reduce empty slice")
 	}
-	
+
 	if len(items) == 1 {
 		return items[0], nil
 	}
-	
+
 	result := items[0]
 	for i := 1; i < len(items); i++ {
 		result = operation(result, items[i])
 	}
-	
+
 	return result, nil
 }
 
@@ -313,19 +315,19 @@ func Tap[T any](operation func(T)) func(T) (T, error) {
 func Retry[T any](operation func() (T, error), maxAttempts int, delay time.Duration) (T, error) {
 	var zero T
 	var lastErr error
-	
+
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		result, err := operation()
 		if err == nil {
 			return result, nil
 		}
-		
+
 		lastErr = err
 		if attempt < maxAttempts-1 {
 			time.Sleep(delay * time.Duration(attempt+1))
 		}
 	}
-	
+
 	return zero, fmt.Errorf("operation failed after %d attempts: %w", maxAttempts, lastErr)
 }
 
@@ -353,15 +355,15 @@ func (c *CachedOperation[T]) Execute() (T, error) {
 		return c.result, c.err
 	}
 	c.mu.RUnlock()
-	
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if c.cached {
 		return c.result, c.err
 	}
-	
+
 	c.result, c.err = c.operation()
 	c.cached = true
 	return c.result, c.err

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/monstercameron/SchemaFlow/core"
 )
 
 // Decision represents a decision point with typed options
@@ -28,14 +30,23 @@ type DecisionResult struct {
 }
 
 // Decide makes a decision based on conditions and context
-func Decide[T any](ctx any, decisions []Decision[T], opts ...OpOptions) (T, DecisionResult, error) {
+func Decide[T any](ctx any, decisions []Decision[T], opts ...core.OpOptions) (T, DecisionResult, error) {
+	return decideImpl(core.GetDefaultClient(), ctx, decisions, opts...)
+}
+
+// ClientDecide is the client-based version of Decide
+func ClientDecide[T any](c *core.Client, ctx any, decisions []Decision[T], opts ...core.OpOptions) (T, DecisionResult, error) {
+	return decideImpl(c, ctx, decisions, opts...)
+}
+
+func decideImpl[T any](c *core.Client, ctx any, decisions []Decision[T], opts ...core.OpOptions) (T, DecisionResult, error) {
 	var zero T
 	result := DecisionResult{SelectedIndex: -1}
-	
+
 	if len(decisions) == 0 {
 		return zero, result, fmt.Errorf("no decisions provided")
 	}
-	
+
 	// First check programmatic conditions
 	for i, decision := range decisions {
 		if decision.Condition != nil && decision.Condition(ctx) {
@@ -45,18 +56,19 @@ func Decide[T any](ctx any, decisions []Decision[T], opts ...OpOptions) (T, Deci
 			return decision.Value, result, nil
 		}
 	}
-	
+
 	// If no programmatic condition matches, use LLM for decision
-	opt := applyDefaults(opts)
-	llmCtx, cancel := context.WithTimeout(context.Background(), timeout)
+	opt := core.ApplyDefaults(opts...)
+	opt.Client = c
+	llmCtx, cancel := context.WithTimeout(context.Background(), core.GetTimeout())
 	defer cancel()
-	
+
 	// Prepare decision options for LLM
 	var options []string
 	for i, decision := range decisions {
 		options = append(options, fmt.Sprintf("%d. %s", i, decision.Description))
 	}
-	
+
 	systemPrompt := `You are a decision-making expert. Analyze the context and choose the best option.
 Return a JSON object with:
 {
@@ -73,8 +85,8 @@ Options:
 %s
 
 Choose the best option based on the context.`, ctx, strings.Join(options, "\n"))
-	
-	response, err := callLLM(llmCtx, systemPrompt, userPrompt, opt)
+
+	response, err := core.CallLLM(llmCtx, systemPrompt, userPrompt, opt)
 	if err != nil {
 		// Default to first option if LLM fails
 		result.SelectedIndex = 0
@@ -82,7 +94,7 @@ Choose the best option based on the context.`, ctx, strings.Join(options, "\n"))
 		result.Confidence = 0.5
 		return decisions[0].Value, result, nil
 	}
-	
+
 	// Parse LLM response
 	var llmResult struct {
 		Selected     int     `json:"selected"`
@@ -90,7 +102,7 @@ Choose the best option based on the context.`, ctx, strings.Join(options, "\n"))
 		Confidence   float64 `json:"confidence"`
 		Alternatives []int   `json:"alternatives"`
 	}
-	
+
 	if err := json.Unmarshal([]byte(response), &llmResult); err == nil {
 		if llmResult.Selected >= 0 && llmResult.Selected < len(decisions) {
 			result.SelectedIndex = llmResult.Selected
@@ -100,7 +112,7 @@ Choose the best option based on the context.`, ctx, strings.Join(options, "\n"))
 			return decisions[llmResult.Selected].Value, result, nil
 		}
 	}
-	
+
 	// Fallback to first option
 	result.SelectedIndex = 0
 	result.Explanation = "Default selection"
@@ -118,12 +130,21 @@ type GuardResult struct {
 
 // Guard checks if conditions are met before proceeding
 func Guard[T any](state T, checks ...func(T) (bool, string)) GuardResult {
+	return guardImpl(core.GetDefaultClient(), state, checks...)
+}
+
+// ClientGuard is the client-based version of Guard
+func ClientGuard[T any](c *core.Client, state T, checks ...func(T) (bool, string)) GuardResult {
+	return guardImpl(c, state, checks...)
+}
+
+func guardImpl[T any](c *core.Client, state T, checks ...func(T) (bool, string)) GuardResult {
 	result := GuardResult{
 		CanProceed:   true,
 		FailedChecks: []string{},
 		Suggestions:  []string{},
 	}
-	
+
 	for _, check := range checks {
 		passed, message := check(state)
 		if !passed {
@@ -131,20 +152,21 @@ func Guard[T any](state T, checks ...func(T) (bool, string)) GuardResult {
 			result.FailedChecks = append(result.FailedChecks, message)
 		}
 	}
-	
+
 	// Generate suggestions for failed checks using LLM if available
 	if !result.CanProceed && len(result.FailedChecks) > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		
+
 		systemPrompt := "You are a helpful assistant. Suggest how to fix these issues."
 		userPrompt := fmt.Sprintf("Issues:\n%s", strings.Join(result.FailedChecks, "\n"))
-		
-		if response, err := callLLM(ctx, systemPrompt, userPrompt, OpOptions{Intelligence: Quick}); err == nil {
+
+		opt := core.OpOptions{Intelligence: core.Quick, Client: c}
+		if response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt); err == nil {
 			result.Suggestions = strings.Split(response, "\n")
 		}
 	}
-	
+
 	return result
 }
 
@@ -186,7 +208,7 @@ func (sm *StateMachine[S, E]) AddState(state StateDefinition[S, E]) {
 func (sm *StateMachine[S, E]) AddTransition(from S, eventType string, to S) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	if sm.Transitions[from] == nil {
 		sm.Transitions[from] = make(map[string]S)
 	}
@@ -197,12 +219,12 @@ func (sm *StateMachine[S, E]) AddTransition(from S, eventType string, to S) {
 func (sm *StateMachine[S, E]) Transition(event E) (S, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	eventType := reflect.TypeOf(event).Name()
 	if eventType == "" {
 		eventType = fmt.Sprintf("%T", event)
 	}
-	
+
 	// Check if transition exists
 	if transitions, ok := sm.Transitions[sm.Current]; ok {
 		if nextState, ok := transitions[eventType]; ok {
@@ -212,22 +234,22 @@ func (sm *StateMachine[S, E]) Transition(event E) (S, error) {
 					return sm.Current, fmt.Errorf("exit handler failed: %w", err)
 				}
 			}
-			
+
 			// Transition to new state
 			sm.Current = nextState
 			sm.History = append(sm.History, nextState)
-			
+
 			// Execute enter handler for new state
 			if state, exists := sm.States[nextState]; exists && state.OnEnter != nil {
 				if err := state.OnEnter(); err != nil {
 					return sm.Current, fmt.Errorf("enter handler failed: %w", err)
 				}
 			}
-			
+
 			return nextState, nil
 		}
 	}
-	
+
 	return sm.Current, fmt.Errorf("no transition from %v for event %s", sm.Current, eventType)
 }
 
@@ -235,7 +257,7 @@ func (sm *StateMachine[S, E]) Transition(event E) (S, error) {
 func (sm *StateMachine[S, E]) GetHistory() []S {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
-	
+
 	history := make([]S, len(sm.History))
 	copy(history, sm.History)
 	return history
@@ -253,25 +275,25 @@ type RetryStrategy struct {
 func WithRetry[T any](operation func() (T, error), strategy RetryStrategy) (T, error) {
 	var zero T
 	var lastErr error
-	
+
 	delay := strategy.InitialDelay
-	
+
 	for attempt := 0; attempt < strategy.MaxAttempts; attempt++ {
 		result, err := operation()
 		if err == nil {
 			return result, nil
 		}
-		
+
 		lastErr = err
-		
+
 		// Check if error is retryable
 		if !isRetryableError(err) {
 			return zero, err
 		}
-		
+
 		if attempt < strategy.MaxAttempts-1 {
 			time.Sleep(delay)
-			
+
 			// Calculate next delay
 			delay = time.Duration(float64(delay) * strategy.Multiplier)
 			if delay > strategy.MaxDelay {
@@ -279,8 +301,25 @@ func WithRetry[T any](operation func() (T, error), strategy RetryStrategy) (T, e
 			}
 		}
 	}
-	
+
 	return zero, fmt.Errorf("operation failed after %d attempts: %w", strategy.MaxAttempts, lastErr)
+}
+
+func isRetryableError(err error) bool {
+	// More comprehensive check for retryable errors.
+	s := strings.ToLower(err.Error())
+	retryableSubstrings := []string{
+		"timeout", "temporary", "connection reset", "connection refused",
+		"i/o timeout", "rate limit", "throttled", "try again later",
+		"service unavailable", "503", "429", "504",
+	}
+
+	for _, sub := range retryableSubstrings {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
 }
 
 // LoopWhile executes a function while a condition is true
@@ -292,7 +331,7 @@ func LoopWhile[T any](
 ) (T, error) {
 	iterations := 0
 	current := state
-	
+
 	for condition(current) && iterations < maxIterations {
 		next, err := body(current)
 		if err != nil {
@@ -301,11 +340,11 @@ func LoopWhile[T any](
 		current = next
 		iterations++
 	}
-	
+
 	if iterations >= maxIterations {
 		return current, fmt.Errorf("max iterations (%d) reached", maxIterations)
 	}
-	
+
 	return current, nil
 }
 
@@ -336,7 +375,7 @@ func Try[T any](operation func() (T, error)) (result T, err error) {
 			err = fmt.Errorf("panic recovered: %v", r)
 		}
 	}()
-	
+
 	return operation()
 }
 
@@ -376,7 +415,7 @@ func (w *Workflow) AddStep(step WorkflowStep) *Workflow {
 // Execute runs the workflow
 func (w *Workflow) Execute(ctx context.Context) error {
 	completed := make(map[string]bool)
-	
+
 	for _, step := range w.Steps {
 		// Check dependencies
 		for _, dep := range step.Dependencies {
@@ -384,13 +423,13 @@ func (w *Workflow) Execute(ctx context.Context) error {
 				return fmt.Errorf("dependency %s not met for step %s", dep, step.Name)
 			}
 		}
-		
+
 		// Execute step with retry
 		attempts := 1
 		if step.CanRetry && step.MaxRetries > 0 {
 			attempts = step.MaxRetries
 		}
-		
+
 		var stepErr error
 		for attempt := 0; attempt < attempts; attempt++ {
 			stepErr = step.Execute(ctx, w.State)
@@ -398,12 +437,12 @@ func (w *Workflow) Execute(ctx context.Context) error {
 				completed[step.Name] = true
 				break
 			}
-			
+
 			if attempt < attempts-1 {
 				time.Sleep(time.Duration(attempt+1) * time.Second)
 			}
 		}
-		
+
 		if stepErr != nil {
 			// Execute compensation for completed steps in reverse order
 			for i := len(w.Steps) - 1; i >= 0; i-- {
@@ -414,7 +453,7 @@ func (w *Workflow) Execute(ctx context.Context) error {
 			return fmt.Errorf("step %s failed: %w", step.Name, stepErr)
 		}
 	}
-	
+
 	return nil
 }
 

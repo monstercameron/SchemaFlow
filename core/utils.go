@@ -1,5 +1,4 @@
-// Package schemaflow - Utility functions and helpers
-package schemaflow
+package core
 
 import (
 	"fmt"
@@ -30,7 +29,7 @@ func recordMetric(name string, value int64, tags map[string]string) {
 	if !metricsEnabled {
 		return
 	}
-	
+
 	// This is a placeholder - in production, integrate with your metrics system
 	// (Prometheus, DataDog, CloudWatch, etc.)
 	if debugMode {

@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"sync"
 	"time"
+
+	core "github.com/monstercameron/SchemaFlow/core"
 )
 
 // BatchMode defines how batch operations are processed
@@ -22,7 +24,7 @@ const (
 
 // BatchProcessor handles batch operations with different processing modes
 type BatchProcessor struct {
-	client        *Client
+	client        *core.Client
 	mode          BatchMode
 	maxConcurrent int
 	maxBatchSize  int
@@ -31,25 +33,25 @@ type BatchProcessor struct {
 
 // BatchResult contains the results of a batch operation
 type BatchResult[T any] struct {
-	Results   []T
-	Errors    []error
-	Metadata  BatchMetadata
+	Results  []T
+	Errors   []error
+	Metadata BatchMetadata
 }
 
 // BatchMetadata provides metrics about the batch operation
 type BatchMetadata struct {
-	Mode           BatchMode
-	TotalItems     int
-	Succeeded      int
-	Failed         int
-	Duration       time.Duration
-	TokensSaved    int
-	APICallsMade   int
-	EstimatedCost  float64
+	Mode          BatchMode
+	TotalItems    int
+	Succeeded     int
+	Failed        int
+	Duration      time.Duration
+	TokensSaved   int
+	APICallsMade  int
+	EstimatedCost float64
 }
 
-// Batch creates a new batch processor
-func (client *Client) Batch() *BatchProcessor {
+// NewBatchProcessor creates a new batch processor for a given client.
+func NewBatchProcessor(client *core.Client) *BatchProcessor {
 	return &BatchProcessor{
 		client:        client,
 		mode:          ParallelMode,
@@ -61,10 +63,11 @@ func (client *Client) Batch() *BatchProcessor {
 
 // Global Batch function for backward compatibility
 func Batch() *BatchProcessor {
-	if defaultClient == nil {
-		defaultClient = NewClient("")
+	if core.GetDefaultClient() == nil {
+		// This will create and set a default client if one doesn't exist.
+		core.NewClient("")
 	}
-	return defaultClient.Batch()
+	return NewBatchProcessor(core.GetDefaultClient())
 }
 
 // WithMode sets the batch processing mode
@@ -93,7 +96,7 @@ func (batchProcessor *BatchProcessor) WithTimeout(timeout time.Duration) *BatchP
 
 // ExtractBatch performs batch extraction based on the configured mode
 // Note: Go doesn't support type parameters on methods, so we use a function
-func ExtractBatch[T any](batchProcessor *BatchProcessor, inputs []interface{}, opts ...OpOptions) BatchResult[T] {
+func ExtractBatch[T any](batchProcessor *BatchProcessor, inputs []interface{}, opts ...core.OpOptions) BatchResult[T] {
 	// Convert legacy OpOptions to ExtractOptions for compatibility
 	var extractOpts ExtractOptions
 	if len(opts) > 0 {
@@ -106,7 +109,7 @@ func ExtractBatch[T any](batchProcessor *BatchProcessor, inputs []interface{}, o
 	} else {
 		extractOpts = NewExtractOptions()
 	}
-	
+
 	switch batchProcessor.mode {
 	case MergedMode:
 		return extractMerged[T](batchProcessor, inputs, extractOpts)
@@ -120,22 +123,22 @@ func extractParallel[T any](batchProcessor *BatchProcessor, inputs []interface{}
 	startTime := time.Now()
 	results := make([]T, len(inputs))
 	errors := make([]error, len(inputs))
-	
+
 	// Semaphore for concurrency control
 	semaphore := make(chan struct{}, batchProcessor.maxConcurrent)
 	var wg sync.WaitGroup
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), batchProcessor.timeout)
 	defer cancel()
-	
+
 	apiCalls := 0
 	var apiCallsMu sync.Mutex
-	
+
 	for i, input := range inputs {
 		wg.Add(1)
 		go func(idx int, input interface{}) {
 			defer wg.Done()
-			
+
 			select {
 			case semaphore <- struct{}{}:
 				defer func() { <-semaphore }()
@@ -143,7 +146,7 @@ func extractParallel[T any](batchProcessor *BatchProcessor, inputs []interface{}
 				errors[idx] = ctx.Err()
 				return
 			}
-			
+
 			result, err := Extract[T](input, opts)
 			if err == nil {
 				results[idx] = result
@@ -155,9 +158,9 @@ func extractParallel[T any](batchProcessor *BatchProcessor, inputs []interface{}
 			}
 		}(i, input)
 	}
-	
+
 	wg.Wait()
-	
+
 	// Calculate metadata
 	succeeded := 0
 	for _, err := range errors {
@@ -165,7 +168,7 @@ func extractParallel[T any](batchProcessor *BatchProcessor, inputs []interface{}
 			succeeded++
 		}
 	}
-	
+
 	return BatchResult[T]{
 		Results: results,
 		Errors:  errors,
@@ -187,31 +190,31 @@ func extractMerged[T any](batchProcessor *BatchProcessor, inputs []interface{}, 
 	var allErrors []error
 	apiCalls := 0
 	tokensSaved := 0
-	
+
 	// Process in chunks
 	chunks := batchProcessor.createChunks(inputs, batchProcessor.maxBatchSize)
-	
+
 	for _, chunk := range chunks {
 		// Create merged prompt
 		mergedPrompt := batchProcessor.createMergedExtractPrompt(chunk)
-		
+
 		// Get type information for response parsing
 		var sample T
-		typeInfo := generateTypeSchema(reflect.TypeOf(sample))
-		
+		typeInfo := GenerateTypeSchema(reflect.TypeOf(sample))
+
 		systemPrompt := fmt.Sprintf(`You are a data extraction expert. Extract structured data for multiple items.
 
 Output JSON array where each element matches this schema:
 %s
 
 Return format: [{"index": 0, "data": {...}}, {"index": 1, "data": {...}}, ...]`, typeInfo)
-		
-		opt := opts.toOpOptions()
+
+		opOptions := opts.toOpOptions()
 		ctx, cancel := context.WithTimeout(context.Background(), batchProcessor.timeout)
-		
-		response, err := callLLM(ctx, systemPrompt, mergedPrompt, opt)
+
+		response, err := core.CallLLM(ctx, systemPrompt, mergedPrompt, opOptions)
 		cancel()
-		
+
 		if err != nil {
 			// Add error for each item in chunk
 			for range chunk {
@@ -220,18 +223,18 @@ Return format: [{"index": 0, "data": {...}}, {"index": 1, "data": {...}}, ...]`,
 			}
 			continue
 		}
-		
+
 		apiCalls++
-		
+
 		// Parse merged response
 		results, parseErrors := parseMergedResponse[T](response, len(chunk))
 		allResults = append(allResults, results...)
 		allErrors = append(allErrors, parseErrors...)
-		
+
 		// Estimate tokens saved (rough calculation)
 		tokensSaved += (len(chunk) - 1) * 100 // Approximate overhead per call
 	}
-	
+
 	// Calculate metadata
 	succeeded := 0
 	for _, err := range allErrors {
@@ -239,7 +242,7 @@ Return format: [{"index": 0, "data": {...}}, {"index": 1, "data": {...}}, ...]`,
 			succeeded++
 		}
 	}
-	
+
 	return BatchResult[T]{
 		Results: allResults,
 		Errors:  allErrors,
@@ -259,7 +262,7 @@ Return format: [{"index": 0, "data": {...}}, {"index": 1, "data": {...}}, ...]`,
 // createChunks splits inputs into chunks of specified size
 func (batchProcessor *BatchProcessor) createChunks(inputs []interface{}, chunkSize int) [][]interface{} {
 	var chunks [][]interface{}
-	
+
 	for i := 0; i < len(inputs); i += chunkSize {
 		end := i + chunkSize
 		if end > len(inputs) {
@@ -267,18 +270,18 @@ func (batchProcessor *BatchProcessor) createChunks(inputs []interface{}, chunkSi
 		}
 		chunks = append(chunks, inputs[i:end])
 	}
-	
+
 	return chunks
 }
 
 // createMergedExtractPrompt creates a single prompt for multiple items
 func (batchProcessor *BatchProcessor) createMergedExtractPrompt(items []interface{}) string {
 	prompt := "Extract structured data for each of the following items:\n\n"
-	
+
 	for i, item := range items {
 		prompt += fmt.Sprintf("Item %d:\n%v\n\n", i, item)
 	}
-	
+
 	prompt += "Return a JSON array with extracted data for each item in order."
 	return prompt
 }
@@ -287,13 +290,13 @@ func (batchProcessor *BatchProcessor) createMergedExtractPrompt(items []interfac
 func parseMergedResponse[T any](response string, expectedCount int) ([]T, []error) {
 	results := make([]T, expectedCount)
 	errors := make([]error, expectedCount)
-	
+
 	// Try to parse as JSON array
 	var parsed []struct {
 		Index int             `json:"index"`
 		Data  json.RawMessage `json:"data"`
 	}
-	
+
 	if err := json.Unmarshal([]byte(response), &parsed); err != nil {
 		// If parsing fails, return error for all items
 		for i := range errors {
@@ -301,7 +304,7 @@ func parseMergedResponse[T any](response string, expectedCount int) ([]T, []erro
 		}
 		return results, errors
 	}
-	
+
 	// Map parsed results to correct indices
 	for _, item := range parsed {
 		if item.Index >= 0 && item.Index < expectedCount {
@@ -313,7 +316,7 @@ func parseMergedResponse[T any](response string, expectedCount int) ([]T, []erro
 			}
 		}
 	}
-	
+
 	// Mark any missing indices as errors
 	for i := range results {
 		if errors[i] == nil {
@@ -324,34 +327,34 @@ func parseMergedResponse[T any](response string, expectedCount int) ([]T, []erro
 			}
 		}
 	}
-	
+
 	return results, errors
 }
 
 // SmartBatch automatically selects the best batch mode based on input characteristics
 type SmartBatch struct {
-	client *Client
+	client *core.Client
 }
 
-// SmartBatch creates an intelligent batch processor
-func (client *Client) SmartBatch() *SmartBatch {
+// NewSmartBatch creates an intelligent batch processor.
+func NewSmartBatch(client *core.Client) *SmartBatch {
 	return &SmartBatch{client: client}
 }
 
 // ExtractSmart automatically chooses the best batch mode
-func ExtractSmart[T any](smartBatch *SmartBatch, inputs []interface{}, opts ...OpOptions) BatchResult[T] {
+func ExtractSmart[T any](smartBatch *SmartBatch, inputs []interface{}, opts ...core.OpOptions) BatchResult[T] {
 	mode := smartBatch.determineBestMode(inputs)
-	
-	batch := smartBatch.client.Batch()
+
+	batch := NewBatchProcessor(smartBatch.client)
 	batch = batch.WithMode(mode)
-	
+
 	// Adjust parameters based on mode
 	if mode == MergedMode {
 		batch = batch.WithBatchSize(20)
 	} else {
 		batch = batch.WithConcurrency(10)
 	}
-	
+
 	return ExtractBatch[T](batch, inputs, opts...)
 }
 
@@ -361,12 +364,12 @@ func (smartBatch *SmartBatch) determineBestMode(inputs []interface{}) BatchMode 
 	if len(inputs) > 20 {
 		return MergedMode
 	}
-	
+
 	// Check similarity of inputs
 	if smartBatch.areInputsSimilar(inputs) {
 		return MergedMode
 	}
-	
+
 	// Default to ParallelMode for better error isolation
 	return ParallelMode
 }
@@ -376,7 +379,7 @@ func (smartBatch *SmartBatch) areInputsSimilar(inputs []interface{}) bool {
 	if len(inputs) < 3 {
 		return false // Too few items to benefit from merging
 	}
-	
+
 	// Simple heuristic: check if all inputs are the same type
 	firstType := reflect.TypeOf(inputs[0])
 	for _, input := range inputs[1:] {
@@ -384,6 +387,6 @@ func (smartBatch *SmartBatch) areInputsSimilar(inputs []interface{}) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }

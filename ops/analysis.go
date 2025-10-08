@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	schemaflow "github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/core"
 )
 
 // Classify categorizes text into predefined categories with specialized options.
@@ -53,13 +53,13 @@ func Classify(input string, opts ClassifyOptions) (string, error) {
 
 	if len(instructions) > 0 {
 		steering := strings.Join(instructions, ". ")
-		if opts.Steering != "" {
-			steering = opts.Steering + ". " + steering
+		if opts.OpOptions.Steering != "" {
+			steering = opts.OpOptions.Steering + ". " + steering
 		}
 		opt.Steering = steering
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), schemaflow.GetTimeout())
+	ctx, cancel := context.WithTimeout(context.Background(), core.GetTimeout())
 	defer cancel()
 
 	categoriesJSON, _ := json.Marshal(categories)
@@ -75,9 +75,9 @@ Rules:
 
 	userPrompt := fmt.Sprintf("Classify this text:\n%s", input)
 
-	response, err := schemaflow.CallLLM(ctx, systemPrompt, userPrompt, opt)
+	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
-		return "", schemaflow.ClassifyError{
+		return "", core.ClassifyError{
 			Input:      input,
 			Categories: categories,
 			Reason:     err.Error(),
@@ -97,7 +97,7 @@ Rules:
 	}
 
 	if !found {
-		return "", schemaflow.ClassifyError{
+		return "", core.ClassifyError{
 			Input:      input,
 			Categories: categories,
 			Reason:     fmt.Sprintf("invalid category returned: %s", result),
@@ -148,13 +148,13 @@ func Score(input any, opts ScoreOptions) (float64, error) {
 
 	if len(instructions) > 0 {
 		steering := strings.Join(instructions, ". ")
-		if opts.Steering != "" {
-			steering = opts.Steering + ". " + steering
+		if opts.OpOptions.Steering != "" {
+			steering = opts.OpOptions.Steering + ". " + steering
 		}
 		opt.Steering = steering
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), schemaflow.GetTimeout())
+	ctx, cancel := context.WithTimeout(context.Background(), core.GetTimeout())
 	defer cancel()
 
 	inputStr := fmt.Sprintf("%v", input)
@@ -174,9 +174,9 @@ Rules:
 
 	userPrompt := fmt.Sprintf("Score this input:\n%s", inputStr)
 
-	response, err := schemaflow.CallLLM(ctx, systemPrompt, userPrompt, opt)
+	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
-		return 0, schemaflow.ScoreError{
+		return 0, core.ScoreError{
 			Input:  input,
 			Reason: err.Error(),
 		}
@@ -187,7 +187,7 @@ Rules:
 
 	score, err := strconv.ParseFloat(response, 64)
 	if err != nil {
-		return 0, schemaflow.ScoreError{
+		return 0, core.ScoreError{
 			Input:  input,
 			Reason: fmt.Sprintf("failed to parse score: %v", err),
 		}
@@ -247,13 +247,13 @@ func Compare(itemA, itemB any, opts CompareOptions) (string, error) {
 
 	if len(instructions) > 0 {
 		steering := strings.Join(instructions, ". ")
-		if opts.Steering != "" {
-			steering = opts.Steering + ". " + steering
+		if opts.OpOptions.Steering != "" {
+			steering = opts.OpOptions.Steering + ". " + steering
 		}
 		opt.Steering = steering
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), schemaflow.GetTimeout())
+	ctx, cancel := context.WithTimeout(context.Background(), core.GetTimeout())
 	defer cancel()
 
 	itemAString := fmt.Sprintf("%v", itemA)
@@ -280,9 +280,9 @@ Rules:
 
 	userPrompt := fmt.Sprintf("Compare these two items:\n\nItem A:\n%s\n\nItem B:\n%s", itemAString, itemBString)
 
-	response, err := schemaflow.CallLLM(ctx, systemPrompt, userPrompt, opt)
+	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
-		return "", schemaflow.CompareError{
+		return "", core.CompareError{
 			A:      itemA,
 			B:      itemB,
 			Reason: err.Error(),
@@ -294,7 +294,7 @@ Rules:
 
 // SimilarOptions configures the Similar operation
 type SimilarOptions struct {
-	CommonOptions
+	core.OpOptions
 	SimilarityThreshold float64  // Threshold for similarity (0-1)
 	Aspects             []string // Specific aspects to compare
 }
@@ -302,9 +302,9 @@ type SimilarOptions struct {
 // NewSimilarOptions creates SimilarOptions with defaults
 func NewSimilarOptions() SimilarOptions {
 	return SimilarOptions{
-		CommonOptions: CommonOptions{
-			Mode:         schemaflow.TransformMode,
-			Intelligence: schemaflow.Fast,
+		OpOptions: core.OpOptions{
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		SimilarityThreshold: 0.7,
 	}
@@ -312,9 +312,6 @@ func NewSimilarOptions() SimilarOptions {
 
 // Validate validates SimilarOptions
 func (opts SimilarOptions) Validate() error {
-	if err := opts.CommonOptions.Validate(); err != nil {
-		return err
-	}
 	if opts.SimilarityThreshold < 0 || opts.SimilarityThreshold > 1 {
 		return fmt.Errorf("similarity threshold must be between 0 and 1, got %f", opts.SimilarityThreshold)
 	}
@@ -343,51 +340,3 @@ func (opts SimilarOptions) WithAspects(aspects []string) SimilarOptions {
 //
 //	// Custom threshold and aspects
 //	similar, err := Similar(text1, text2, NewSimilarOptions().
-//	    WithSimilarityThreshold(0.8).
-//	    WithAspects([]string{"meaning", "tone"}))
-func Similar(input, target string, opts SimilarOptions) (bool, error) {
-	// Validate options
-	if err := opts.Validate(); err != nil {
-		return false, fmt.Errorf("invalid options: %w", err)
-	}
-
-	opt := opts.toOpOptions()
-
-	// Build similarity instructions
-	if len(opts.Aspects) > 0 {
-		aspects := fmt.Sprintf("Focus on these aspects: %s", strings.Join(opts.Aspects, ", "))
-		if opts.Steering != "" {
-			opt.Steering = opts.Steering + ". " + aspects
-		} else {
-			opt.Steering = aspects
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), schemaflow.GetTimeout())
-	defer cancel()
-
-	systemPrompt := fmt.Sprintf(`You are a similarity detection expert. Determine if two texts are semantically similar.
-
-Threshold: %.2f
-
-Rules:
-- Consider semantic meaning, not just exact wording
-- Account for paraphrasing and synonyms
-- Return ONLY "true" or "false"`, opts.SimilarityThreshold)
-
-	userPrompt := fmt.Sprintf("Are these texts similar?\n\nText 1:\n%s\n\nText 2:\n%s", input, target)
-
-	response, err := schemaflow.CallLLM(ctx, systemPrompt, userPrompt, opt)
-	if err != nil {
-		return false, schemaflow.SimilarError{
-			Input:  input,
-			Target: target,
-			Reason: err.Error(),
-		}
-	}
-
-	response = strings.ToLower(strings.TrimSpace(response))
-	response = strings.Trim(response, "\"'")
-
-	return response == "true" || response == "yes", nil
-}

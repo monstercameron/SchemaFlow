@@ -3,6 +3,8 @@ package ops
 import (
 	"context"
 	"testing"
+
+	"github.com/monstercameron/SchemaFlow/core"
 )
 
 func TestCommonOptions(t *testing.T) {
@@ -16,8 +18,8 @@ func TestCommonOptions(t *testing.T) {
 			options: CommonOptions{
 				Steering:     "test steering",
 				Threshold:    0.5,
-				Mode:         TransformMode,
-				Intelligence: Fast,
+				Mode:         core.TransformMode,
+				Intelligence: core.Fast,
 			},
 			wantErr: false,
 		},
@@ -62,7 +64,7 @@ func TestExtractOptions(t *testing.T) {
 			name: "with schema hints",
 			options: NewExtractOptions().
 				WithSchemaHints(map[string]string{
-					"date": "ISO 8601",
+					"date":   "ISO 8601",
 					"amount": "USD",
 				}),
 			wantErr: false,
@@ -225,8 +227,8 @@ func TestSummarizeOptions(t *testing.T) {
 		{
 			name: "valid length units",
 			options: SummarizeOptions{
-				CommonOptions: CommonOptions{},
-				LengthUnit:    "words",
+				CommonOptions:  CommonOptions{},
+				LengthUnit:     "words",
 				MaxCompression: 0.5,
 			},
 			wantErr: false,
@@ -234,8 +236,8 @@ func TestSummarizeOptions(t *testing.T) {
 		{
 			name: "invalid length unit",
 			options: SummarizeOptions{
-				CommonOptions: CommonOptions{},
-				LengthUnit:    "invalid",
+				CommonOptions:  CommonOptions{},
+				LengthUnit:     "invalid",
 				MaxCompression: 0.5,
 			},
 			wantErr: true,
@@ -251,7 +253,7 @@ func TestSummarizeOptions(t *testing.T) {
 		{
 			name: "with bullet points and focus areas",
 			options: SummarizeOptions{
-				CommonOptions: CommonOptions{},
+				CommonOptions:  CommonOptions{},
 				BulletPoints:   true,
 				FocusAreas:     []string{"key findings", "recommendations"},
 				MaxCompression: 0.2,
@@ -524,24 +526,24 @@ func TestBuilderPattern(t *testing.T) {
 	opts := NewExtractOptions().
 		WithSteering("focus on names").
 		WithThreshold(0.8).
-		WithMode(Strict).
-		WithIntelligence(Smart).
+		WithMode(core.Strict).
+		WithIntelligence(core.Smart).
 		WithStrictSchema(true).
 		WithSchemaHints(map[string]string{
 			"date": "ISO format",
 		})
-	
-	if opts.Steering != "focus on names" {
-		t.Errorf("Expected steering 'focus on names', got '%s'", opts.Steering)
+
+	if opts.CommonOptions.Steering != "focus on names" {
+		t.Errorf("Expected steering 'focus on names', got '%s'", opts.CommonOptions.Steering)
 	}
-	if opts.Threshold != 0.8 {
-		t.Errorf("Expected threshold 0.8, got %f", opts.Threshold)
+	if opts.CommonOptions.Threshold != 0.8 {
+		t.Errorf("Expected threshold 0.8, got %f", opts.CommonOptions.Threshold)
 	}
-	if opts.Mode != Strict {
-		t.Errorf("Expected mode Strict, got %v", opts.Mode)
+	if opts.CommonOptions.Mode != core.Strict {
+		t.Errorf("Expected mode Strict, got %v", opts.CommonOptions.Mode)
 	}
-	if opts.Intelligence != Smart {
-		t.Errorf("Expected intelligence Smart, got %v", opts.Intelligence)
+	if opts.CommonOptions.Intelligence != core.Smart {
+		t.Errorf("Expected intelligence Smart, got %v", opts.CommonOptions.Intelligence)
 	}
 	if !opts.StrictSchema {
 		t.Error("Expected StrictSchema to be true")
@@ -553,26 +555,26 @@ func TestBuilderPattern(t *testing.T) {
 
 func TestBackwardCompatibility(t *testing.T) {
 	// Test conversion from OpOptions
-	legacyOpts := OpOptions{
+	legacyOpts := core.OpOptions{
 		Steering:     "test steering",
 		Threshold:    0.75,
-		Mode:         Creative,
-		Intelligence: Quick,
-		context:      context.Background(),
-		requestID:    "test-123",
+		Mode:         core.Creative,
+		Intelligence: core.Quick,
+		Context:      context.Background(),
+		RequestID:    "test-123",
 	}
-	
+
 	// Test conversion for different operation types
 	operationTypes := []string{
 		"extract", "transform", "generate", "summarize", "rewrite",
 		"translate", "expand", "classify", "score", "compare",
 		"choose", "filter", "sort", "batch",
 	}
-	
+
 	for _, opType := range operationTypes {
 		t.Run(opType, func(t *testing.T) {
 			converted := ConvertOpOptions(legacyOpts, opType)
-			
+
 			if converted.GetSteering() != legacyOpts.Steering {
 				t.Errorf("Steering mismatch: got %s, want %s", converted.GetSteering(), legacyOpts.Steering)
 			}
@@ -590,13 +592,13 @@ func TestBackwardCompatibility(t *testing.T) {
 }
 
 func TestIsLegacyOption(t *testing.T) {
-	legacyOpt := OpOptions{}
+	legacyOpt := core.OpOptions{}
 	newOpt := NewExtractOptions()
-	
+
 	if !IsLegacyOption(legacyOpt) {
 		t.Error("Expected OpOptions to be identified as legacy")
 	}
-	
+
 	if IsLegacyOption(newOpt) {
 		t.Error("Expected ExtractOptions not to be identified as legacy")
 	}
@@ -607,21 +609,21 @@ func TestOptionsToOpOptions(t *testing.T) {
 	extractOpts := NewExtractOptions().
 		WithSteering("test").
 		WithThreshold(0.9).
-		WithMode(Strict).
-		WithIntelligence(Smart)
-	
+		WithMode(core.Strict).
+		WithIntelligence(core.Smart)
+
 	opOpts := extractOpts.toOpOptions()
-	
+
 	if opOpts.Steering != "test" {
 		t.Errorf("Expected steering 'test', got '%s'", opOpts.Steering)
 	}
 	if opOpts.Threshold != 0.9 {
 		t.Errorf("Expected threshold 0.9, got %f", opOpts.Threshold)
 	}
-	if opOpts.Mode != Strict {
+	if opOpts.Mode != core.Strict {
 		t.Errorf("Expected mode Strict, got %v", opOpts.Mode)
 	}
-	if opOpts.Intelligence != Smart {
+	if opOpts.Intelligence != core.Smart {
 		t.Errorf("Expected intelligence Smart, got %v", opOpts.Intelligence)
 	}
 }

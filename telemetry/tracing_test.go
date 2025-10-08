@@ -4,16 +4,18 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/monstercameron/SchemaFlow/core"
 )
 
 func TestStartSpan(t *testing.T) {
 	// Test span creation
 	ctx := context.Background()
-	opts := OpOptions{
-		Mode:         TransformMode,
-		Intelligence: Fast,
+	opts := core.OpOptions{
+		Mode:         core.TransformMode,
+		Intelligence: core.Fast,
 	}
-	
+
 	newCtx, span := StartSpan(ctx, "test-operation", opts)
 	if span == nil {
 		t.Error("Expected span to be created")
@@ -27,38 +29,38 @@ func TestStartSpan(t *testing.T) {
 
 func TestRecordLLMCall(t *testing.T) {
 	ctx := context.Background()
-	opts := OpOptions{
-		Mode:         TransformMode,
-		Intelligence: Fast,
+	opts := core.OpOptions{
+		Mode:         core.TransformMode,
+		Intelligence: core.Fast,
 	}
-	
+
 	_, span := StartSpan(ctx, "test-operation", opts)
 	defer span.End()
 
 	// Test recording LLM call
-	usage := &TokenUsage{
+	usage := &core.TokenUsage{
 		PromptTokens:     100,
 		CompletionTokens: 50,
 		TotalTokens:      150,
 	}
-	
-	cost := &CostInfo{
+
+	cost := &core.CostInfo{
 		TotalCost: 0.05,
 		Currency:  "USD",
 	}
-	
+
 	RecordLLMCall(span, "gpt-3.5-turbo", "openai", usage, cost, 1*time.Second, nil)
-	
+
 	// No error expected, just ensuring it doesn't panic
 }
 
 func TestAddSpanTags(t *testing.T) {
 	ctx := context.Background()
-	opts := OpOptions{
-		Mode:         TransformMode,
-		Intelligence: Fast,
+	opts := core.OpOptions{
+		Mode:         core.TransformMode,
+		Intelligence: core.Fast,
 	}
-	
+
 	newCtx, span := StartSpan(ctx, "test-operation", opts)
 	defer span.End()
 
@@ -67,19 +69,19 @@ func TestAddSpanTags(t *testing.T) {
 		"user":      "test-user",
 		"operation": "test",
 	}
-	
+
 	AddSpanTags(newCtx, tags)
-	
+
 	// No error expected, just ensuring it doesn't panic
 }
 
 func TestGetSpanID(t *testing.T) {
 	ctx := context.Background()
-	opts := OpOptions{
-		Mode:         TransformMode,
-		Intelligence: Fast,
+	opts := core.OpOptions{
+		Mode:         core.TransformMode,
+		Intelligence: core.Fast,
 	}
-	
+
 	newCtx, span := StartSpan(ctx, "test-operation", opts)
 	defer span.End()
 

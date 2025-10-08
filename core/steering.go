@@ -1,4 +1,4 @@
-package schemaflow
+package core
 
 import (
 	"fmt"
@@ -174,7 +174,7 @@ func appendContext(base string, additional ...string) string {
 	if len(additional) == 0 {
 		return base
 	}
-	
+
 	result := base
 	for _, context := range additional {
 		if context != "" {

@@ -1,5 +1,4 @@
-// Package schemaflow - Core type definitions
-package schemaflow
+package core
 
 import (
 	"context"
@@ -89,9 +88,14 @@ type OpOptions struct {
 	// Default: Fast
 	Intelligence Speed
 
-	// Internal fields for implementation (not part of public API)
-	context   context.Context // internal: context for cancellation
-	requestID string          // internal: request tracing ID
+	// Client is the client to use for the operation.
+	Client *Client
+
+	// Context for cancellation
+	Context context.Context
+
+	// RequestID for tracing
+	RequestID string
 }
 
 // Result wraps an operation result with metadata.

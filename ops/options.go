@@ -5,17 +5,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	core "github.com/monstercameron/SchemaFlow/core"
 )
 
 // BaseOptions defines the common interface for all operation options
 type BaseOptions interface {
 	GetSteering() string
 	GetThreshold() float64
-	GetMode() Mode
-	GetIntelligence() Speed
+	GetMode() core.Mode
+	GetIntelligence() core.Speed
 	GetContext() context.Context
+	GetRequestID() string
 	Validate() error
-	toOpOptions() OpOptions
+	toOpOptions() core.OpOptions
 }
 
 // CommonOptions contains fields shared by all operation options
@@ -27,16 +30,16 @@ type CommonOptions struct {
 	Threshold float64
 
 	// Reasoning approach (Strict/Transform/Creative)
-	Mode Mode
+	Mode core.Mode
 
 	// Quality/speed tradeoff (Smart/Fast/Quick)
-	Intelligence Speed
+	Intelligence core.Speed
 
 	// Context for cancellation
 	Context context.Context
 
 	// Internal fields
-	requestID string
+	RequestID string
 }
 
 // GetSteering returns the steering prompt
@@ -50,12 +53,12 @@ func (c CommonOptions) GetThreshold() float64 {
 }
 
 // GetMode returns the reasoning mode
-func (c CommonOptions) GetMode() Mode {
+func (c CommonOptions) GetMode() core.Mode {
 	return c.Mode
 }
 
 // GetIntelligence returns the intelligence speed
-func (c CommonOptions) GetIntelligence() Speed {
+func (c CommonOptions) GetIntelligence() core.Speed {
 	return c.Intelligence
 }
 
@@ -67,6 +70,11 @@ func (c CommonOptions) GetContext() context.Context {
 	return c.Context
 }
 
+// GetRequestID returns the request ID
+func (c CommonOptions) GetRequestID() string {
+	return c.RequestID
+}
+
 // Validate performs basic validation on common options
 func (c CommonOptions) Validate() error {
 	if c.Threshold < 0 || c.Threshold > 1 {
@@ -76,14 +84,14 @@ func (c CommonOptions) Validate() error {
 }
 
 // toOpOptions converts to legacy OpOptions for backward compatibility
-func (c CommonOptions) toOpOptions() OpOptions {
-	return OpOptions{
+func (c CommonOptions) toOpOptions() core.OpOptions {
+	return core.OpOptions{
 		Steering:     c.Steering,
 		Threshold:    c.Threshold,
 		Mode:         c.Mode,
 		Intelligence: c.Intelligence,
-		context:      c.Context,
-		requestID:    c.requestID,
+		Context:      c.Context,
+		RequestID:    c.RequestID,
 	}
 }
 
@@ -100,13 +108,13 @@ func (c CommonOptions) WithThreshold(threshold float64) CommonOptions {
 }
 
 // WithMode sets the reasoning mode
-func (c CommonOptions) WithMode(mode Mode) CommonOptions {
+func (c CommonOptions) WithMode(mode core.Mode) CommonOptions {
 	c.Mode = mode
 	return c
 }
 
 // WithIntelligence sets the intelligence speed
-func (c CommonOptions) WithIntelligence(intelligence Speed) CommonOptions {
+func (c CommonOptions) WithIntelligence(intelligence core.Speed) CommonOptions {
 	c.Intelligence = intelligence
 	return c
 }
@@ -124,6 +132,7 @@ func (c CommonOptions) WithContext(ctx context.Context) CommonOptions {
 // ExtractOptions configures the Extract operation
 type ExtractOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Schema hints to guide extraction
 	SchemaHints map[string]string
@@ -145,8 +154,8 @@ type ExtractOptions struct {
 func NewExtractOptions() ExtractOptions {
 	return ExtractOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		AllowPartial: true,
 	}
@@ -204,19 +213,24 @@ func (e ExtractOptions) WithThreshold(threshold float64) ExtractOptions {
 	return e
 }
 
-func (e ExtractOptions) WithMode(mode Mode) ExtractOptions {
+func (e ExtractOptions) WithMode(mode core.Mode) ExtractOptions {
 	e.CommonOptions = e.CommonOptions.WithMode(mode)
 	return e
 }
 
-func (e ExtractOptions) WithIntelligence(intelligence Speed) ExtractOptions {
+func (e ExtractOptions) WithIntelligence(intelligence core.Speed) ExtractOptions {
 	e.CommonOptions = e.CommonOptions.WithIntelligence(intelligence)
 	return e
+}
+
+func (e ExtractOptions) toOpOptions() core.OpOptions {
+	return e.CommonOptions.toOpOptions()
 }
 
 // TransformOptions configures the Transform operation
 type TransformOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Mapping rules between source and target types
 	MappingRules map[string]string
@@ -268,23 +282,27 @@ func (t TransformOptions) WithSteering(steering string) TransformOptions {
 }
 
 // WithMode sets the mode
-func (t TransformOptions) WithMode(mode Mode) TransformOptions {
+func (t TransformOptions) WithMode(mode core.Mode) TransformOptions {
 	t.CommonOptions = t.CommonOptions.WithMode(mode)
 	return t
 }
 
 // WithIntelligence sets the intelligence level
-func (t TransformOptions) WithIntelligence(intelligence Speed) TransformOptions {
+func (t TransformOptions) WithIntelligence(intelligence core.Speed) TransformOptions {
 	t.CommonOptions = t.CommonOptions.WithIntelligence(intelligence)
 	return t
+}
+
+func (t TransformOptions) toOpOptions() core.OpOptions {
+	return t.CommonOptions.toOpOptions()
 }
 
 // NewTransformOptions creates TransformOptions with defaults
 func NewTransformOptions() TransformOptions {
 	return TransformOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		MergeStrategy: "replace",
 	}
@@ -305,6 +323,7 @@ func (t TransformOptions) Validate() error {
 // GenerateOptions configures the Generate operation
 type GenerateOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Examples to guide generation
 	Examples []interface{}
@@ -332,8 +351,8 @@ type GenerateOptions struct {
 func NewGenerateOptions() GenerateOptions {
 	return GenerateOptions{
 		CommonOptions: CommonOptions{
-			Mode:         Creative,
-			Intelligence: Fast,
+			Mode:         core.Creative,
+			Intelligence: core.Fast,
 		},
 		Count: 1,
 	}
@@ -399,9 +418,13 @@ func (g GenerateOptions) WithSteering(steering string) GenerateOptions {
 }
 
 // WithMode sets the mode
-func (g GenerateOptions) WithMode(mode Mode) GenerateOptions {
+func (g GenerateOptions) WithMode(mode core.Mode) GenerateOptions {
 	g.CommonOptions = g.CommonOptions.WithMode(mode)
 	return g
+}
+
+func (g GenerateOptions) toOpOptions() core.OpOptions {
+	return g.CommonOptions.toOpOptions()
 }
 
 // ========================================
@@ -411,6 +434,7 @@ func (g GenerateOptions) WithMode(mode Mode) GenerateOptions {
 // SummarizeOptions configures the Summarize operation
 type SummarizeOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Target length (words, sentences, or paragraphs)
 	TargetLength int
@@ -438,8 +462,8 @@ type SummarizeOptions struct {
 func NewSummarizeOptions() SummarizeOptions {
 	return SummarizeOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		LengthUnit:     "sentences",
 		Style:          "paragraph",
@@ -469,14 +493,19 @@ func (s SummarizeOptions) WithSteering(steering string) SummarizeOptions {
 }
 
 // WithMode sets the mode
-func (s SummarizeOptions) WithMode(mode Mode) SummarizeOptions {
+func (s SummarizeOptions) WithMode(mode core.Mode) SummarizeOptions {
 	s.CommonOptions = s.CommonOptions.WithMode(mode)
 	return s
+}
+
+func (s SummarizeOptions) toOpOptions() core.OpOptions {
+	return s.CommonOptions.toOpOptions()
 }
 
 // RewriteOptions configures the Rewrite operation
 type RewriteOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Target tone (formal, casual, technical, friendly, etc.)
 	TargetTone string
@@ -507,8 +536,8 @@ type RewriteOptions struct {
 func NewRewriteOptions() RewriteOptions {
 	return RewriteOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		PreserveFacts:  true,
 		FormalityLevel: 5,
@@ -527,14 +556,19 @@ func (r RewriteOptions) Validate() error {
 }
 
 // WithMode sets the mode
-func (r RewriteOptions) WithMode(mode Mode) RewriteOptions {
+func (r RewriteOptions) WithMode(mode core.Mode) RewriteOptions {
 	r.CommonOptions = r.CommonOptions.WithMode(mode)
 	return r
+}
+
+func (r RewriteOptions) toOpOptions() core.OpOptions {
+	return r.CommonOptions.toOpOptions()
 }
 
 // TranslateOptions configures the Translate operation
 type TranslateOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Target language
 	TargetLanguage string
@@ -562,8 +596,8 @@ type TranslateOptions struct {
 func NewTranslateOptions() TranslateOptions {
 	return TranslateOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		PreserveFormatting: true,
 		CulturalAdaptation: 5,
@@ -592,14 +626,19 @@ func (t TranslateOptions) WithTargetLanguage(lang string) TranslateOptions {
 }
 
 // WithMode sets the mode
-func (t TranslateOptions) WithMode(mode Mode) TranslateOptions {
+func (t TranslateOptions) WithMode(mode core.Mode) TranslateOptions {
 	t.CommonOptions = t.CommonOptions.WithMode(mode)
 	return t
+}
+
+func (t TranslateOptions) toOpOptions() core.OpOptions {
+	return t.CommonOptions.toOpOptions()
 }
 
 // ExpandOptions configures the Expand operation
 type ExpandOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Target length multiplier
 	ExpansionFactor float64
@@ -624,8 +663,8 @@ type ExpandOptions struct {
 func NewExpandOptions() ExpandOptions {
 	return ExpandOptions{
 		CommonOptions: CommonOptions{
-			Mode:         Creative,
-			Intelligence: Fast,
+			Mode:         core.Creative,
+			Intelligence: core.Fast,
 		},
 		ExpansionFactor: 2.0,
 		DetailLevel:     5,
@@ -648,9 +687,13 @@ func (e ExpandOptions) Validate() error {
 }
 
 // WithMode sets the mode
-func (e ExpandOptions) WithMode(mode Mode) ExpandOptions {
+func (e ExpandOptions) WithMode(mode core.Mode) ExpandOptions {
 	e.CommonOptions = e.CommonOptions.WithMode(mode)
 	return e
+}
+
+func (e ExpandOptions) toOpOptions() core.OpOptions {
+	return e.CommonOptions.toOpOptions()
 }
 
 // ========================================
@@ -660,6 +703,7 @@ func (e ExpandOptions) WithMode(mode Mode) ExpandOptions {
 // ClassifyOptions configures the Classify operation
 type ClassifyOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Available categories
 	Categories []string
@@ -687,8 +731,8 @@ type ClassifyOptions struct {
 func NewClassifyOptions() ClassifyOptions {
 	return ClassifyOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		MinConfidence:     0.5,
 		IncludeConfidence: true,
@@ -727,15 +771,26 @@ func (c ClassifyOptions) WithMaxCategories(max int) ClassifyOptions {
 	return c
 }
 
+// WithSteering sets the steering prompt
+func (c ClassifyOptions) WithSteering(steering string) ClassifyOptions {
+	c.CommonOptions = c.CommonOptions.WithSteering(steering)
+	return c
+}
+
 // WithMode sets the mode
-func (c ClassifyOptions) WithMode(mode Mode) ClassifyOptions {
+func (c ClassifyOptions) WithMode(mode core.Mode) ClassifyOptions {
 	c.CommonOptions = c.CommonOptions.WithMode(mode)
 	return c
+}
+
+func (c ClassifyOptions) toOpOptions() core.OpOptions {
+	return c.CommonOptions.toOpOptions()
 }
 
 // ScoreOptions configures the Score operation
 type ScoreOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Scoring criteria
 	Criteria []string
@@ -761,8 +816,8 @@ type ScoreOptions struct {
 func NewScoreOptions() ScoreOptions {
 	return ScoreOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		ScaleMin:         0,
 		ScaleMax:         10,
@@ -813,14 +868,19 @@ func (s ScoreOptions) WithSteering(steering string) ScoreOptions {
 }
 
 // WithMode sets the mode
-func (s ScoreOptions) WithMode(mode Mode) ScoreOptions {
+func (s ScoreOptions) WithMode(mode core.Mode) ScoreOptions {
 	s.CommonOptions = s.CommonOptions.WithMode(mode)
 	return s
+}
+
+func (s ScoreOptions) toOpOptions() core.OpOptions {
+	return s.CommonOptions.toOpOptions()
 }
 
 // CompareOptions configures the Compare operation
 type CompareOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Aspects to compare
 	ComparisonAspects []string
@@ -842,8 +902,8 @@ type CompareOptions struct {
 func NewCompareOptions() CompareOptions {
 	return CompareOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		OutputFormat:      "narrative",
 		FocusOn:           "both",
@@ -890,9 +950,13 @@ func (c CompareOptions) WithFocusOn(focus string) CompareOptions {
 }
 
 // WithMode sets the mode
-func (c CompareOptions) WithMode(mode Mode) CompareOptions {
+func (c CompareOptions) WithMode(mode core.Mode) CompareOptions {
 	c.CommonOptions = c.CommonOptions.WithMode(mode)
 	return c
+}
+
+func (c CompareOptions) toOpOptions() core.OpOptions {
+	return c.CommonOptions.toOpOptions()
 }
 
 // ========================================
@@ -902,6 +966,7 @@ func (c CompareOptions) WithMode(mode Mode) CompareOptions {
 // ChooseOptions configures the Choose operation
 type ChooseOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Selection criteria
 	Criteria []string
@@ -923,8 +988,8 @@ type ChooseOptions struct {
 func NewChooseOptions() ChooseOptions {
 	return ChooseOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		TopN:             1,
 		RequireReasoning: true,
@@ -965,9 +1030,14 @@ func (c ChooseOptions) WithTopN(n int) ChooseOptions {
 	return c
 }
 
+func (c ChooseOptions) toOpOptions() core.OpOptions {
+	return c.CommonOptions.toOpOptions()
+}
+
 // FilterOptions configures the Filter operation
 type FilterOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Filter criteria as natural language
 	Criteria string
@@ -989,8 +1059,8 @@ type FilterOptions struct {
 func NewFilterOptions() FilterOptions {
 	return FilterOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		KeepMatching:  true,
 		MinConfidence: 0.7,
@@ -1030,9 +1100,14 @@ func (f FilterOptions) WithIncludeReasons(include bool) FilterOptions {
 	return f
 }
 
+func (f FilterOptions) toOpOptions() core.OpOptions {
+	return f.CommonOptions.toOpOptions()
+}
+
 // SortOptions configures the Sort operation
 type SortOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Sort criteria as natural language
 	Criteria string
@@ -1057,8 +1132,8 @@ type SortOptions struct {
 func NewSortOptions() SortOptions {
 	return SortOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		Direction: "ascending",
 		Stable:    true,
@@ -1098,6 +1173,10 @@ func (s SortOptions) WithSecondaryCriteria(criteria []string) SortOptions {
 	return s
 }
 
+func (s SortOptions) toOpOptions() core.OpOptions {
+	return s.CommonOptions.toOpOptions()
+}
+
 // ========================================
 // Batch Operation Options
 // ========================================
@@ -1105,6 +1184,7 @@ func (s SortOptions) WithSecondaryCriteria(criteria []string) SortOptions {
 // BatchOptions configures batch processing
 type BatchOptions struct {
 	CommonOptions
+	core.OpOptions
 
 	// Processing mode (parallel, merged, sequential)
 	Mode string
@@ -1135,8 +1215,8 @@ type BatchOptions struct {
 func NewBatchOptions() BatchOptions {
 	return BatchOptions{
 		CommonOptions: CommonOptions{
-			Mode:         TransformMode,
-			Intelligence: Fast,
+			Mode:         core.TransformMode,
+			Intelligence: core.Fast,
 		},
 		Mode:          "parallel",
 		Concurrency:   10,
@@ -1168,19 +1248,23 @@ func (b BatchOptions) Validate() error {
 	return nil
 }
 
+func (b BatchOptions) toOpOptions() core.OpOptions {
+	return b.CommonOptions.toOpOptions()
+}
+
 // ========================================
 // Backward Compatibility
 // ========================================
 
 // ConvertOpOptions converts legacy OpOptions to appropriate specialized options
-func ConvertOpOptions(opts OpOptions, operationType string) BaseOptions {
+func ConvertOpOptions(opts core.OpOptions, operationType string) BaseOptions {
 	common := CommonOptions{
 		Steering:     opts.Steering,
 		Threshold:    opts.Threshold,
 		Mode:         opts.Mode,
 		Intelligence: opts.Intelligence,
-		Context:      opts.context,
-		requestID:    opts.requestID,
+		Context:      opts.Context,
+		RequestID:    opts.RequestID,
 	}
 
 	// Return appropriate specialized options based on operation type
@@ -1220,6 +1304,6 @@ func ConvertOpOptions(opts OpOptions, operationType string) BaseOptions {
 
 // IsLegacyOption checks if the option is a legacy OpOptions
 func IsLegacyOption(opt interface{}) bool {
-	_, ok := opt.(OpOptions)
+	_, ok := opt.(core.OpOptions)
 	return ok
 }

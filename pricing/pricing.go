@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	schemaflow "github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/core"
 )
 
 // PricingModel defines the cost structure for a specific model
@@ -133,13 +133,13 @@ type CostRecord struct {
 	Operation  string
 	Model      string
 	Provider   string
-	TokenUsage schemaflow.TokenUsage
-	Cost       schemaflow.CostInfo
+	TokenUsage core.TokenUsage
+	Cost       core.CostInfo
 	Tags       map[string]string
 }
 
 // CalculateCost calculates the cost of an LLM operation
-func CalculateCost(usage *schemaflow.TokenUsage, model string, provider string) *schemaflow.CostInfo {
+func CalculateCost(usage *core.TokenUsage, model string, provider string) *core.CostInfo {
 	if usage == nil {
 		return nil
 	}
@@ -150,8 +150,8 @@ func CalculateCost(usage *schemaflow.TokenUsage, model string, provider string) 
 		// Try to find a default pricing for the provider
 		pricing = getDefaultPricing(provider)
 		if pricing.Model == "" {
-			schemaflow.GetLogger().Warn("No pricing information available", "model", model, "provider", provider)
-			return &schemaflow.CostInfo{
+			core.GetLogger().Warn("No pricing information available", "model", model, "provider", provider)
+			return &core.CostInfo{
 				Currency:  "USD",
 				TotalCost: 0,
 			}
@@ -172,7 +172,7 @@ func CalculateCost(usage *schemaflow.TokenUsage, model string, provider string) 
 
 	totalCost := promptCost + completionCost + cachedCost + reasoningCost
 
-	return &schemaflow.CostInfo{
+	return &core.CostInfo{
 		TotalCost:               totalCost,
 		PromptCost:              promptCost,
 		CompletionCost:          completionCost,
@@ -185,7 +185,7 @@ func CalculateCost(usage *schemaflow.TokenUsage, model string, provider string) 
 }
 
 // TrackCost records a cost entry for monitoring and budgeting
-func TrackCost(cost *schemaflow.CostInfo, metadata *schemaflow.ResultMetadata) {
+func TrackCost(cost *core.CostInfo, metadata *core.ResultMetadata) {
 	if cost == nil || metadata == nil {
 		return
 	}
@@ -239,7 +239,7 @@ func TrackCost(cost *schemaflow.CostInfo, metadata *schemaflow.ResultMetadata) {
 
 	// Log high-cost operations
 	if cost.TotalCost > 0.10 { // Log operations over $0.10
-		schemaflow.GetLogger().Info("High-cost operation tracked",
+		core.GetLogger().Info("High-cost operation tracked",
 			"requestID", metadata.RequestID,
 			"operation", metadata.Operation,
 			"model", metadata.Model,
@@ -285,7 +285,7 @@ func SetBudget(daily, weekly, monthly float64, callback func(current, limit floa
 	budgetLimits["monthly"] = monthly
 	budgetCallback = callback
 
-	schemaflow.GetLogger().Info("Budget limits configured",
+	core.GetLogger().Info("Budget limits configured",
 		"daily", fmt.Sprintf("$%.2f", daily),
 		"weekly", fmt.Sprintf("$%.2f", weekly),
 		"monthly", fmt.Sprintf("$%.2f", monthly),
@@ -357,6 +357,11 @@ func ExportCostReport(since time.Time, format string) (string, error) {
 	}
 
 	return report, nil
+}
+
+// MatchesFilters checks if a record matches the given filters. Exported for testing.
+func MatchesFilters(record CostRecord, filters map[string]string) bool {
+	return matchesFilters(record, filters)
 }
 
 // Helper functions

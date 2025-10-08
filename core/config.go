@@ -1,5 +1,4 @@
-// Package schemaflow - Configuration and initialization
-package schemaflow
+package core
 
 import (
 	"context"
@@ -253,8 +252,8 @@ func applyDefaults(opts []OpOptions) OpOptions {
 			Threshold:    0.7,
 			Mode:         TransformMode,
 			Intelligence: Smart, // Changed from Fast to Smart
-			context:      context.Background(),
-			requestID:    generateRequestID(),
+			Context:      context.Background(),
+			RequestID:    generateRequestID(),
 		}
 	}
 
@@ -268,14 +267,19 @@ func applyDefaults(opts []OpOptions) OpOptions {
 	// Only apply defaults if struct was completely empty
 	// We can't distinguish between explicit 0 and unset in Go
 	// So we only apply Mode/Intelligence defaults for the empty options case above
-	if opt.context == nil {
-		opt.context = context.Background()
+	if opt.Context == nil {
+		opt.Context = context.Background()
 	}
-	if opt.requestID == "" {
-		opt.requestID = generateRequestID()
+	if opt.RequestID == "" {
+		opt.RequestID = generateRequestID()
 	}
 
 	return opt
+}
+
+// ApplyDefaults applies default values to OpOptions if not specified
+func ApplyDefaults(opts ...OpOptions) OpOptions {
+	return applyDefaults(opts)
 }
 
 // getModel returns the appropriate OpenAI model based on intelligence level
