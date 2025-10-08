@@ -93,16 +93,16 @@ ss]** Line 300: `getCaller`'s logic for extracting the filename is not robust an
 
 ## go.mod
 
-- **[Deps]** The `go.mod` file has a `toolchain` directive, which is good, but the Go version is `1.24.6`, which is very specific. It would be better to specify a minimum version, like `1.24`.
-- **[Deps]** The `require` block contains `github.com/gin-gonic/gin`, which doesn't seem to be used anywhere in the library. It should be removed.
-- **[Deps]** The OpenTelemetry dependencies are quite specific. It would be better to use a more general set of dependencies to allow users to choose their own exporters.
-- **[Deps]** There are a lot of indirect dependencies. It would be good to run `go mod tidy` to clean them up.
+- **[Deps]** 2025-10-07: Go directive relaxed to the minor release (`go 1.24.0`; Go tooling rewrites the `.0` suffix automatically) while retaining the `toolchain` pin. ✅
+- **[Deps]** 2025-10-07: Module path casing corrected to `github.com/monstercameron/SchemaFlow` to match the canonical repository location. ✅
+- **[Deps]** 2025-10-07: Removed unused `github.com/gin-gonic/gin` and other stale requirements via `go mod tidy`. ✅
+- **[Deps]** The OpenTelemetry stack is still locked to specific exporters; revisit once we introduce a pluggable telemetry layer.
+- **[Deps]** Indirect dependencies now reflect tidy output. Monitor after the package split to ensure nothing drifts back in.
 
 ## go.sum
 
-- **[Deps]** The `go.sum` file is very large and contains many dependencies that are not directly used by the project. This is a sign that the dependencies are not well-managed.
-- **[Deps]** The file contains multiple versions of the same library (e.g., `github.com/stretchr/testify`). This should be cleaned up.
-- **[Deps]** The presence of `gopkg.in/yaml.v2` and `gopkg.in/yaml.v3` suggests that there might be a dependency conflict.
+- **[Deps]** 2025-10-07: Regenerated with `go mod tidy`; duplicate testify/yaml entries cleared. ✅
+- **[Deps]** Remaining entries are required by OpenTelemetry and gRPC—revisit after modularizing telemetry to trim further.
 
 ## experimental/schemaflow_test.go
 
