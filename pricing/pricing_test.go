@@ -3,7 +3,7 @@ package pricing
 import (
 	"testing"
 	"time"
-	
+
 	schemaflow "github.com/monstercameron/SchemaFlow/core"
 )
 
@@ -23,8 +23,8 @@ func TestCalculateCost(t *testing.T) {
 			provider:         "openai",
 			promptTokens:     1000,
 			completionTokens: 500,
-			expectedMin:      0.01,  // Minimum expected cost
-			expectedMax:      0.05,  // Maximum expected cost
+			expectedMin:      0.01, // Minimum expected cost
+			expectedMax:      0.05, // Maximum expected cost
 		},
 		{
 			name:             "GPT-3.5 Turbo",
@@ -58,7 +58,7 @@ func TestCalculateCost(t *testing.T) {
 				t.Fatal("Expected cost to be calculated")
 			}
 			if cost.TotalCost < tt.expectedMin || cost.TotalCost > tt.expectedMax {
-				t.Errorf("CalculateCost() = %v, want between %v and %v", 
+				t.Errorf("CalculateCost() = %v, want between %v and %v",
 					cost.TotalCost, tt.expectedMin, tt.expectedMax)
 			}
 		})
@@ -72,21 +72,21 @@ func TestTrackCost(t *testing.T) {
 		CompletionTokens: 500,
 		TotalTokens:      1500,
 	}
-	
+
 	cost1 := CalculateCost(usage1, "gpt-4-turbo-preview", "openai")
 	metadata1 := &schemaflow.ResultMetadata{
 		RequestID: "test-001",
 		Operation: "extract",
 	}
-	
+
 	TrackCost(cost1, metadata1)
-	
+
 	// Test getting total cost
 	total := GetTotalCost(time.Now().Add(-1*time.Hour), nil)
 	if total <= 0 {
 		t.Error("Expected positive total cost")
 	}
-	
+
 	// Test with tags filter
 	extractCost := GetTotalCost(time.Now().Add(-1*time.Hour), map[string]string{
 		"operation": "extract",
@@ -103,21 +103,21 @@ func TestGetCostBreakdown(t *testing.T) {
 		CompletionTokens: 50,
 		TotalTokens:      150,
 	}
-	
+
 	cost := CalculateCost(usage, "gpt-3.5-turbo", "openai")
 	metadata := &schemaflow.ResultMetadata{
 		RequestID: "test-002",
 		Operation: "classify",
 	}
-	
+
 	TrackCost(cost, metadata)
-	
+
 	// Get cost breakdown
 	breakdown := GetCostBreakdown(time.Now().Add(-1 * time.Hour))
 	if breakdown == nil {
 		t.Error("Expected cost breakdown to be returned")
 	}
-	
+
 	// Check that it has some entries (may vary based on implementation)
 	if len(breakdown) == 0 {
 		t.Log("Cost breakdown is empty, costs may not be tracked properly")
@@ -131,15 +131,15 @@ func TestExportCostReport(t *testing.T) {
 		CompletionTokens: 500,
 		TotalTokens:      1500,
 	}
-	
+
 	cost := CalculateCost(usage, "gpt-4-turbo-preview", "openai")
 	metadata := &schemaflow.ResultMetadata{
 		RequestID: "test-003",
 		Operation: "generate",
 	}
-	
+
 	TrackCost(cost, metadata)
-	
+
 	// Test exporting cost report
 	tests := []struct {
 		format  string
@@ -147,10 +147,10 @@ func TestExportCostReport(t *testing.T) {
 	}{
 		{"json", false},
 		{"csv", false},
-		{"text", true},  // text format not supported
+		{"text", true}, // text format not supported
 		{"invalid", true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.format, func(t *testing.T) {
 			report, err := ExportCostReport(time.Now().Add(-1*time.Hour), tt.format)

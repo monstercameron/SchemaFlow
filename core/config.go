@@ -14,10 +14,10 @@ import (
 // Client represents a configured schemaflow client instance.
 // This allows multiple clients with different configurations.
 type Client struct {
-	openaiClient *openai.Client  // Legacy OpenAI client (for backward compatibility)
+	openaiClient *openai.Client // Legacy OpenAI client (for backward compatibility)
 	apiKey       string
-	provider     Provider         // Provider interface for multiple LLM backends
-	providerName string          // Name of the provider (openai, anthropic, local)
+	provider     Provider // Provider interface for multiple LLM backends
+	providerName string   // Name of the provider (openai, anthropic, local)
 	timeout      time.Duration
 	maxRetries   int
 	retryBackoff time.Duration
@@ -36,7 +36,7 @@ func NewClient(apiKey string) *Client {
 		retryBackoff: 1 * time.Second,
 		logger:       NewLogger(),
 	}
-	
+
 	// Initialize with OpenAI provider by default
 	if apiKey != "" {
 		client.openaiClient = openai.NewClient(apiKey)
@@ -57,7 +57,7 @@ func NewClient(apiKey string) *Client {
 		localProvider, _ := NewLocalProvider(ProviderConfig{})
 		client.provider = localProvider
 	}
-	
+
 	return client
 }
 
@@ -73,20 +73,20 @@ func (client *Client) WithTimeout(timeout time.Duration) *Client {
 func (client *Client) WithProvider(providerName string) *Client {
 	client.mu.Lock()
 	defer client.mu.Unlock()
-	
+
 	client.providerName = providerName
-	
+
 	// Create the appropriate provider based on name
 	var provider Provider
 	var err error
-	
+
 	config := ProviderConfig{
 		APIKey:     client.apiKey,
 		Timeout:    client.timeout,
 		MaxRetries: client.maxRetries,
 		Debug:      client.debugMode,
 	}
-	
+
 	switch providerName {
 	case "openai":
 		provider, err = NewOpenAIProvider(config)
@@ -98,14 +98,14 @@ func (client *Client) WithProvider(providerName string) *Client {
 		// Try to get from global registry
 		provider, err = GetProviderFromRegistry(providerName)
 	}
-	
+
 	if err != nil {
 		client.logger.Warn("Failed to create provider, using default", "provider", providerName, "error", err)
 	} else {
 		client.provider = provider
 		client.logger.Info("Provider configured", "provider", providerName)
 	}
-	
+
 	return client
 }
 
@@ -113,12 +113,12 @@ func (client *Client) WithProvider(providerName string) *Client {
 func (client *Client) WithProviderInstance(provider Provider) *Client {
 	client.mu.Lock()
 	defer client.mu.Unlock()
-	
+
 	if provider != nil {
 		client.provider = provider
 		client.providerName = provider.Name()
 	}
-	
+
 	return client
 }
 
@@ -135,22 +135,22 @@ func (client *Client) WithDebug(enabled bool) *Client {
 
 // Global configuration and state management
 var (
-	client       *openai.Client      // OpenAI API client instance
-	apiKey       string               // API key for authentication
-	provider     string = "openai"   // LLM provider (openai, anthropic, etc.)
-	timeout      time.Duration = 30 * time.Second // Default operation timeout
-	maxRetries   int = 3             // Maximum retry attempts for failed operations
-	retryBackoff time.Duration = 1 * time.Second  // Initial backoff duration for retries
-	mu           sync.RWMutex        // Mutex for thread-safe configuration updates
-	
+	client       *openai.Client                    // OpenAI API client instance
+	apiKey       string                            // API key for authentication
+	provider     string         = "openai"         // LLM provider (openai, anthropic, etc.)
+	timeout      time.Duration  = 30 * time.Second // Default operation timeout
+	maxRetries   int            = 3                // Maximum retry attempts for failed operations
+	retryBackoff time.Duration  = 1 * time.Second  // Initial backoff duration for retries
+	mu           sync.RWMutex                      // Mutex for thread-safe configuration updates
+
 	// Logging configuration
-	logger       *Logger              // Structured logger instance
-	debugMode    bool                 // Enable debug logging
-	traceEnabled bool                 // Enable request tracing
-	metricsEnabled bool               // Enable metrics collection
-	
+	logger         *Logger // Structured logger instance
+	debugMode      bool    // Enable debug logging
+	traceEnabled   bool    // Enable request tracing
+	metricsEnabled bool    // Enable metrics collection
+
 	// Default client for backward compatibility
-	defaultClient *Client             // Default client instance
+	defaultClient *Client // Default client instance
 )
 
 // Init initializes the schemaflow library with the provided API key.
@@ -166,22 +166,22 @@ var (
 func Init(key string) {
 	mu.Lock()
 	defer mu.Unlock()
-	
+
 	// Initialize logger
 	logger = NewLogger()
-	
+
 	// API key configuration
 	apiKey = key
 	if apiKey == "" {
 		apiKey = os.Getenv("SCHEMAFLOW_API_KEY")
 	}
-	
+
 	// Provider configuration
 	if providerStr := os.Getenv("SCHEMAFLOW_PROVIDER"); providerStr != "" {
 		provider = providerStr
 		logger.Info("Provider configured", "provider", provider)
 	}
-	
+
 	// Timeout configuration
 	if timeoutStr := os.Getenv("SCHEMAFLOW_TIMEOUT"); timeoutStr != "" {
 		if duration, err := time.ParseDuration(timeoutStr); err == nil {
@@ -191,7 +191,7 @@ func Init(key string) {
 			logger.Warn("Invalid timeout value, using default", "value", timeoutStr, "default", timeout)
 		}
 	}
-	
+
 	// Retry configuration
 	if maxRetriesStr := os.Getenv("SCHEMAFLOW_MAX_RETRIES"); maxRetriesStr != "" {
 		if _, err := fmt.Sscanf(maxRetriesStr, "%d", &maxRetries); err != nil {
@@ -200,7 +200,7 @@ func Init(key string) {
 			logger.Info("Max retries configured", "maxRetries", maxRetries)
 		}
 	}
-	
+
 	// Retry backoff configuration
 	if retryBackoffStr := os.Getenv("SCHEMAFLOW_RETRY_BACKOFF"); retryBackoffStr != "" {
 		if duration, err := time.ParseDuration(retryBackoffStr); err == nil {
@@ -210,26 +210,26 @@ func Init(key string) {
 			logger.Warn("Invalid retry backoff value, using default", "value", retryBackoffStr, "default", retryBackoff)
 		}
 	}
-	
+
 	// Debug mode configuration
 	if debugStr := os.Getenv("SCHEMAFLOW_DEBUG"); debugStr == "true" || debugStr == "1" {
 		debugMode = true
 		logger.SetLevel(DebugLevel)
 		logger.Debug("Debug mode enabled")
 	}
-	
+
 	// Trace configuration
 	if traceStr := os.Getenv("SCHEMAFLOW_TRACE"); traceStr == "true" || traceStr == "1" {
 		traceEnabled = true
 		logger.Info("Request tracing enabled")
 	}
-	
+
 	// Metrics configuration
 	if metricsStr := os.Getenv("SCHEMAFLOW_METRICS"); metricsStr == "true" || metricsStr == "1" {
 		metricsEnabled = true
 		logger.Info("Metrics collection enabled")
 	}
-	
+
 	// Initialize OpenAI client if API key is present
 	if apiKey != "" {
 		client = openai.NewClient(apiKey)
@@ -252,14 +252,14 @@ func applyDefaults(opts []OpOptions) OpOptions {
 		return OpOptions{
 			Threshold:    0.7,
 			Mode:         TransformMode,
-			Intelligence: Smart,  // Changed from Fast to Smart
+			Intelligence: Smart, // Changed from Fast to Smart
 			context:      context.Background(),
 			requestID:    generateRequestID(),
 		}
 	}
-	
+
 	opt := opts[0]
-	
+
 	// Apply defaults for zero values
 	if opt.Threshold == 0 {
 		opt.Threshold = 0.7
@@ -274,7 +274,7 @@ func applyDefaults(opts []OpOptions) OpOptions {
 	if opt.requestID == "" {
 		opt.requestID = generateRequestID()
 	}
-	
+
 	return opt
 }
 

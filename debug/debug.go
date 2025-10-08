@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	
+
 	schemaflow "github.com/monstercameron/SchemaFlow/core"
 )
 
@@ -21,7 +21,7 @@ func Debug(enabled bool) {
 func GetDebugInfo() schemaflow.DebugInfo {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	
+
 	return schemaflow.DebugInfo{
 		RequestID: schemaflow.GenerateRequestID(),
 		MemoryUsage: schemaflow.MemoryStats{
@@ -46,14 +46,14 @@ func TraceOperation(operation string, input any) *OperationTrace {
 
 // OperationTrace tracks a single operation execution
 type OperationTrace struct {
-	Operation   string
-	RequestID   string
-	StartTime   time.Time
-	EndTime     time.Time
-	Input       any
-	Output      any
-	Error       error
-	LLMCalls    []schemaflow.LLMCallInfo
+	Operation string
+	RequestID string
+	StartTime time.Time
+	EndTime   time.Time
+	Input     any
+	Output    any
+	Error     error
+	LLMCalls  []schemaflow.LLMCallInfo
 }
 
 // Complete marks the operation as complete
@@ -61,7 +61,7 @@ func (t *OperationTrace) Complete(output any, err error) {
 	t.EndTime = time.Now()
 	t.Output = output
 	t.Error = err
-	
+
 	if schemaflow.GetTraceEnabled() {
 		t.log()
 	}
@@ -70,13 +70,13 @@ func (t *OperationTrace) Complete(output any, err error) {
 // log writes the trace to the logger
 func (t *OperationTrace) log() {
 	duration := t.EndTime.Sub(t.StartTime)
-	
+
 	fields := []any{
 		"requestID", t.RequestID,
 		"operation", t.Operation,
 		"duration", duration,
 	}
-	
+
 	if t.Error != nil {
 		schemaflow.GetLogger().Error("Operation failed",
 			append(fields, "error", t.Error)...,
@@ -86,7 +86,7 @@ func (t *OperationTrace) log() {
 			fields...,
 		)
 	}
-	
+
 	if schemaflow.GetDebugMode() {
 		schemaflow.GetLogger().Debug("Operation trace",
 			"requestID", t.RequestID,
@@ -102,9 +102,9 @@ func ValidateInput(input any, operation string) error {
 	if input == nil {
 		return fmt.Errorf("%s: input cannot be nil", operation)
 	}
-	
+
 	v := reflect.ValueOf(input)
-	
+
 	// Check for zero values
 	if v.IsZero() {
 		schemaflow.GetLogger().Warn("Zero value input",
@@ -112,33 +112,33 @@ func ValidateInput(input any, operation string) error {
 			"type", v.Type().String(),
 		)
 	}
-	
+
 	// Validate string inputs
 	if v.Kind() == reflect.String {
 		s := v.String()
 		if strings.TrimSpace(s) == "" {
 			return fmt.Errorf("%s: input string cannot be empty", operation)
 		}
-		
+
 		// Check for potentially malicious content
 		if err := sanitizeString(s); err != nil {
 			return fmt.Errorf("%s: input validation failed: %w", operation, err)
 		}
 	}
-	
+
 	// Validate slice inputs
 	if v.Kind() == reflect.Slice {
 		if v.Len() == 0 {
 			return fmt.Errorf("%s: input slice cannot be empty", operation)
 		}
-		
+
 		// Check maximum size
 		const maxSliceSize = 10000
 		if v.Len() > maxSliceSize {
 			return fmt.Errorf("%s: input slice too large (%d > %d)", operation, v.Len(), maxSliceSize)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -149,14 +149,14 @@ func sanitizeString(s string) error {
 	if len(s) > maxStringLength {
 		return fmt.Errorf("string too long (%d > %d)", len(s), maxStringLength)
 	}
-	
+
 	// Check for control characters
 	for _, r := range s {
 		if r < 32 && r != '\n' && r != '\r' && r != '\t' {
 			return fmt.Errorf("string contains control characters")
 		}
 	}
-	
+
 	// Check for potential injection patterns (basic)
 	dangerousPatterns := []string{
 		"<script",
@@ -166,7 +166,7 @@ func sanitizeString(s string) error {
 		"onload=",
 		"onerror=",
 	}
-	
+
 	lower := strings.ToLower(s)
 	for _, pattern := range dangerousPatterns {
 		if strings.Contains(lower, pattern) {
@@ -176,41 +176,41 @@ func sanitizeString(s string) error {
 			)
 		}
 	}
-	
+
 	return nil
 }
 
 // DumpOperation creates a detailed dump of an operation for debugging
 func DumpOperation(op string, input any, output any, err error, opts schemaflow.OpOptions) string {
 	dump := OperationDump{
-		Operation:    op,
-		RequestID:    schemaflow.GenerateRequestID(),
-		Timestamp:    time.Now(),
-		Input:        input,
-		Output:       output,
-		Error:        err,
-		Options:      opts,
-		MemoryStats:  getMemoryStats(),
-		Goroutines:   runtime.NumGoroutine(),
-		StackTrace:   getStackTrace(2),
+		Operation:   op,
+		RequestID:   schemaflow.GenerateRequestID(),
+		Timestamp:   time.Now(),
+		Input:       input,
+		Output:      output,
+		Error:       err,
+		Options:     opts,
+		MemoryStats: getMemoryStats(),
+		Goroutines:  runtime.NumGoroutine(),
+		StackTrace:  getStackTrace(2),
 	}
-	
+
 	data, _ := json.MarshalIndent(dump, "", "  ")
 	return string(data)
 }
 
 // OperationDump contains complete operation information
 type OperationDump struct {
-	Operation   string       `json:"operation"`
-	RequestID   string       `json:"request_id"`
-	Timestamp   time.Time    `json:"timestamp"`
-	Input       any          `json:"input"`
-	Output      any          `json:"output"`
-	Error       error        `json:"error,omitempty"`
-	Options     schemaflow.OpOptions    `json:"options"`
-	MemoryStats schemaflow.MemoryStats  `json:"memory_stats"`
-	Goroutines  int          `json:"goroutines"`
-	StackTrace  []string     `json:"stack_trace"`
+	Operation   string                 `json:"operation"`
+	RequestID   string                 `json:"request_id"`
+	Timestamp   time.Time              `json:"timestamp"`
+	Input       any                    `json:"input"`
+	Output      any                    `json:"output"`
+	Error       error                  `json:"error,omitempty"`
+	Options     schemaflow.OpOptions   `json:"options"`
+	MemoryStats schemaflow.MemoryStats `json:"memory_stats"`
+	Goroutines  int                    `json:"goroutines"`
+	StackTrace  []string               `json:"stack_trace"`
 }
 
 // getMemoryStats returns current memory statistics
@@ -233,18 +233,18 @@ func getStackTrace(skip int) []string {
 		if !ok {
 			break
 		}
-		
+
 		fn := runtime.FuncForPC(pc)
 		if fn == nil {
 			continue
 		}
-		
+
 		// Skip runtime functions
 		name := fn.Name()
 		if strings.HasPrefix(name, "runtime.") {
 			continue
 		}
-		
+
 		// Format: function_name (file:line)
 		trace = append(trace, fmt.Sprintf("%s (%s:%d)", name, file, line))
 	}
@@ -256,7 +256,7 @@ func formatForLog(v any) string {
 	if v == nil {
 		return "nil"
 	}
-	
+
 	// Handle special types
 	switch val := v.(type) {
 	case string:
@@ -272,7 +272,7 @@ func formatForLog(v any) string {
 	case error:
 		return val.Error()
 	}
-	
+
 	// Try JSON for complex types
 	if data, err := json.Marshal(v); err == nil {
 		if len(data) > 500 {
@@ -280,7 +280,7 @@ func formatForLog(v any) string {
 		}
 		return string(data)
 	}
-	
+
 	// Fallback to Sprint
 	s := fmt.Sprint(v)
 	if len(s) > 200 {
@@ -295,24 +295,24 @@ func BenchmarkOperation(name string, fn func() error) BenchmarkResult {
 		Operation: name,
 		StartTime: time.Now(),
 	}
-	
+
 	// Memory before
 	var memBefore runtime.MemStats
 	runtime.ReadMemStats(&memBefore)
-	
+
 	// Run operation
 	err := fn()
-	
+
 	// Memory after
 	var memAfter runtime.MemStats
 	runtime.ReadMemStats(&memAfter)
-	
+
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(result.StartTime)
 	result.Error = err
 	result.MemoryUsed = memAfter.Alloc - memBefore.Alloc
 	result.GCRuns = memAfter.NumGC - memBefore.NumGC
-	
+
 	return result
 }
 
@@ -333,7 +333,7 @@ func (b BenchmarkResult) String() string {
 	if b.Error != nil {
 		status = "FAILED"
 	}
-	
+
 	return fmt.Sprintf(
 		"[%s] %s - Duration: %v, Memory: %d bytes, GC: %d runs",
 		status,

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	
+
 	schemaflow "github.com/monstercameron/SchemaFlow/core"
 )
 
@@ -28,66 +28,66 @@ var (
 		"gpt-4-turbo-preview": {
 			Provider:                "openai",
 			Model:                   "gpt-4-turbo-preview",
-			PricePerPromptToken:     0.01,   // $10 per 1M tokens
-			PricePerCompletionToken: 0.03,   // $30 per 1M tokens
+			PricePerPromptToken:     0.01, // $10 per 1M tokens
+			PricePerCompletionToken: 0.03, // $30 per 1M tokens
 			Currency:                "USD",
 			EffectiveDate:           time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		"gpt-4": {
 			Provider:                "openai",
 			Model:                   "gpt-4",
-			PricePerPromptToken:     0.03,   // $30 per 1M tokens
-			PricePerCompletionToken: 0.06,   // $60 per 1M tokens
+			PricePerPromptToken:     0.03, // $30 per 1M tokens
+			PricePerCompletionToken: 0.06, // $60 per 1M tokens
 			Currency:                "USD",
 			EffectiveDate:           time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		"gpt-4-32k": {
 			Provider:                "openai",
 			Model:                   "gpt-4-32k",
-			PricePerPromptToken:     0.06,   // $60 per 1M tokens
-			PricePerCompletionToken: 0.12,   // $120 per 1M tokens
+			PricePerPromptToken:     0.06, // $60 per 1M tokens
+			PricePerCompletionToken: 0.12, // $120 per 1M tokens
 			Currency:                "USD",
 			EffectiveDate:           time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
-		
+
 		// OpenAI GPT-3.5 models
 		"gpt-3.5-turbo": {
 			Provider:                "openai",
 			Model:                   "gpt-3.5-turbo",
-			PricePerPromptToken:     0.0005,  // $0.50 per 1M tokens
-			PricePerCompletionToken: 0.0015,  // $1.50 per 1M tokens
+			PricePerPromptToken:     0.0005, // $0.50 per 1M tokens
+			PricePerCompletionToken: 0.0015, // $1.50 per 1M tokens
 			Currency:                "USD",
 			EffectiveDate:           time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		"gpt-3.5-turbo-16k": {
 			Provider:                "openai",
 			Model:                   "gpt-3.5-turbo-16k",
-			PricePerPromptToken:     0.003,   // $3 per 1M tokens
-			PricePerCompletionToken: 0.004,   // $4 per 1M tokens
+			PricePerPromptToken:     0.003, // $3 per 1M tokens
+			PricePerCompletionToken: 0.004, // $4 per 1M tokens
 			Currency:                "USD",
 			EffectiveDate:           time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
-		
+
 		// OpenAI o1 models (with reasoning tokens)
 		"o1-preview": {
 			Provider:                "openai",
 			Model:                   "o1-preview",
-			PricePerPromptToken:     0.015,   // $15 per 1M tokens
-			PricePerCompletionToken: 0.06,    // $60 per 1M tokens
-			PriceReasoningToken:     0.015,   // $15 per 1M reasoning tokens
+			PricePerPromptToken:     0.015, // $15 per 1M tokens
+			PricePerCompletionToken: 0.06,  // $60 per 1M tokens
+			PriceReasoningToken:     0.015, // $15 per 1M reasoning tokens
 			Currency:                "USD",
 			EffectiveDate:           time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		"o1-mini": {
 			Provider:                "openai",
 			Model:                   "o1-mini",
-			PricePerPromptToken:     0.003,   // $3 per 1M tokens
-			PricePerCompletionToken: 0.012,   // $12 per 1M tokens
-			PriceReasoningToken:     0.003,   // $3 per 1M reasoning tokens
+			PricePerPromptToken:     0.003, // $3 per 1M tokens
+			PricePerCompletionToken: 0.012, // $12 per 1M tokens
+			PriceReasoningToken:     0.003, // $3 per 1M reasoning tokens
 			Currency:                "USD",
 			EffectiveDate:           time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
-		
+
 		// Anthropic Claude models
 		"claude-3-opus": {
 			Provider:                "anthropic",
@@ -117,7 +117,7 @@ var (
 			EffectiveDate:           time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 	}
-	
+
 	// Cost tracking state
 	costMutex      sync.RWMutex
 	totalCosts     map[string]float64 // Track costs by dimension (e.g., "daily", "weekly", "monthly")
@@ -128,14 +128,14 @@ var (
 
 // CostRecord represents a single cost entry
 type CostRecord struct {
-	Timestamp   time.Time
-	RequestID   string
-	Operation   string
-	Model       string
-	Provider    string
-	TokenUsage  schemaflow.TokenUsage
-	Cost        schemaflow.CostInfo
-	Tags        map[string]string
+	Timestamp  time.Time
+	RequestID  string
+	Operation  string
+	Model      string
+	Provider   string
+	TokenUsage schemaflow.TokenUsage
+	Cost       schemaflow.CostInfo
+	Tags       map[string]string
 }
 
 // CalculateCost calculates the cost of an LLM operation
@@ -143,7 +143,7 @@ func CalculateCost(usage *schemaflow.TokenUsage, model string, provider string) 
 	if usage == nil {
 		return nil
 	}
-	
+
 	// Look up pricing model
 	pricing, exists := pricingModels[model]
 	if !exists {
@@ -152,16 +152,16 @@ func CalculateCost(usage *schemaflow.TokenUsage, model string, provider string) 
 		if pricing.Model == "" {
 			schemaflow.GetLogger().Warn("No pricing information available", "model", model, "provider", provider)
 			return &schemaflow.CostInfo{
-				Currency: "USD",
+				Currency:  "USD",
 				TotalCost: 0,
 			}
 		}
 	}
-	
+
 	// Calculate costs (prices are per 1K tokens)
 	promptCost := float64(usage.PromptTokens) * pricing.PricePerPromptToken / 1000.0
 	completionCost := float64(usage.CompletionTokens) * pricing.PricePerCompletionToken / 1000.0
-	
+
 	var cachedCost, reasoningCost float64
 	if usage.CachedTokens > 0 && pricing.PriceCachedToken > 0 {
 		cachedCost = float64(usage.CachedTokens) * pricing.PriceCachedToken / 1000.0
@@ -169,9 +169,9 @@ func CalculateCost(usage *schemaflow.TokenUsage, model string, provider string) 
 	if usage.ReasoningTokens > 0 && pricing.PriceReasoningToken > 0 {
 		reasoningCost = float64(usage.ReasoningTokens) * pricing.PriceReasoningToken / 1000.0
 	}
-	
+
 	totalCost := promptCost + completionCost + cachedCost + reasoningCost
-	
+
 	return &schemaflow.CostInfo{
 		TotalCost:               totalCost,
 		PromptCost:              promptCost,
@@ -189,10 +189,10 @@ func TrackCost(cost *schemaflow.CostInfo, metadata *schemaflow.ResultMetadata) {
 	if cost == nil || metadata == nil {
 		return
 	}
-	
+
 	costMutex.Lock()
 	defer costMutex.Unlock()
-	
+
 	// Initialize maps if needed
 	if totalCosts == nil {
 		totalCosts = make(map[string]float64)
@@ -200,21 +200,21 @@ func TrackCost(cost *schemaflow.CostInfo, metadata *schemaflow.ResultMetadata) {
 	if costHistory == nil {
 		costHistory = make([]CostRecord, 0)
 	}
-	
+
 	// Create cost record
 	record := CostRecord{
-		Timestamp:  time.Now(),
-		RequestID:  metadata.RequestID,
-		Operation:  metadata.Operation,
-		Model:      metadata.Model,
-		Provider:   metadata.Provider,
-		Cost:       *cost,
+		Timestamp: time.Now(),
+		RequestID: metadata.RequestID,
+		Operation: metadata.Operation,
+		Model:     metadata.Model,
+		Provider:  metadata.Provider,
+		Cost:      *cost,
 	}
-	
+
 	if metadata.TokenUsage != nil {
 		record.TokenUsage = *metadata.TokenUsage
 	}
-	
+
 	if metadata.Custom != nil {
 		record.Tags = make(map[string]string)
 		for k, v := range metadata.Custom {
@@ -223,20 +223,20 @@ func TrackCost(cost *schemaflow.CostInfo, metadata *schemaflow.ResultMetadata) {
 			}
 		}
 	}
-	
+
 	// Add to history
 	costHistory = append(costHistory, record)
-	
+
 	// Update totals
 	now := time.Now()
 	updateCostTotal("all_time", cost.TotalCost)
 	updateCostTotal(fmt.Sprintf("daily_%s", now.Format("2006-01-02")), cost.TotalCost)
 	updateCostTotal(fmt.Sprintf("weekly_%s", getWeekKey(now)), cost.TotalCost)
 	updateCostTotal(fmt.Sprintf("monthly_%s", now.Format("2006-01")), cost.TotalCost)
-	
+
 	// Check budget limits
 	checkBudgetLimits()
-	
+
 	// Log high-cost operations
 	if cost.TotalCost > 0.10 { // Log operations over $0.10
 		schemaflow.GetLogger().Info("High-cost operation tracked",
@@ -253,21 +253,21 @@ func TrackCost(cost *schemaflow.CostInfo, metadata *schemaflow.ResultMetadata) {
 func GetTotalCost(since time.Time, filters map[string]string) float64 {
 	costMutex.RLock()
 	defer costMutex.RUnlock()
-	
+
 	var total float64
 	for _, record := range costHistory {
 		if record.Timestamp.Before(since) {
 			continue
 		}
-		
+
 		// Apply filters
 		if !matchesFilters(record, filters) {
 			continue
 		}
-		
+
 		total += record.Cost.TotalCost
 	}
-	
+
 	return total
 }
 
@@ -275,16 +275,16 @@ func GetTotalCost(since time.Time, filters map[string]string) float64 {
 func SetBudget(daily, weekly, monthly float64, callback func(current, limit float64, period string)) {
 	costMutex.Lock()
 	defer costMutex.Unlock()
-	
+
 	if budgetLimits == nil {
 		budgetLimits = make(map[string]float64)
 	}
-	
+
 	budgetLimits["daily"] = daily
 	budgetLimits["weekly"] = weekly
 	budgetLimits["monthly"] = monthly
 	budgetCallback = callback
-	
+
 	schemaflow.GetLogger().Info("Budget limits configured",
 		"daily", fmt.Sprintf("$%.2f", daily),
 		"weekly", fmt.Sprintf("$%.2f", weekly),
@@ -296,30 +296,30 @@ func SetBudget(daily, weekly, monthly float64, callback func(current, limit floa
 func GetCostBreakdown(since time.Time) map[string]float64 {
 	costMutex.RLock()
 	defer costMutex.RUnlock()
-	
+
 	breakdown := make(map[string]float64)
-	
+
 	for _, record := range costHistory {
 		if record.Timestamp.Before(since) {
 			continue
 		}
-		
+
 		// By model
 		modelKey := fmt.Sprintf("model_%s", record.Model)
 		breakdown[modelKey] += record.Cost.TotalCost
-		
+
 		// By operation
 		opKey := fmt.Sprintf("operation_%s", record.Operation)
 		breakdown[opKey] += record.Cost.TotalCost
-		
+
 		// By provider
 		providerKey := fmt.Sprintf("provider_%s", record.Provider)
 		breakdown[providerKey] += record.Cost.TotalCost
-		
+
 		// Total
 		breakdown["total"] += record.Cost.TotalCost
 	}
-	
+
 	return breakdown
 }
 
@@ -327,9 +327,9 @@ func GetCostBreakdown(since time.Time) map[string]float64 {
 func ExportCostReport(since time.Time, format string) (string, error) {
 	costMutex.RLock()
 	defer costMutex.RUnlock()
-	
+
 	var report string
-	
+
 	switch format {
 	case "csv":
 		report = "Timestamp,RequestID,Operation,Model,Provider,PromptTokens,CompletionTokens,TotalTokens,Cost\n"
@@ -355,7 +355,7 @@ func ExportCostReport(since time.Time, format string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported format: %s", format)
 	}
-	
+
 	return report, nil
 }
 
@@ -410,9 +410,9 @@ func checkBudgetLimits() {
 	if budgetCallback == nil || budgetLimits == nil {
 		return
 	}
-	
+
 	now := time.Now()
-	
+
 	// Check daily budget
 	if limit, exists := budgetLimits["daily"]; exists && limit > 0 {
 		dailyKey := fmt.Sprintf("daily_%s", now.Format("2006-01-02"))
@@ -420,7 +420,7 @@ func checkBudgetLimits() {
 			budgetCallback(current, limit, "daily")
 		}
 	}
-	
+
 	// Check weekly budget
 	if limit, exists := budgetLimits["weekly"]; exists && limit > 0 {
 		weeklyKey := fmt.Sprintf("weekly_%s", getWeekKey(now))
@@ -428,7 +428,7 @@ func checkBudgetLimits() {
 			budgetCallback(current, limit, "weekly")
 		}
 	}
-	
+
 	// Check monthly budget
 	if limit, exists := budgetLimits["monthly"]; exists && limit > 0 {
 		monthlyKey := fmt.Sprintf("monthly_%s", now.Format("2006-01"))

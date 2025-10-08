@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	
-	schemaflow "github.com/monstercameron/SchemaFlow/core"
 )
 
 // BaseOptions defines the common interface for all operation options
@@ -24,19 +22,19 @@ type BaseOptions interface {
 type CommonOptions struct {
 	// Natural language guidance for the operation
 	Steering string
-	
+
 	// Minimum confidence threshold (0.0-1.0)
 	Threshold float64
-	
+
 	// Reasoning approach (Strict/Transform/Creative)
 	Mode Mode
-	
+
 	// Quality/speed tradeoff (Smart/Fast/Quick)
 	Intelligence Speed
-	
+
 	// Context for cancellation
 	Context context.Context
-	
+
 	// Internal fields
 	requestID string
 }
@@ -126,19 +124,19 @@ func (c CommonOptions) WithContext(ctx context.Context) CommonOptions {
 // ExtractOptions configures the Extract operation
 type ExtractOptions struct {
 	CommonOptions
-	
+
 	// Schema hints to guide extraction
 	SchemaHints map[string]string
-	
+
 	// Enforce strict schema validation
 	StrictSchema bool
-	
+
 	// Allow partial extraction if some fields missing
 	AllowPartial bool
-	
+
 	// Examples of expected output format
 	Examples []interface{}
-	
+
 	// Field-specific extraction rules
 	FieldRules map[string]string
 }
@@ -219,19 +217,19 @@ func (e ExtractOptions) WithIntelligence(intelligence Speed) ExtractOptions {
 // TransformOptions configures the Transform operation
 type TransformOptions struct {
 	CommonOptions
-	
+
 	// Mapping rules between source and target types
 	MappingRules map[string]string
-	
+
 	// Fields to preserve from source
 	PreserveFields []string
-	
+
 	// Strategy for merging data (replace, merge, append)
 	MergeStrategy string
-	
+
 	// Custom transformation logic as natural language
 	TransformLogic string
-	
+
 	// Examples of transformations
 	Examples []struct {
 		From interface{}
@@ -307,25 +305,25 @@ func (t TransformOptions) Validate() error {
 // GenerateOptions configures the Generate operation
 type GenerateOptions struct {
 	CommonOptions
-	
+
 	// Examples to guide generation
 	Examples []interface{}
-	
+
 	// Template for generation
 	Template string
-	
+
 	// Constraints on generated data
 	Constraints map[string]interface{}
-	
+
 	// Seed data to base generation on
 	SeedData interface{}
-	
+
 	// Number of variations to generate (for batch generation)
 	Count int
-	
+
 	// Ensure uniqueness in batch generation
 	EnsureUnique bool
-	
+
 	// Style or format preferences
 	Style string
 }
@@ -413,25 +411,25 @@ func (g GenerateOptions) WithMode(mode Mode) GenerateOptions {
 // SummarizeOptions configures the Summarize operation
 type SummarizeOptions struct {
 	CommonOptions
-	
+
 	// Target length (words, sentences, or paragraphs)
 	TargetLength int
-	
+
 	// Unit for target length ("words", "sentences", "paragraphs")
 	LengthUnit string
-	
+
 	// Output style ("bullet", "paragraph", "executive")
 	Style string
-	
+
 	// Use bullet points
 	BulletPoints bool
-	
+
 	// Areas to focus on
 	FocusAreas []string
-	
+
 	// Information to preserve
 	PreserveInfo []string
-	
+
 	// Maximum compression ratio
 	MaxCompression float64
 }
@@ -479,28 +477,28 @@ func (s SummarizeOptions) WithMode(mode Mode) SummarizeOptions {
 // RewriteOptions configures the Rewrite operation
 type RewriteOptions struct {
 	CommonOptions
-	
+
 	// Target tone (formal, casual, technical, friendly, etc.)
 	TargetTone string
-	
+
 	// Formality level (1-10)
 	FormalityLevel int
-	
+
 	// Preserve factual information
 	PreserveFacts bool
-	
+
 	// Target audience
 	Audience string
-	
+
 	// Writing style to emulate
 	StyleGuide string
-	
+
 	// Specific changes to make
 	Changes []string
-	
+
 	// Words or phrases to avoid
 	AvoidWords []string
-	
+
 	// Words or phrases to include
 	IncludeWords []string
 }
@@ -537,25 +535,25 @@ func (r RewriteOptions) WithMode(mode Mode) RewriteOptions {
 // TranslateOptions configures the Translate operation
 type TranslateOptions struct {
 	CommonOptions
-	
+
 	// Target language
 	TargetLanguage string
-	
+
 	// Source language (auto-detect if empty)
 	SourceLanguage string
-	
+
 	// Preserve formatting
 	PreserveFormatting bool
-	
+
 	// Cultural adaptation level (0=literal, 10=full adaptation)
 	CulturalAdaptation int
-	
+
 	// Formality level for target language
 	Formality string
-	
+
 	// Domain-specific terminology
 	Glossary map[string]string
-	
+
 	// Regional dialect
 	Dialect string
 }
@@ -602,22 +600,22 @@ func (t TranslateOptions) WithMode(mode Mode) TranslateOptions {
 // ExpandOptions configures the Expand operation
 type ExpandOptions struct {
 	CommonOptions
-	
+
 	// Target length multiplier
 	ExpansionFactor float64
-	
+
 	// Detail level (1-10)
 	DetailLevel int
-	
+
 	// Examples to include
 	IncludeExamples bool
-	
+
 	// Areas to elaborate on
 	ElaborateOn []string
-	
+
 	// Add context about these topics
 	AddContext []string
-	
+
 	// Style of expansion (technical, narrative, educational)
 	ExpansionStyle string
 }
@@ -662,25 +660,25 @@ func (e ExpandOptions) WithMode(mode Mode) ExpandOptions {
 // ClassifyOptions configures the Classify operation
 type ClassifyOptions struct {
 	CommonOptions
-	
+
 	// Available categories
 	Categories []string
-	
+
 	// Allow multiple categories
 	MultiLabel bool
-	
+
 	// Minimum confidence for classification
 	MinConfidence float64
-	
+
 	// Maximum categories to return (for multi-label)
 	MaxCategories int
-	
+
 	// Include confidence scores in result
 	IncludeConfidence bool
-	
+
 	// Category descriptions for better classification
 	CategoryDescriptions map[string]string
-	
+
 	// Examples per category
 	CategoryExamples map[string][]string
 }
@@ -738,23 +736,23 @@ func (c ClassifyOptions) WithMode(mode Mode) ClassifyOptions {
 // ScoreOptions configures the Score operation
 type ScoreOptions struct {
 	CommonOptions
-	
+
 	// Scoring criteria
 	Criteria []string
-	
+
 	// Score scale (e.g., 0-10, 0-100, 1-5)
 	ScaleMin float64
 	ScaleMax float64
-	
+
 	// Scoring rubric
 	Rubric map[string]string
-	
+
 	// Weight for each criterion
 	Weights map[string]float64
-	
+
 	// Include breakdown by criteria
 	IncludeBreakdown bool
-	
+
 	// Normalize scores
 	Normalize bool
 }
@@ -823,19 +821,19 @@ func (s ScoreOptions) WithMode(mode Mode) ScoreOptions {
 // CompareOptions configures the Compare operation
 type CompareOptions struct {
 	CommonOptions
-	
+
 	// Aspects to compare
 	ComparisonAspects []string
-	
+
 	// Output format (table, narrative, bullet)
 	OutputFormat string
-	
+
 	// Include similarity score
 	IncludeSimilarity bool
-	
+
 	// Focus on differences vs similarities
 	FocusOn string // "differences", "similarities", "both"
-	
+
 	// Depth of comparison (1-10)
 	Depth int
 }
@@ -904,19 +902,19 @@ func (c CompareOptions) WithMode(mode Mode) CompareOptions {
 // ChooseOptions configures the Choose operation
 type ChooseOptions struct {
 	CommonOptions
-	
+
 	// Selection criteria
 	Criteria []string
-	
+
 	// Require reasoning for choice
 	RequireReasoning bool
-	
+
 	// Number of options to return (top N)
 	TopN int
-	
+
 	// Include scores for all options
 	IncludeScores bool
-	
+
 	// Elimination strategy (sequential, tournament, scoring)
 	Strategy string
 }
@@ -970,19 +968,19 @@ func (c ChooseOptions) WithTopN(n int) ChooseOptions {
 // FilterOptions configures the Filter operation
 type FilterOptions struct {
 	CommonOptions
-	
+
 	// Filter criteria as natural language
 	Criteria string
-	
+
 	// Keep matching items (true) or remove them (false)
 	KeepMatching bool
-	
+
 	// Minimum confidence for filtering decision
 	MinConfidence float64
-	
+
 	// Return reasons for each filtering decision
 	IncludeReasons bool
-	
+
 	// Batch size for processing
 	BatchSize int
 }
@@ -1035,22 +1033,22 @@ func (f FilterOptions) WithIncludeReasons(include bool) FilterOptions {
 // SortOptions configures the Sort operation
 type SortOptions struct {
 	CommonOptions
-	
+
 	// Sort criteria as natural language
 	Criteria string
-	
+
 	// Sort direction (ascending, descending)
 	Direction string
-	
+
 	// Maintain relative order of equal elements
 	Stable bool
-	
+
 	// Custom comparison logic
 	ComparisonLogic string
-	
+
 	// Return sort keys/scores
 	IncludeScores bool
-	
+
 	// Multi-level sort criteria
 	SecondaryCriteria []string
 }
@@ -1107,28 +1105,28 @@ func (s SortOptions) WithSecondaryCriteria(criteria []string) SortOptions {
 // BatchOptions configures batch processing
 type BatchOptions struct {
 	CommonOptions
-	
+
 	// Processing mode (parallel, merged, sequential)
 	Mode string
-	
+
 	// Maximum concurrent operations
 	Concurrency int
-	
+
 	// Batch size for merged mode
 	BatchSize int
-	
+
 	// Error handling strategy (fail-fast, continue, retry)
 	ErrorStrategy string
-	
+
 	// Maximum retries per item
 	MaxRetries int
-	
+
 	// Progress callback
 	OnProgress func(completed, total int)
-	
+
 	// Item preprocessor
 	PreProcess func(item interface{}) interface{}
-	
+
 	// Result postprocessor
 	PostProcess func(result interface{}) interface{}
 }
@@ -1184,7 +1182,7 @@ func ConvertOpOptions(opts OpOptions, operationType string) BaseOptions {
 		Context:      opts.context,
 		requestID:    opts.requestID,
 	}
-	
+
 	// Return appropriate specialized options based on operation type
 	switch operationType {
 	case "extract":

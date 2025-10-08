@@ -100,7 +100,7 @@ func (l *Logger) SetJSONMode(enabled bool) {
 func (l *Logger) WithFields(fields map[string]any) *Logger {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	
+
 	newFields := make(map[string]any)
 	for k, v := range l.fields {
 		newFields[k] = v
@@ -108,7 +108,7 @@ func (l *Logger) WithFields(fields map[string]any) *Logger {
 	for k, v := range fields {
 		newFields[k] = v
 	}
-	
+
 	return &Logger{
 		level:    l.level,
 		output:   l.output,
@@ -121,12 +121,12 @@ func (l *Logger) WithFields(fields map[string]any) *Logger {
 func (l *Logger) log(level LogLevel, message string, fields ...any) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	
+
 	// Check if we should log this level
 	if level < l.level {
 		return
 	}
-	
+
 	// Create log entry
 	entry := LogEntry{
 		Timestamp: time.Now().Format(time.RFC3339),
@@ -134,32 +134,32 @@ func (l *Logger) log(level LogLevel, message string, fields ...any) {
 		Message:   message,
 		Fields:    make(map[string]any),
 	}
-	
+
 	// Add persistent fields
 	for k, v := range l.fields {
 		entry.Fields[k] = v
 	}
-	
+
 	// Parse variadic fields
 	for i := 0; i < len(fields)-1; i += 2 {
 		if key, ok := fields[i].(string); ok {
 			entry.Fields[key] = fields[i+1]
 		}
 	}
-	
+
 	// Add request ID if present
 	if reqID, ok := entry.Fields["requestID"].(string); ok && reqID != "" {
 		entry.RequestID = reqID
 		delete(entry.Fields, "requestID")
 	}
-	
+
 	// Add caller information for errors and debug
 	if level >= ErrorLevel || level == DebugLevel {
 		if caller := getCaller(3); caller != "" {
 			entry.Caller = caller
 		}
 	}
-	
+
 	// Format and write the log
 	var output string
 	if l.jsonMode {
@@ -171,7 +171,7 @@ func (l *Logger) log(level LogLevel, message string, fields ...any) {
 	} else {
 		output = formatTextLog(entry)
 	}
-	
+
 	fmt.Fprint(l.output, output)
 }
 
@@ -204,23 +204,23 @@ func (l *Logger) Fatal(message string, fields ...any) {
 // formatTextLog formats a log entry as human-readable text
 func formatTextLog(entry LogEntry) string {
 	var sb strings.Builder
-	
+
 	// Timestamp and level
 	sb.WriteString(entry.Timestamp)
 	sb.WriteString(" [")
 	sb.WriteString(entry.Level)
 	sb.WriteString("] ")
-	
+
 	// Request ID if present
 	if entry.RequestID != "" {
 		sb.WriteString("[")
 		sb.WriteString(entry.RequestID)
 		sb.WriteString("] ")
 	}
-	
+
 	// Message
 	sb.WriteString(entry.Message)
-	
+
 	// Fields
 	if len(entry.Fields) > 0 {
 		sb.WriteString(" | ")
@@ -235,13 +235,13 @@ func formatTextLog(entry LogEntry) string {
 			sb.WriteString(formatValue(v))
 		}
 	}
-	
+
 	// Caller
 	if entry.Caller != "" {
 		sb.WriteString(" | caller=")
 		sb.WriteString(entry.Caller)
 	}
-	
+
 	sb.WriteString("\n")
 	return sb.String()
 }
@@ -267,14 +267,13 @@ func getCaller(skip int) string {
 	if !ok {
 		return ""
 	}
-	
+
 	// Extract just the filename
 	parts := strings.Split(file, "/")
 	if len(parts) > 0 {
 		file = parts[len(parts)-1]
 	}
-	
-	
+
 	return fmt.Sprintf("%s:%d", file, line)
 }
 

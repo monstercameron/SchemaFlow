@@ -4,21 +4,27 @@ import (
 	"strings"
 	"testing"
 	"time"
-	
+
 	schemaflow "github.com/monstercameron/SchemaFlow/core"
 )
+
+// Test helper type
+type Person struct {
+	Name string
+	Age  int
+}
 
 func TestDebug(t *testing.T) {
 	// Save original state
 	origDebug := schemaflow.GetDebugMode()
 	defer func() { schemaflow.SetDebugMode(origDebug) }()
-	
+
 	// Test enabling debug
 	Debug(true)
 	if !schemaflow.GetDebugMode() {
 		t.Error("Expected debug mode to be enabled")
 	}
-	
+
 	// Test disabling debug
 	Debug(false)
 	if schemaflow.GetDebugMode() {
@@ -28,15 +34,15 @@ func TestDebug(t *testing.T) {
 
 func TestGetDebugInfo(t *testing.T) {
 	info := GetDebugInfo()
-	
+
 	if info.RequestID == "" {
 		t.Error("Expected RequestID to be set")
 	}
-	
+
 	if info.MemoryUsage.Allocated == 0 {
 		t.Error("Expected memory usage to be tracked")
 	}
-	
+
 	if len(info.StackTrace) == 0 {
 		t.Error("Expected stack trace to be captured")
 	}
@@ -44,26 +50,26 @@ func TestGetDebugInfo(t *testing.T) {
 
 func TestTraceOperation(t *testing.T) {
 	trace := TraceOperation("TestOp", "test input")
-	
+
 	if trace.Operation != "TestOp" {
 		t.Errorf("Expected operation 'TestOp', got %s", trace.Operation)
 	}
-	
+
 	if trace.RequestID == "" {
 		t.Error("Expected RequestID to be set")
 	}
-	
+
 	if trace.Input != "test input" {
 		t.Errorf("Expected input 'test input', got %v", trace.Input)
 	}
-	
+
 	// Complete the trace
 	trace.Complete("output", nil)
-	
+
 	if trace.Output != "output" {
 		t.Errorf("Expected output 'output', got %v", trace.Output)
 	}
-	
+
 	if trace.EndTime.IsZero() {
 		t.Error("Expected EndTime to be set")
 	}
@@ -113,7 +119,7 @@ func TestValidateInput(t *testing.T) {
 			wantErr:   true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateInput(tt.input, tt.operation)
@@ -125,24 +131,23 @@ func TestValidateInput(t *testing.T) {
 }
 
 func TestDumpOperation(t *testing.T) {
-	opts := OpOptions{
+	opts := schemaflow.OpOptions{
 		Steering:     "test steering",
 		Threshold:    0.8,
-		Mode:         TransformMode,
-		Intelligence: Smart,
-		requestID:    "test-123",
+		Mode:         schemaflow.TransformMode,
+		Intelligence: schemaflow.Smart,
 	}
-	
+
 	dump := DumpOperation("TestOp", "input", "output", nil, opts)
-	
+
 	if !strings.Contains(dump, "TestOp") {
 		t.Error("Expected dump to contain operation name")
 	}
-	
+
 	if !strings.Contains(dump, "test-123") {
 		t.Error("Expected dump to contain request ID")
 	}
-	
+
 	if !strings.Contains(dump, "memory_stats") {
 		t.Error("Expected dump to contain memory stats")
 	}
@@ -154,19 +159,19 @@ func TestBenchmarkOperation(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		return nil
 	})
-	
+
 	if result.Operation != "TestBenchmark" {
 		t.Errorf("Expected operation 'TestBenchmark', got %s", result.Operation)
 	}
-	
+
 	if result.Duration < 10*time.Millisecond {
 		t.Errorf("Expected duration >= 10ms, got %v", result.Duration)
 	}
-	
+
 	if result.Error != nil {
 		t.Errorf("Expected no error, got %v", result.Error)
 	}
-	
+
 	// Test string representation
 	str := result.String()
 	if !strings.Contains(str, "SUCCESS") {
@@ -179,11 +184,11 @@ func TestBenchmarkOperation(t *testing.T) {
 
 func TestGetMemoryStats(t *testing.T) {
 	stats := getMemoryStats()
-	
+
 	if stats.Allocated == 0 {
 		t.Error("Expected allocated memory to be > 0")
 	}
-	
+
 	if stats.System == 0 {
 		t.Error("Expected system memory to be > 0")
 	}
@@ -191,11 +196,11 @@ func TestGetMemoryStats(t *testing.T) {
 
 func TestGetStackTrace(t *testing.T) {
 	trace := getStackTrace(0)
-	
+
 	if len(trace) == 0 {
 		t.Error("Expected stack trace to have entries")
 	}
-	
+
 	// Check that trace contains this test function
 	found := false
 	for _, entry := range trace {
@@ -204,7 +209,7 @@ func TestGetStackTrace(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Error("Expected stack trace to contain TestGetStackTrace")
 	}
@@ -212,9 +217,9 @@ func TestGetStackTrace(t *testing.T) {
 
 func TestFormatForLog(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    any
-		maxLen   int
+		name   string
+		input  any
+		maxLen int
 	}{
 		{
 			name:   "nil value",
@@ -237,7 +242,7 @@ func TestFormatForLog(t *testing.T) {
 			maxLen: 500,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := formatForLog(tt.input)
