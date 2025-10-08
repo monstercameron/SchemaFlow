@@ -1,5 +1,5 @@
 // Comprehensive coverage tests for all components
-package schemaflow
+package tests
 
 import (
 	"context"

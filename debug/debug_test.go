@@ -1,25 +1,27 @@
-package schemaflow
+package debug
 
 import (
 	"strings"
 	"testing"
 	"time"
+	
+	schemaflow "github.com/monstercameron/SchemaFlow/core"
 )
 
 func TestDebug(t *testing.T) {
 	// Save original state
-	origDebug := debugMode
-	defer func() { debugMode = origDebug }()
+	origDebug := schemaflow.GetDebugMode()
+	defer func() { schemaflow.SetDebugMode(origDebug) }()
 	
 	// Test enabling debug
 	Debug(true)
-	if !debugMode {
+	if !schemaflow.GetDebugMode() {
 		t.Error("Expected debug mode to be enabled")
 	}
 	
 	// Test disabling debug
 	Debug(false)
-	if debugMode {
+	if schemaflow.GetDebugMode() {
 		t.Error("Expected debug mode to be disabled")
 	}
 }

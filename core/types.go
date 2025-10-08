@@ -106,8 +106,8 @@ type Result[T any] struct {
 // Case represents a pattern matching case for the Match function.
 // Used for conditional execution based on fuzzy matching.
 type Case struct {
-	condition any    // String pattern, type, or value to match
-	action    func() // Function to execute when matched
+	Condition any    // String pattern, type, or value to match
+	Action    func() // Function to execute when matched
 }
 
 // callLLMFunc is the function type for LLM calls (can be mocked for testing)
@@ -148,6 +148,41 @@ type CostInfo struct {
 	BillingPeriod   string  `json:"billing_period,omitempty"`
 	OrganizationID  string  `json:"organization_id,omitempty"`
 	ProjectID       string  `json:"project_id,omitempty"`
+}
+
+// DebugInfo provides detailed debugging information for an operation
+type DebugInfo struct {
+	RequestID    string         `json:"request_id"`
+	Operation    string         `json:"operation"`
+	StartTime    time.Time      `json:"start_time"`
+	EndTime      time.Time      `json:"end_time"`
+	Duration     time.Duration  `json:"duration"`
+	Input        any            `json:"input,omitempty"`
+	Output       any            `json:"output,omitempty"`
+	Error        error          `json:"error,omitempty"`
+	LLMCalls     []LLMCallInfo  `json:"llm_calls,omitempty"`
+	MemoryUsage  MemoryStats    `json:"memory_usage"`
+	StackTrace   []string       `json:"stack_trace,omitempty"`
+}
+
+// LLMCallInfo contains information about a single LLM call
+type LLMCallInfo struct {
+	Model        string        `json:"model"`
+	Prompt       string        `json:"prompt"`
+	Response     string        `json:"response"`
+	TokensUsed   int           `json:"tokens_used"`
+	Duration     time.Duration `json:"duration"`
+	Retries      int           `json:"retries"`
+	Temperature  float32       `json:"temperature"`
+	MaxTokens    int           `json:"max_tokens"`
+}
+
+// MemoryStats contains memory usage statistics
+type MemoryStats struct {
+	Allocated      uint64 `json:"allocated"`
+	TotalAllocated uint64 `json:"total_allocated"`
+	System         uint64 `json:"system"`
+	NumGC          uint32 `json:"num_gc"`
 }
 
 // ResultMetadata contains detailed information about an operation's execution

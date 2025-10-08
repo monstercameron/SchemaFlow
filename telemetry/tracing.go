@@ -1,5 +1,5 @@
-// Package schemaflow - OpenTelemetry integration for distributed tracing
-package schemaflow
+// package telemetry - OpenTelemetry integration for distributed tracing
+package telemetry
 
 import (
 	"context"

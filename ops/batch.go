@@ -1,5 +1,5 @@
-// Package schemaflow - Batch operations for efficient bulk processing
-package schemaflow
+// package ops - Batch operations for efficient bulk processing
+package ops
 
 import (
 	"context"

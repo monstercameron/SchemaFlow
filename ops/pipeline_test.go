@@ -1,4 +1,4 @@
-package schemaflow
+package ops
 
 import (
 	"context"

@@ -319,3 +319,39 @@ func getTemperature(mode Mode) float32 {
 		return 0.3
 	}
 }
+
+// Helper functions for package access
+
+// GetDebugMode returns the current debug mode status
+func GetDebugMode() bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	return debugMode
+}
+
+// GetTraceEnabled returns whether tracing is enabled
+func GetTraceEnabled() bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	return traceEnabled
+}
+
+// GenerateRequestID exports the generateRequestID function
+func GenerateRequestID() string {
+	return generateRequestID()
+}
+
+// GetDefaultClient returns the default client
+func GetDefaultClient() *Client {
+	return defaultClient
+}
+
+// GetClient returns the legacy client
+func GetClient() interface{} {
+	return client
+}
+
+// GetTimeout returns the global timeout
+func GetTimeout() time.Duration {
+	return timeout
+}

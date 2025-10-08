@@ -1,10 +1,12 @@
-// Package schemaflow - Specialized options for each LLM operation
-package schemaflow
+// package ops - Specialized options for each LLM operation
+package ops
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	
+	schemaflow "github.com/monstercameron/SchemaFlow/core"
 )
 
 // BaseOptions defines the common interface for all operation options

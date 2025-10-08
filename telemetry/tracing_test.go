@@ -1,4 +1,4 @@
-package schemaflow
+package telemetry
 
 import (
 	"context"

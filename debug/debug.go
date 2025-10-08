@@ -1,5 +1,5 @@
-// Package schemaflow - Debugging utilities and diagnostics
-package schemaflow
+// Package debug - Debugging utilities and diagnostics
+package debug
 
 import (
 	"encoding/json"
@@ -8,65 +8,23 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	
+	schemaflow "github.com/monstercameron/SchemaFlow/core"
 )
-
-// DebugInfo provides detailed debugging information for an operation
-type DebugInfo struct {
-	RequestID    string         `json:"request_id"`
-	Operation    string         `json:"operation"`
-	StartTime    time.Time      `json:"start_time"`
-	EndTime      time.Time      `json:"end_time"`
-	Duration     time.Duration  `json:"duration"`
-	Input        any            `json:"input,omitempty"`
-	Output       any            `json:"output,omitempty"`
-	Error        error          `json:"error,omitempty"`
-	LLMCalls     []LLMCallInfo  `json:"llm_calls,omitempty"`
-	MemoryUsage  MemoryStats    `json:"memory_usage"`
-	StackTrace   []string       `json:"stack_trace,omitempty"`
-}
-
-// LLMCallInfo contains information about a single LLM call
-type LLMCallInfo struct {
-	Model        string        `json:"model"`
-	Prompt       string        `json:"prompt"`
-	Response     string        `json:"response"`
-	TokensUsed   int           `json:"tokens_used"`
-	Duration     time.Duration `json:"duration"`
-	Retries      int           `json:"retries"`
-	Temperature  float32       `json:"temperature"`
-	MaxTokens    int           `json:"max_tokens"`
-}
-
-// MemoryStats contains memory usage statistics
-type MemoryStats struct {
-	Allocated      uint64 `json:"allocated"`
-	TotalAllocated uint64 `json:"total_allocated"`
-	System         uint64 `json:"system"`
-	NumGC          uint32 `json:"num_gc"`
-}
 
 // Debug enables debug mode for detailed operation tracking
 func Debug(enabled bool) {
-	mu.Lock()
-	defer mu.Unlock()
-	debugMode = enabled
-	if enabled {
-		logger.SetLevel(DebugLevel)
-		logger.Info("Debug mode enabled")
-	} else {
-		logger.SetLevel(InfoLevel)
-		logger.Info("Debug mode disabled")
-	}
+	schemaflow.SetDebugMode(enabled)
 }
 
 // GetDebugInfo returns current debug information
-func GetDebugInfo() DebugInfo {
+func GetDebugInfo() schemaflow.DebugInfo {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	
-	return DebugInfo{
-		RequestID: generateRequestID(),
-		MemoryUsage: MemoryStats{
+	return schemaflow.DebugInfo{
+		RequestID: schemaflow.GenerateRequestID(),
+		MemoryUsage: schemaflow.MemoryStats{
 			Allocated:      m.Alloc,
 			TotalAllocated: m.TotalAlloc,
 			System:         m.Sys,
@@ -80,7 +38,7 @@ func GetDebugInfo() DebugInfo {
 func TraceOperation(operation string, input any) *OperationTrace {
 	return &OperationTrace{
 		Operation: operation,
-		RequestID: generateRequestID(),
+		RequestID: schemaflow.GenerateRequestID(),
 		StartTime: time.Now(),
 		Input:     input,
 	}
@@ -95,7 +53,7 @@ type OperationTrace struct {
 	Input       any
 	Output      any
 	Error       error
-	LLMCalls    []LLMCallInfo
+	LLMCalls    []schemaflow.LLMCallInfo
 }
 
 // Complete marks the operation as complete
@@ -104,7 +62,7 @@ func (t *OperationTrace) Complete(output any, err error) {
 	t.Output = output
 	t.Error = err
 	
-	if traceEnabled {
+	if schemaflow.GetTraceEnabled() {
 		t.log()
 	}
 }
@@ -120,17 +78,17 @@ func (t *OperationTrace) log() {
 	}
 	
 	if t.Error != nil {
-		logger.Error("Operation failed",
+		schemaflow.GetLogger().Error("Operation failed",
 			append(fields, "error", t.Error)...,
 		)
 	} else {
-		logger.Info("Operation completed",
+		schemaflow.GetLogger().Info("Operation completed",
 			fields...,
 		)
 	}
 	
-	if debugMode {
-		logger.Debug("Operation trace",
+	if schemaflow.GetDebugMode() {
+		schemaflow.GetLogger().Debug("Operation trace",
 			"requestID", t.RequestID,
 			"input", formatForLog(t.Input),
 			"output", formatForLog(t.Output),
@@ -149,7 +107,7 @@ func ValidateInput(input any, operation string) error {
 	
 	// Check for zero values
 	if v.IsZero() {
-		logger.Warn("Zero value input",
+		schemaflow.GetLogger().Warn("Zero value input",
 			"operation", operation,
 			"type", v.Type().String(),
 		)
@@ -212,7 +170,7 @@ func sanitizeString(s string) error {
 	lower := strings.ToLower(s)
 	for _, pattern := range dangerousPatterns {
 		if strings.Contains(lower, pattern) {
-			logger.Warn("Potentially dangerous pattern detected",
+			schemaflow.GetLogger().Warn("Potentially dangerous pattern detected",
 				"pattern", pattern,
 				"input", s[:min(len(s), 50)],
 			)
@@ -223,10 +181,10 @@ func sanitizeString(s string) error {
 }
 
 // DumpOperation creates a detailed dump of an operation for debugging
-func DumpOperation(op string, input any, output any, err error, opts OpOptions) string {
+func DumpOperation(op string, input any, output any, err error, opts schemaflow.OpOptions) string {
 	dump := OperationDump{
 		Operation:    op,
-		RequestID:    opts.requestID,
+		RequestID:    schemaflow.GenerateRequestID(),
 		Timestamp:    time.Now(),
 		Input:        input,
 		Output:       output,
@@ -249,17 +207,17 @@ type OperationDump struct {
 	Input       any          `json:"input"`
 	Output      any          `json:"output"`
 	Error       error        `json:"error,omitempty"`
-	Options     OpOptions    `json:"options"`
-	MemoryStats MemoryStats  `json:"memory_stats"`
+	Options     schemaflow.OpOptions    `json:"options"`
+	MemoryStats schemaflow.MemoryStats  `json:"memory_stats"`
 	Goroutines  int          `json:"goroutines"`
 	StackTrace  []string     `json:"stack_trace"`
 }
 
 // getMemoryStats returns current memory statistics
-func getMemoryStats() MemoryStats {
+func getMemoryStats() schemaflow.MemoryStats {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	return MemoryStats{
+	return schemaflow.MemoryStats{
 		Allocated:      m.Alloc,
 		TotalAllocated: m.TotalAlloc,
 		System:         m.Sys,

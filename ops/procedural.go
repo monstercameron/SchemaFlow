@@ -1,5 +1,5 @@
-// Package schemaflow - Procedural programming operations for control flow and state management
-package schemaflow
+// package ops - Procedural programming operations for control flow and state management
+package ops
 
 import (
 	"context"

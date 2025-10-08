@@ -1,5 +1,5 @@
-// Package schemaflow - Extended operations for data validation, formatting, and analysis
-package schemaflow
+// package ops - Extended operations for data validation, formatting, and analysis
+package ops
 
 import (
 	"context"

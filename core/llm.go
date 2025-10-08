@@ -381,3 +381,7 @@ func isRetryableError(err error) bool {
 	
 	return false
 }
+// CallLLM is the exported function for making LLM calls from subpackages
+func CallLLM(ctx context.Context, systemPrompt, userPrompt string, opts OpOptions) (string, error) {
+	return callLLM(ctx, systemPrompt, userPrompt, opts)
+}

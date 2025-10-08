@@ -274,5 +274,16 @@ func getCaller(skip int) string {
 		file = parts[len(parts)-1]
 	}
 	
+	
 	return fmt.Sprintf("%s:%d", file, line)
+}
+
+// GetLogger returns the global logger instance
+func GetLogger() *Logger {
+	mu.RLock()
+	defer mu.RUnlock()
+	if logger == nil {
+		return NewLogger()
+	}
+	return logger
 }

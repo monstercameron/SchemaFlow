@@ -1,13 +1,15 @@
-package schemaflow
+package ops
 
 import (
 	"context"
 	"fmt"
 	"reflect"
 	"strings"
+	
+	schemaflow "github.com/monstercameron/SchemaFlow/core"
 )
 
-func Match(input any, cases ...Case) {
+func Match(input any, cases ...schemaflow.Case) {
 	if len(cases) == 0 {
 		return
 	}
@@ -15,29 +17,29 @@ func Match(input any, cases ...Case) {
 	executed := false
 	
 	for _, c := range cases {
-		if c.action == nil {
+		if c.Action == nil {
 			continue
 		}
 		
-		switch cond := c.condition.(type) {
+		switch cond := c.Condition.(type) {
 		case string:
 			if cond == "_" || cond == "otherwise" || cond == "default" {
 				if !executed {
-					c.action()
+					c.Action()
 					executed = true
 				}
 				break
 			}
 			
 			if matchesStringCondition(input, cond) {
-				c.action()
+				c.Action()
 				executed = true
 				break
 			}
 			
 		case reflect.Type:
 			if matchesType(input, cond) {
-				c.action()
+				c.Action()
 				executed = true
 				break
 			}
@@ -45,7 +47,7 @@ func Match(input any, cases ...Case) {
 		case error:
 			if err, ok := input.(error); ok {
 				if reflect.TypeOf(err) == reflect.TypeOf(cond) {
-					c.action()
+					c.Action()
 					executed = true
 					break
 				}
@@ -56,7 +58,7 @@ func Match(input any, cases ...Case) {
 			condType := reflect.TypeOf(cond)
 			
 			if inputType != nil && condType != nil && inputType == condType {
-				c.action()
+				c.Action()
 				executed = true
 				break
 			}
@@ -68,24 +70,24 @@ func Match(input any, cases ...Case) {
 	}
 }
 
-func When(condition any, action func()) Case {
-	return Case{
-		condition: condition,
-		action:    action,
+func When(condition any, action func()) schemaflow.Case {
+	return schemaflow.Case{
+		Condition: condition,
+		Action:    action,
 	}
 }
 
-func Like(template string, action func()) Case {
-	return Case{
-		condition: template,
-		action:    action,
+func Like(template string, action func()) schemaflow.Case {
+	return schemaflow.Case{
+		Condition: template,
+		Action:    action,
 	}
 }
 
-func Otherwise(action func()) Case {
-	return Case{
-		condition: "otherwise",
-		action:    action,
+func Otherwise(action func()) schemaflow.Case {
+	return schemaflow.Case{
+		Condition: "otherwise",
+		Action:    action,
 	}
 }
 
@@ -108,12 +110,12 @@ Rules:
 	
 	userPrompt := fmt.Sprintf("Does this input:\n%s\n\nMatch this condition:\n%s", inputStr, condition)
 	
-	opt := OpOptions{
-		Intelligence: Quick,
-		Mode:         TransformMode,
+	opt := schemaflow.OpOptions{
+		Intelligence: schemaflow.Quick,
+		Mode:         schemaflow.TransformMode,
 	}
 	
-	response, err := callLLM(ctx, systemPrompt, userPrompt, opt)
+	response, err := schemaflow.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
 		return false
 	}

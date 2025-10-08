@@ -1,5 +1,5 @@
-// Package schemaflow - Pipeline and composition support for chaining operations
-package schemaflow
+// package ops - Pipeline and composition support for chaining operations
+package ops
 
 import (
 	"context"

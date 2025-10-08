@@ -1,5 +1,5 @@
-// Package schemaflow - Data operations for structured data extraction and transformation
-package schemaflow
+// package ops - Data operations for structured data extraction and transformation
+package ops
 
 import (
 	"context"
