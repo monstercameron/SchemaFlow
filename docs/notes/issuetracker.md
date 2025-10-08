@@ -66,9 +66,9 @@ ss]** Line 300: `getCaller`'s logic for extracting the filename is not robust an
 
  - **Robustne- **Clarity]** The tests are not very descriptive. For example, `TestExtract` could be split into multiple tests for different scenarios.
 
-## gogomagic.go
+## experimental/schemaflow.go
 
-- **[Doc]** The file is named `gogomagic.go`, which is not descriptive. It should be renamed to `schemaflow.go` to match the package name.
+- **[Doc]** The file is named `experimental/schemaflow.go`, which now matches the package name but still duplicates higher-level documentation. Consider consolidating with `core/doc.go` to avoid drift.
 - **[Doc]** The file list in the documentation comment is out of date. For example, it lists `data_operations.go`, but the file is `ops_core.go`.
 - **[Doc]** The documentation is getting out of sync with the code. It's important to keep it updated.
 - **Refactor]** The file is just a documentation file. It could be merged with `doc.go`.
@@ -104,9 +104,9 @@ ss]** Line 300: `getCaller`'s logic for extracting the filename is not robust an
 - **[Deps]** The file contains multiple versions of the same library (e.g., `github.com/stretchr/testify`). This should be cleaned up.
 - **[Deps]** The presence of `gopkg.in/yaml.v2` and `gopkg.in/yaml.v3` suggests that there might be a dependency conflict.
 
-## gogomagic_test.go
+## experimental/schemaflow_test.go
 
-- **[Test]** The file is named `gogomagic_test.go`, which is not very descriptive. It should be renamed to something more meaningful, like `schemaflow_test.go`.
+- **[Test]** The renamed `experimental/schemaflow_test.go` remains extremely broad; long-term we should split it into focused suites.
 - **[Test]** Line 20: The `TestMain` function sets up a mock client if `SCHEMAFLOW_API_KEY` is not set. This is good for CI, but it makes it hard to run tests against a real API.
 - **[Test]** Line 33: The `mockLLMResponse` function is a giant `if/else if` block that is hard to maintain. It would be better to use a map of responses or a more structured approach.
 - **[Refactor]** The file is very long and contains tests for many different parts of the library. It should be split into multiple files.
