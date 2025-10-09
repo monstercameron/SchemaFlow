@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
@@ -15,7 +15,8 @@ func main() {
 	// Initialize SchemaFlow
 	fmt.Println("🔧 Initializing SchemaFlow...")
 	if err := schemaflow.InitWithEnv(".env"); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		return
 	}
 	fmt.Println("✅ SchemaFlow initialized successfully")
 	fmt.Println()
@@ -54,7 +55,8 @@ func main() {
 	result, err := schemaflow.Diff(oldCustomer, newCustomer,
 		ops.NewDiffOptions().WithContext("Customer management system"))
 	if err != nil {
-		log.Fatalf("Diff failed: %v", err)
+		core.GetLogger().Error("Diff failed", "error", err)
+		return
 	}
 
 	fmt.Printf("📋 Changes Detected:\n")
@@ -107,7 +109,8 @@ func main() {
 	productResult, err := schemaflow.Diff(oldProduct, newProduct,
 		ops.NewDiffOptions().WithContext("E-commerce product catalog"))
 	if err != nil {
-		log.Fatalf("Diff failed: %v", err)
+		core.GetLogger().Error("Diff failed", "error", err)
+		return
 	}
 
 	fmt.Printf("📋 Changes Detected:\n")
@@ -157,7 +160,8 @@ func main() {
 			WithContext("Service configuration management").
 			WithIgnoreFields([]string{"LastUpdated"}))
 	if err != nil {
-		log.Fatalf("Diff failed: %v", err)
+		core.GetLogger().Error("Diff failed", "error", err)
+		return
 	}
 
 	fmt.Printf("📋 Changes Detected:\n")

@@ -7,15 +7,16 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	
-	"github.com/monstercameron/schemaflow"
+
+	"github.com/monstercameron/SchemaFlow/core"
+	schemaflow "github.com/monstercameron/schemaflow"
 )
 
 // Localization handles dynamic translation of UI strings
 type Localization struct {
-	locale      string
-	cache       map[string]string
-	cacheMutex  sync.RWMutex
+	locale     string
+	cache      map[string]string
+	cacheMutex sync.RWMutex
 }
 
 // Global localization instance
@@ -25,13 +26,13 @@ var l10n *Localization
 func InitLocalization() {
 	locale := detectSystemLocale()
 	l10n = &Localization{
-		locale:     locale,
-		cache:      make(map[string]string),
+		locale: locale,
+		cache:  make(map[string]string),
 	}
-	
+
 	// Log the detected locale
 	if locale != "en" && locale != "" {
-		fmt.Printf("Detected system locale: %s - UI will be translated\n", locale)
+		core.GetLogger().Info("Detected system locale - UI will be translated", "locale", locale)
 	}
 }
 
@@ -45,7 +46,7 @@ func detectSystemLocale() string {
 	if locale == "" {
 		locale = os.Getenv("LC_MESSAGES")
 	}
-	
+
 	// On macOS, try to get from defaults
 	if locale == "" && runtime.GOOS == "darwin" {
 		cmd := exec.Command("defaults", "read", "-g", "AppleLocale")
@@ -53,7 +54,7 @@ func detectSystemLocale() string {
 			locale = strings.TrimSpace(string(output))
 		}
 	}
-	
+
 	// Extract language code (e.g., "en_US.UTF-8" -> "en")
 	if locale != "" {
 		parts := strings.Split(locale, "_")
@@ -66,7 +67,7 @@ func detectSystemLocale() string {
 			return lang
 		}
 	}
-	
+
 	return ""
 }
 
@@ -79,7 +80,7 @@ func T(key string, args ...interface{}) string {
 		}
 		return key
 	}
-	
+
 	// Check cache first
 	l10n.cacheMutex.RLock()
 	if translated, exists := l10n.cache[key]; exists {
@@ -90,15 +91,15 @@ func T(key string, args ...interface{}) string {
 		return translated
 	}
 	l10n.cacheMutex.RUnlock()
-	
+
 	// Translate using schemaflow
 	translated := l10n.translateString(key)
-	
+
 	// Cache the translation
 	l10n.cacheMutex.Lock()
 	l10n.cache[key] = translated
 	l10n.cacheMutex.Unlock()
-	
+
 	if len(args) > 0 {
 		return fmt.Sprintf(translated, args...)
 	}
@@ -114,22 +115,22 @@ Preserve any format specifiers like %%s, %%d, etc.
 Only return the translated text, nothing else.
 
 Text to translate: "%s"`, l.getLanguageName(), text)
-	
+
 	// Use schemaflow Generate for translation
 	type TranslationResult struct {
 		Translation string `json:"translation" jsonschema:"description=The translated text"`
 	}
-	
+
 	result, err := schemaflow.Generate[TranslationResult](prompt, schemaflow.OpOptions{
 		Intelligence: schemaflow.Fast, // Use fast model for translations
 		Mode:         schemaflow.TransformMode,
 	})
-	
+
 	if err != nil {
 		// Fall back to original text if translation fails
 		return text
 	}
-	
+
 	return result.Translation
 }
 
@@ -175,7 +176,7 @@ func (l *Localization) getLanguageName() string {
 		"eu": "Basque",
 		"gl": "Galician",
 	}
-	
+
 	if name, exists := languages[l.locale]; exists {
 		return name
 	}
@@ -191,11 +192,11 @@ func BatchTranslate(keys []string) map[string]string {
 		}
 		return result
 	}
-	
+
 	// Check cache for all keys first
 	result := make(map[string]string)
 	toTranslate := []string{}
-	
+
 	l10n.cacheMutex.RLock()
 	for _, key := range keys {
 		if translated, exists := l10n.cache[key]; exists {
@@ -205,15 +206,15 @@ func BatchTranslate(keys []string) map[string]string {
 		}
 	}
 	l10n.cacheMutex.RUnlock()
-	
+
 	// If all cached, return early
 	if len(toTranslate) == 0 {
 		return result
 	}
-	
+
 	// Batch translate remaining strings
 	translations := l10n.batchTranslateStrings(toTranslate)
-	
+
 	// Cache and add to result
 	l10n.cacheMutex.Lock()
 	for i, key := range toTranslate {
@@ -226,7 +227,7 @@ func BatchTranslate(keys []string) map[string]string {
 		}
 	}
 	l10n.cacheMutex.Unlock()
-	
+
 	return result
 }
 
@@ -235,7 +236,7 @@ func (l *Localization) batchTranslateStrings(texts []string) []string {
 	if len(texts) == 0 {
 		return []string{}
 	}
-	
+
 	// Build batch translation prompt
 	textList := strings.Join(texts, "\n")
 	prompt := fmt.Sprintf(`Translate the following UI texts from English to %s.
@@ -245,21 +246,21 @@ Return ONLY the translations, one per line, in the same order as the input.
 
 Texts to translate:
 %s`, l.getLanguageName(), textList)
-	
+
 	type BatchTranslationResult struct {
 		Translations []string `json:"translations" jsonschema:"description=List of translated texts in order"`
 	}
-	
+
 	result, err := schemaflow.Generate[BatchTranslationResult](prompt, schemaflow.OpOptions{
 		Intelligence: schemaflow.Fast, // Use fast model for batch translations
 		Mode:         schemaflow.TransformMode,
 	})
-	
+
 	if err != nil {
 		// Return original texts if translation fails
 		return texts
 	}
-	
+
 	return result.Translations
 }
 
@@ -291,7 +292,7 @@ func PreloadCommonStrings() {
 	if l10n == nil || l10n.locale == "" || l10n.locale == "en" {
 		return
 	}
-	
+
 	// List of common strings to preload
 	commonStrings := []string{
 		AppName,
@@ -306,7 +307,7 @@ func PreloadCommonStrings() {
 		ShortcutsTitle,
 		ActivityLogTitle,
 	}
-	
+
 	// Batch translate for efficiency
 	BatchTranslate(commonStrings)
 }

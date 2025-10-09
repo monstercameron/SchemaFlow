@@ -98,10 +98,16 @@ func (l *Logger) Fatal(message string, args ...any) {
 func GetLogger() *Logger {
 	mu.RLock()
 	if logger != nil {
-		defer mu.RUnlock()
+		mu.RUnlock()
 		return logger
 	}
 	mu.RUnlock()
 
-	return NewLogger()
+	mu.Lock()
+	if logger == nil {
+		logger = NewLogger()
+	}
+	mu.Unlock()
+
+	return logger
 }

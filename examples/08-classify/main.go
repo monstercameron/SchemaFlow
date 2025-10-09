@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
@@ -19,7 +20,8 @@ type Review struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		os.Exit(1)
 	}
 
 	// Customer reviews to classify
@@ -76,7 +78,7 @@ func main() {
 
 		sentiment, err := ops.Classify(review.Text, classifyOpts)
 		if err != nil {
-			log.Printf("Failed to classify review #%d: %v", review.ID, err)
+			core.GetLogger().Warn("Failed to classify review", "review_id", review.ID, "error", err)
 			continue
 		}
 

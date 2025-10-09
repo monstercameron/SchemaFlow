@@ -150,21 +150,21 @@ func TestProcessCompletionResponse(t *testing.T) {
 			response: "The weather is sunny.",
 			original: "The weather",
 			opts:     NewCompleteOptions().WithMaxLength(100),
-			expected: "The weather The weather is sunny.",
+			expected: "The weather is sunny.",
 		},
 		{
 			name:     "stop sequence",
 			response: "is great. Have a nice day!",
 			original: "The weather",
 			opts:     NewCompleteOptions().WithStopSequences([]string{"."}).WithMaxLength(100),
-			expected: "The weather is great.",
+			expected: "The weather is great",
 		},
 		{
 			name:     "max length limit",
 			response: "is absolutely beautiful and wonderful with lots of sunshine and blue skies everywhere you look",
 			original: "The weather",
 			opts:     NewCompleteOptions().WithMaxLength(30),
-			expected: "The weather is absolutely",
+			expected: "The weather is absolutely beautiful and",
 		},
 		{
 			name:     "empty response",
@@ -235,7 +235,7 @@ func TestBuildCompleteSystemPrompt(t *testing.T) {
 	}{
 		{
 			name: "strict mode",
-			opts: NewCompleteOptions().WithIntelligence(core.Smart),
+			opts: NewCompleteOptions().WithMode(core.Strict),
 			contains: []string{
 				"strict grammatical",
 				"formal tone",

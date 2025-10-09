@@ -160,8 +160,12 @@ func (opts SuggestOptions) WithCategories(categories []string) SuggestOptions {
 //	suggestions, err := Suggest[ConfigOption](currentConfig,
 //	    NewSuggestOptions().WithDomain("data-processing"))
 func Suggest[T any](input any, opts SuggestOptions) ([]T, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting suggest operation", "requestID", opts.CommonOptions.RequestID, "inputType", fmt.Sprintf("%T", input), "topN", opts.TopN)
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
+		logger.Error("Suggest operation validation failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 
@@ -210,6 +214,7 @@ func Suggest[T any](input any, opts SuggestOptions) ([]T, error) {
 	// Marshal input for LLM
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
+		logger.Error("Suggest operation marshal failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 		return nil, fmt.Errorf("failed to marshal input: %w", err)
 	}
 
@@ -228,6 +233,7 @@ Rules:
 
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opOptions)
 	if err != nil {
+		logger.Error("Suggest operation LLM call failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 		return nil, fmt.Errorf("LLM call failed: %w", err)
 	}
 
@@ -239,6 +245,7 @@ Rules:
 			Suggestions []T `json:"suggestions"`
 		}
 		if err := json.Unmarshal([]byte(response), &result); err != nil {
+			logger.Error("Suggest operation parse failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 			return nil, fmt.Errorf("failed to parse suggestions: %w", err)
 		}
 		suggestions = result.Suggestions
@@ -248,6 +255,8 @@ Rules:
 	if len(suggestions) > opts.TopN {
 		suggestions = suggestions[:opts.TopN]
 	}
+
+	logger.Debug("Suggest operation succeeded", "requestID", opts.CommonOptions.RequestID, "suggestionsCount", len(suggestions))
 
 	return suggestions, nil
 }

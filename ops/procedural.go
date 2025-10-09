@@ -40,10 +40,14 @@ func ClientDecide[T any](c *core.Client, ctx any, decisions []Decision[T], opts 
 }
 
 func decideImpl[T any](c *core.Client, ctx any, decisions []Decision[T], opts ...core.OpOptions) (T, DecisionResult, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting decide operation", "decisionsCount", len(decisions))
+
 	var zero T
 	result := DecisionResult{SelectedIndex: -1}
 
 	if len(decisions) == 0 {
+		logger.Error("Decide operation failed: no decisions provided")
 		return zero, result, fmt.Errorf("no decisions provided")
 	}
 
@@ -88,6 +92,7 @@ Choose the best option based on the context.`, ctx, strings.Join(options, "\n"))
 
 	response, err := core.CallLLM(llmCtx, systemPrompt, userPrompt, opt)
 	if err != nil {
+		logger.Warn("Decide operation LLM call failed, using default", "error", err)
 		// Default to first option if LLM fails
 		result.SelectedIndex = 0
 		result.Explanation = "Default selection (LLM unavailable)"
@@ -109,10 +114,12 @@ Choose the best option based on the context.`, ctx, strings.Join(options, "\n"))
 			result.Explanation = llmResult.Explanation
 			result.Confidence = llmResult.Confidence
 			result.Alternatives = llmResult.Alternatives
+			logger.Debug("Decide operation succeeded", "selectedIndex", llmResult.Selected, "confidence", llmResult.Confidence)
 			return decisions[llmResult.Selected].Value, result, nil
 		}
 	}
 
+	logger.Warn("Decide operation LLM response invalid, using default")
 	// Fallback to first option
 	result.SelectedIndex = 0
 	result.Explanation = "Default selection"
@@ -139,6 +146,9 @@ func ClientGuard[T any](c *core.Client, state T, checks ...func(T) (bool, string
 }
 
 func guardImpl[T any](c *core.Client, state T, checks ...func(T) (bool, string)) GuardResult {
+	logger := core.GetLogger()
+	logger.Debug("Starting guard operation", "checksCount", len(checks))
+
 	result := GuardResult{
 		CanProceed:   true,
 		FailedChecks: []string{},
@@ -162,8 +172,12 @@ func guardImpl[T any](c *core.Client, state T, checks ...func(T) (bool, string))
 		userPrompt := fmt.Sprintf("Issues:\n%s", strings.Join(result.FailedChecks, "\n"))
 
 		opt := core.OpOptions{Intelligence: core.Quick, Client: c}
-		if response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt); err == nil {
+		response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
+		if err != nil {
+			logger.Warn("Guard operation LLM call failed, proceeding without suggestions", "error", err)
+		} else {
 			result.Suggestions = strings.Split(response, "\n")
+			logger.Debug("Guard operation succeeded", "suggestionsCount", len(result.Suggestions))
 		}
 	}
 

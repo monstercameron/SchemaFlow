@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 
-	"github.com/monstercameron/SchemaFlow"
-	fmt.Println("🎯 Evaluation Criteria:", criteria)
-	fmt.Println("📏 Scale: 1-10 (10 = excellent)")
-	fmt.Println()github.com/monstercameron/SchemaFlow/ops"
+	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // CodeSnippet represents a code submission
@@ -21,7 +19,8 @@ type CodeSnippet struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		return
 	}
 
 	// Code snippets to evaluate
@@ -85,8 +84,8 @@ func CalculateTotal(prices []float64) float64 {
 
 	fmt.Println("📊 Score Example - Code Quality Assessment")
 	fmt.Println("=" + string(make([]byte, 60)))
-	fmt.Println("\n🎯 Evaluation Criteria:", criteria)
-	fmt.Println("📏 Scale: 1-10 (10 = excellent)\n")
+	fmt.Println("🎯 Evaluation Criteria:", criteria)
+	fmt.Println("📏 Scale: 1-10 (10 = excellent)")
 
 	// Score each snippet
 	type ScoredSnippet struct {
@@ -110,7 +109,7 @@ func CalculateTotal(prices []float64) float64 {
 
 		score, err := ops.Score(snippet.Code, scoreOpts)
 		if err != nil {
-			log.Printf("Failed to score snippet #%d: %v", snippet.ID, err)
+			core.GetLogger().Error("Failed to score snippet", "snippetID", snippet.ID, "error", err)
 			continue
 		}
 

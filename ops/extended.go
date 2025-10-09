@@ -38,6 +38,9 @@ func ClientValidate[T any](c *core.Client, data T, rules string, opts ...core.Op
 }
 
 func validateImpl[T any](c *core.Client, data T, rules string, opts ...core.OpOptions) (ValidationResult, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting validate operation")
+
 	opt := core.ApplyDefaults(opts...)
 	opt.Client = c // Set client from parameter
 
@@ -47,6 +50,7 @@ func validateImpl[T any](c *core.Client, data T, rules string, opts ...core.OpOp
 	// Convert data to JSON for validation
 	dataJSON, err := json.Marshal(data)
 	if err != nil {
+		logger.Error("Validate operation failed: marshal error", "error", err)
 		return ValidationResult{}, fmt.Errorf("failed to marshal data: %w", err)
 	}
 
@@ -68,6 +72,7 @@ Against these rules:
 
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
+		logger.Error("Validate operation LLM call failed", "error", err)
 		return ValidationResult{}, fmt.Errorf("validation failed: %w", err)
 	}
 
@@ -81,6 +86,7 @@ Against these rules:
 		}
 	}
 
+	logger.Debug("Validate operation succeeded", "valid", result.Valid, "issuesCount", len(result.Issues))
 	return result, nil
 }
 
@@ -103,6 +109,9 @@ func ClientFormat(c *core.Client, data any, template string, opts ...core.OpOpti
 }
 
 func formatImpl(c *core.Client, data any, template string, opts ...core.OpOptions) (string, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting format operation")
+
 	opt := core.ApplyDefaults(opts...)
 	opt.Client = c
 	ctx, cancel := context.WithTimeout(context.Background(), core.GetTimeout())
@@ -133,9 +142,11 @@ Into this format:
 
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
+		logger.Error("Format operation LLM call failed", "error", err)
 		return "", fmt.Errorf("formatting failed: %w", err)
 	}
 
+	logger.Debug("Format operation succeeded", "outputLength", len(response))
 	return strings.TrimSpace(response), nil
 }
 
@@ -155,9 +166,13 @@ func ClientMerge[T any](c *core.Client, sources []T, strategy string, opts ...co
 }
 
 func mergeImpl[T any](c *core.Client, sources []T, strategy string, opts ...core.OpOptions) (T, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting merge operation", "sourcesCount", len(sources))
+
 	var result T
 
 	if len(sources) == 0 {
+		logger.Error("Merge operation failed: no sources provided")
 		return result, fmt.Errorf("no sources to merge")
 	}
 
@@ -175,6 +190,7 @@ func mergeImpl[T any](c *core.Client, sources []T, strategy string, opts ...core
 	for i, source := range sources {
 		sourceJSON, err := json.Marshal(source)
 		if err != nil {
+			logger.Error("Merge operation failed: marshal error", "sourceIndex", i, "error", err)
 			return result, fmt.Errorf("failed to marshal source %d: %w", i, err)
 		}
 		sourcesJSON = append(sourcesJSON, string(sourceJSON))
@@ -196,14 +212,17 @@ Using strategy: %s`, strings.Join(sourcesJSON, "\n"), strategy)
 
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
+		logger.Error("Merge operation LLM call failed", "error", err)
 		return result, fmt.Errorf("merge failed: %w", err)
 	}
 
 	// Parse the merged result
 	if err := json.Unmarshal([]byte(response), &result); err != nil {
+		logger.Error("Merge operation failed: unmarshal error", "error", err)
 		return result, fmt.Errorf("failed to parse merged result: %w", err)
 	}
 
+	logger.Debug("Merge operation succeeded")
 	return result, nil
 }
 
@@ -223,6 +242,9 @@ func ClientQuestion(c *core.Client, data any, question string, opts ...core.OpOp
 }
 
 func questionImpl(c *core.Client, data any, question string, opts ...core.OpOptions) (string, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting question operation")
+
 	opt := core.ApplyDefaults(opts...)
 	opt.Client = c
 	ctx, cancel := context.WithTimeout(context.Background(), core.GetTimeout())
@@ -252,9 +274,11 @@ Question: %s`, dataStr, question)
 
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
+		logger.Error("Question operation LLM call failed", "error", err)
 		return "", fmt.Errorf("question answering failed: %w", err)
 	}
 
+	logger.Debug("Question operation succeeded", "responseLength", len(response))
 	return strings.TrimSpace(response), nil
 }
 
@@ -281,6 +305,9 @@ func ClientDeduplicate[T any](c *core.Client, items []T, threshold float64, opts
 }
 
 func deduplicateImpl[T any](c *core.Client, items []T, threshold float64, opts ...core.OpOptions) (DeduplicateResult[T], error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting deduplicate operation", "itemsCount", len(items), "threshold", threshold)
+
 	result := DeduplicateResult[T]{
 		Unique:     []T{},
 		Duplicates: [][]T{},
@@ -301,6 +328,7 @@ func deduplicateImpl[T any](c *core.Client, items []T, threshold float64, opts .
 	for i, item := range items {
 		itemJSON, err := json.Marshal(item)
 		if err != nil {
+			logger.Error("Deduplicate operation failed: marshal error", "itemIndex", i, "error", err)
 			return result, fmt.Errorf("failed to marshal item %d: %w", i, err)
 		}
 		itemsJSON[i] = string(itemJSON)
@@ -325,6 +353,7 @@ Return a JSON object with:
 
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
+		logger.Error("Deduplicate operation LLM call failed", "error", err)
 		return result, fmt.Errorf("deduplication failed: %w", err)
 	}
 
@@ -385,5 +414,6 @@ Return a JSON object with:
 		}
 	}
 
+	logger.Debug("Deduplicate operation succeeded", "uniqueCount", len(result.Unique), "duplicatesCount", len(result.Duplicates), "totalRemoved", result.TotalRemoved)
 	return result, nil
 }

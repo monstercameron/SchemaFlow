@@ -2,16 +2,18 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		os.Exit(1)
 	}
 
 	// Long article text
@@ -66,7 +68,8 @@ socioeconomic status.
 	summary, err := ops.Summarize(article, summaryOpts)
 
 	if err != nil {
-		log.Fatalf("Summarization failed: %v", err)
+		core.GetLogger().Error("Summarization failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Display summary

@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
@@ -22,7 +23,8 @@ type Order struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		os.Exit(1)
 	}
 
 	fmt.Println("🛡️ Guard Example - Order State Validation")

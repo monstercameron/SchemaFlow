@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== SchemaFlow Complete Operation Examples ===\n")
+	fmt.Println("=== SchemaFlow Complete Operation Examples ===")
 
 	// Example 1: Basic text completion
 	fmt.Println("1. Basic Text Completion:")

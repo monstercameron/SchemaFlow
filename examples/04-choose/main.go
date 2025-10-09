@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
@@ -21,7 +22,8 @@ type Product struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		os.Exit(1)
 	}
 
 	// Product catalog
@@ -80,7 +82,8 @@ func main() {
 	chosen, err := schemaflow.Choose(products, chooseOpts)
 
 	if err != nil {
-		log.Fatalf("Selection failed: %v", err)
+		core.GetLogger().Error("Selection failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Display recommendation

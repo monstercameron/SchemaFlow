@@ -69,10 +69,14 @@ func ClientInfer[T any](c *core.Client, partialData T, opts InferOptions) (T, er
 }
 
 func inferImpl[T any](c *core.Client, partialData T, opts InferOptions) (T, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting infer operation", "requestID", opts.RequestID, "dataType", fmt.Sprintf("%T", partialData))
+
 	var result T
 
 	// Validate options
 	if err := opts.Validate(); err != nil {
+		logger.Error("Infer operation validation failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("invalid options: %w", err)
 	}
 
@@ -89,6 +93,7 @@ func inferImpl[T any](c *core.Client, partialData T, opts InferOptions) (T, erro
 	// Marshal partial data to JSON
 	partialJSON, err := json.Marshal(partialData)
 	if err != nil {
+		logger.Error("Infer operation marshal failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("failed to marshal partial data: %w", err)
 	}
 
@@ -114,13 +119,17 @@ Rules:
 	// Call LLM for inference
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
+		logger.Error("Infer operation LLM call failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("inference failed: %w", err)
 	}
 
 	// Parse inferred data
 	if err := core.ParseJSON(response, &result); err != nil {
+		logger.Error("Infer operation parse failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("failed to parse inferred result: %w", err)
 	}
+
+	logger.Debug("Infer operation succeeded", "requestID", opts.RequestID)
 
 	return result, nil
 }

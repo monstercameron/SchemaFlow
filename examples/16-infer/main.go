@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
@@ -30,7 +30,8 @@ func main() {
 	// Initialize SchemaFlow
 	fmt.Println("🔧 Initializing SchemaFlow...")
 	if err := schemaflow.InitWithEnv(".env"); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		return
 	}
 	fmt.Println("✅ SchemaFlow initialized successfully")
 
@@ -64,7 +65,8 @@ func main() {
 	completePerson, err := schemaflow.Infer[Person](partialPerson, opts)
 
 	if err != nil {
-		log.Fatalf("Person inference failed: %v", err)
+		core.GetLogger().Error("Person inference failed", "error", err)
+		return
 	}
 	fmt.Println("✅ Person inference completed")
 
@@ -96,7 +98,8 @@ func main() {
 	completeProduct, err := schemaflow.Infer[Product](partialProduct, productOpts)
 
 	if err != nil {
-		log.Fatalf("Product inference failed: %v", err)
+		core.GetLogger().Error("Product inference failed", "error", err)
+		return
 	}
 	fmt.Println("✅ Product inference completed")
 

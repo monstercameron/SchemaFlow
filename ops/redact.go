@@ -147,6 +147,9 @@ func (opts RedactOptions) Validate() error {
 // Redact removes or masks sensitive information from data
 // Returns a new object of the same type with sensitive data redacted
 func Redact[T any](input T, opts ...interface{}) (T, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting redact operation", "requestID", "unknown", "inputType", fmt.Sprintf("%T", input))
+
 	var options RedactOptions
 	if len(opts) == 0 {
 		options = NewRedactOptions()
@@ -163,11 +166,19 @@ func Redact[T any](input T, opts ...interface{}) (T, error) {
 	}
 
 	if err := options.Validate(); err != nil {
+		logger.Error("Redact operation validation failed", "requestID", "unknown", "error", err)
 		var zero T
 		return zero, fmt.Errorf("invalid options: %w", err)
 	}
 
-	return redactValue(input, options)
+	result, err := redactValue(input, options)
+	if err != nil {
+		logger.Error("Redact operation failed", "requestID", "unknown", "error", err)
+		return result, err
+	}
+
+	logger.Debug("Redact operation succeeded", "requestID", "unknown")
+	return result, nil
 }
 
 // RedactWithResult provides detailed information about what was redacted

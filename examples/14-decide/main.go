@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
@@ -28,7 +28,8 @@ type Department struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		return
 	}
 
 	fmt.Println("🎯 Decide Example - Support Ticket Routing")
@@ -112,7 +113,7 @@ func main() {
 		// Use Decide to route the ticket
 		chosen, result, err := ops.Decide(ticket, departments)
 		if err != nil {
-			log.Printf("   ❌ Routing error: %v\n", err)
+			core.GetLogger().Error("Routing error", "error", err)
 			continue
 		}
 

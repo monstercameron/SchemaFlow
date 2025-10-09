@@ -101,22 +101,28 @@ func ClientDiff[T any](c *core.Client, oldData, newData T, opts DiffOptions) (Di
 }
 
 func diffImpl[T any](c *core.Client, oldData, newData T, opts DiffOptions) (DiffResult, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting diff operation", "requestID", opts.RequestID)
+
 	result := DiffResult{}
 
 	// Validate options
 	if err := opts.Validate(); err != nil {
+		logger.Error("Diff operation validation failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("invalid options: %w", err)
 	}
 
 	// Early exit for identical data (optimization)
 	if reflect.DeepEqual(oldData, newData) {
 		result.Summary = "No changes detected - data is identical"
+		logger.Debug("Diff operation completed: no changes", "requestID", opts.RequestID)
 		return result, nil
 	}
 
 	// Perform structural comparison
 	changes, err := compareData(oldData, newData, opts)
 	if err != nil {
+		logger.Error("Diff operation comparison failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("comparison failed: %w", err)
 	}
 
@@ -131,12 +137,15 @@ func diffImpl[T any](c *core.Client, oldData, newData T, opts DiffOptions) (Diff
 		if err != nil {
 			// Don't fail the whole operation if summary fails
 			result.Summary = "Summary generation failed, but changes detected successfully"
+			logger.Warn("Diff operation summary generation failed", "requestID", opts.RequestID, "error", err)
 		} else {
 			result.Summary = summary
 		}
 	} else if !hasChanges {
 		result.Summary = "No changes detected between the data instances"
 	}
+
+	logger.Debug("Diff operation succeeded", "requestID", opts.RequestID, "added", len(result.Added), "removed", len(result.Removed), "modified", len(result.Modified))
 
 	return result, nil
 }

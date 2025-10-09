@@ -116,16 +116,21 @@ func ClientParse[T any](c *core.Client, input any, opts ParseOptions) (ParseResu
 }
 
 func parseImpl[T any](input any, opts ParseOptions) (ParseResult[T], error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting parse operation", "requestID", opts.RequestID, "inputType", fmt.Sprintf("%T", input))
+
 	var result ParseResult[T]
 
 	// Validate options
 	if err := opts.Validate(); err != nil {
+		logger.Error("Parse operation validation failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("invalid options: %w", err)
 	}
 
 	// Convert input to string
 	inputStr, err := normalizeParseInput(input)
 	if err != nil {
+		logger.Error("Parse operation input normalization failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("failed to normalize input: %w", err)
 	}
 
@@ -137,6 +142,7 @@ func parseImpl[T any](input any, opts ParseOptions) (ParseResult[T], error) {
 	if err == nil {
 		result.Data = parsedData
 		result.Format = format
+		logger.Debug("Parse operation succeeded with algorithm", "requestID", opts.RequestID, "format", format)
 		return result, nil
 	}
 
@@ -145,16 +151,24 @@ func parseImpl[T any](input any, opts ParseOptions) (ParseResult[T], error) {
 		if parsedData, delimErr := parseDelimited[T](inputStr, opts.CustomDelimiters[0], opts); delimErr == nil {
 			result.Data = parsedData
 			result.Format = "custom-delimited"
+			logger.Debug("Parse operation succeeded with custom delimiters", "requestID", opts.RequestID)
 			return result, nil
 		}
 	}
 
 	// If traditional parsing failed and LLM fallback is enabled, try LLM
 	if opts.AllowLLMFallback {
-		return parseWithLLM[T](inputStr, format, opts)
+		llmResult, llmErr := parseWithLLM[T](inputStr, format, opts)
+		if llmErr != nil {
+			logger.Error("Parse operation LLM fallback failed", "requestID", opts.RequestID, "error", llmErr)
+			return result, fmt.Errorf("LLM parsing failed: %w", llmErr)
+		}
+		logger.Debug("Parse operation succeeded with LLM", "requestID", opts.RequestID, "format", llmResult.Format)
+		return llmResult, nil
 	}
 
 	// Return the algorithm error if no fallback
+	logger.Error("Parse operation failed", "requestID", opts.RequestID, "error", err)
 	return result, fmt.Errorf("parsing failed: %w (consider enabling AllowLLMFallback)", err)
 }
 

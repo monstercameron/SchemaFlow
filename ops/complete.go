@@ -85,6 +85,12 @@ func (opts CompleteOptions) WithIntelligence(intelligence core.Speed) CompleteOp
 	return opts
 }
 
+// WithMode sets the reasoning mode
+func (opts CompleteOptions) WithMode(mode core.Mode) CompleteOptions {
+	opts.OpOptions.Mode = mode
+	return opts
+}
+
 // Validate validates CompleteOptions
 func (opts CompleteOptions) Validate() error {
 	if opts.MaxLength <= 0 {
@@ -136,6 +142,9 @@ func ClientComplete(c *core.Client, partialText string, opts CompleteOptions) (C
 }
 
 func completeImpl(partialText string, opts CompleteOptions) (CompleteResult, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting complete operation", "requestID", opts.RequestID, "partialLength", len(partialText))
+
 	result := CompleteResult{
 		Original: partialText,
 		Metadata: make(map[string]any),
@@ -143,11 +152,13 @@ func completeImpl(partialText string, opts CompleteOptions) (CompleteResult, err
 
 	// Validate options
 	if err := opts.Validate(); err != nil {
+		logger.Error("Complete operation validation failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("invalid options: %w", err)
 	}
 
 	// Validate input
 	if strings.TrimSpace(partialText) == "" {
+		logger.Error("Complete operation failed: empty input", "requestID", opts.RequestID)
 		return result, fmt.Errorf("partial text cannot be empty")
 	}
 
@@ -162,6 +173,7 @@ func completeImpl(partialText string, opts CompleteOptions) (CompleteResult, err
 	opOpts := opts.toOpOptions()
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opOpts)
 	if err != nil {
+		logger.Error("Complete operation LLM call failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("completion failed: %w", err)
 	}
 
@@ -179,6 +191,8 @@ func completeImpl(partialText string, opts CompleteOptions) (CompleteResult, err
 	result.Metadata["temperature"] = opts.Temperature
 	result.Metadata["max_length"] = opts.MaxLength
 	result.Metadata["context_messages"] = len(opts.Context)
+
+	logger.Debug("Complete operation succeeded", "requestID", opts.RequestID, "completionLength", result.Length, "confidence", result.Confidence)
 
 	return result, nil
 }
@@ -248,15 +262,6 @@ func processCompletionResponse(response, originalText string, opts CompleteOptio
 		}
 	}
 
-	// Limit length
-	if len(response) > opts.MaxLength {
-		response = response[:opts.MaxLength]
-		// Try to cut at word boundary
-		if lastSpace := strings.LastIndex(response, " "); lastSpace > len(response)/2 {
-			response = response[:lastSpace]
-		}
-	}
-
 	// Combine original with completion
 	completedText := originalText
 	if response != "" {
@@ -265,6 +270,16 @@ func processCompletionResponse(response, originalText string, opts CompleteOptio
 			completedText += " "
 		}
 		completedText += response
+	}
+
+	// Limit total length
+	maxTotalLength := len(originalText) + opts.MaxLength
+	if len(completedText) > maxTotalLength {
+		completedText = completedText[:maxTotalLength]
+		// Try to cut at word boundary
+		if lastSpace := strings.LastIndex(completedText, " "); lastSpace > len(originalText) {
+			completedText = completedText[:lastSpace]
+		}
 	}
 
 	return completedText

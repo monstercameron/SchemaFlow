@@ -135,6 +135,9 @@ func ClientExplain(c *core.Client, data any, opts ExplainOptions) (ExplainResult
 }
 
 func explainImpl(c *core.Client, data any, opts ExplainOptions) (ExplainResult, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting explain operation", "requestID", opts.RequestID, "dataType", fmt.Sprintf("%T", data))
+
 	result := ExplainResult{
 		Audience:   opts.Audience,
 		Complexity: getComplexityLevel(opts.Depth),
@@ -143,18 +146,21 @@ func explainImpl(c *core.Client, data any, opts ExplainOptions) (ExplainResult, 
 
 	// Validate options
 	if err := opts.Validate(); err != nil {
+		logger.Error("Explain operation validation failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("invalid options: %w", err)
 	}
 
 	// Analyze the data structure
 	dataAnalysis, err := analyzeDataForExplanation(data)
 	if err != nil {
+		logger.Error("Explain operation data analysis failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("data analysis failed: %w", err)
 	}
 
 	// Generate explanation using LLM
 	explanation, err := generateExplanation(c, data, dataAnalysis, opts)
 	if err != nil {
+		logger.Error("Explain operation explanation generation failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("explanation generation failed: %w", err)
 	}
 
@@ -168,6 +174,8 @@ func explainImpl(c *core.Client, data any, opts ExplainOptions) (ExplainResult, 
 	result.Metadata["estimated_complexity"] = dataAnalysis.Complexity
 	result.Metadata["explanation_depth"] = opts.Depth
 	result.Metadata["focus_area"] = opts.Focus
+
+	logger.Debug("Explain operation succeeded", "requestID", opts.RequestID, "explanationLength", len(result.Explanation))
 
 	return result, nil
 }

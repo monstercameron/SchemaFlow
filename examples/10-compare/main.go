@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
@@ -19,7 +19,8 @@ type Product struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		return
 	}
 
 	// Two products to compare
@@ -79,7 +80,8 @@ func main() {
 
 	comparison, err := ops.Compare(productA, productB, compareOpts)
 	if err != nil {
-		log.Fatalf("Comparison failed: %v", err)
+		core.GetLogger().Error("Comparison failed", "error", err)
+		return
 	}
 
 	// Display comparison

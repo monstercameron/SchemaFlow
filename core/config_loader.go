@@ -179,13 +179,14 @@ func SetDebugMode(enabled bool) {
 	defer mu.Unlock()
 	debugMode = enabled
 
-	l := GetLogger()
-	if enabled {
-		l.SetLevel(DebugLevel)
-		l.Debug("Debug mode enabled")
-	} else {
-		l.SetLevel(InfoLevel)
-		l.Info("Debug mode disabled")
+	if logger != nil {
+		if enabled {
+			logger.SetLevel(DebugLevel)
+			logger.Debug("Debug mode enabled")
+		} else {
+			logger.SetLevel(InfoLevel)
+			logger.Info("Debug mode disabled")
+		}
 	}
 }
 

@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 	"time"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
@@ -22,7 +23,8 @@ type Email struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		os.Exit(1)
 	}
 
 	// Raw email text (unstructured)
@@ -55,7 +57,8 @@ Sent: December 15, 2024
 		WithSteering("Extract all email fields including metadata and categorize by tags"))
 
 	if err != nil {
-		log.Fatalf("Extraction failed: %v", err)
+		core.GetLogger().Error("Extraction failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Display structured output

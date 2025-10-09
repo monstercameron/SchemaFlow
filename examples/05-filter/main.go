@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
@@ -21,7 +22,8 @@ type SupportTicket struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		os.Exit(1)
 	}
 
 	// Support tickets
@@ -98,7 +100,8 @@ Exclude routine requests and feature requests.`
 	urgentTickets, err := schemaflow.Filter(tickets, filterOpts)
 
 	if err != nil {
-		log.Fatalf("Filtering failed: %v", err)
+		core.GetLogger().Error("Filtering failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Display urgent tickets

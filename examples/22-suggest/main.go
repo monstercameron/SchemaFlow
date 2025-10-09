@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
@@ -24,7 +24,7 @@ func main() {
 			WithTopN(5).
 			WithDomain("data-engineering"))
 	if err != nil {
-		log.Printf("Example 1 failed: %v", err)
+		core.GetLogger().Error("Example 1 failed", "error", err)
 	} else {
 		fmt.Println("Current state:", currentState["task"])
 		fmt.Println("Suggestions:")
@@ -48,7 +48,7 @@ func main() {
 			WithTopN(4).
 			WithDomain("api-design"))
 	if err != nil {
-		log.Printf("Example 2 failed: %v", err)
+		core.GetLogger().Error("Example 2 failed", "error", err)
 	} else {
 		fmt.Println("Resource:", apiContext["resource"])
 		fmt.Println("API endpoint suggestions:")
@@ -73,7 +73,7 @@ func main() {
 			WithTopN(3).
 			WithIncludeReasons(true))
 	if err != nil {
-		log.Printf("Example 3 failed: %v", err)
+		core.GetLogger().Error("Example 3 failed", "error", err)
 	} else {
 		fmt.Println("System:", configContext["system"])
 		fmt.Println("Optimization suggestions:")
@@ -104,7 +104,7 @@ func main() {
 			WithTopN(3).
 			WithDomain("data-quality"))
 	if err != nil {
-		log.Printf("Example 4 failed: %v", err)
+		core.GetLogger().Error("Example 4 failed", "error", err)
 	} else {
 		fmt.Println("Workflow phase:", workflowContext["phase"])
 		fmt.Println("Action suggestions:")
@@ -129,7 +129,7 @@ func main() {
 			WithCategories([]string{"reliability", "monitoring"}).
 			WithTopN(3))
 	if err != nil {
-		log.Printf("Example 5 failed: %v", err)
+		core.GetLogger().Error("Example 5 failed", "error", err)
 	} else {
 		fmt.Println("Error:", errorContext["error"])
 		fmt.Println("Recovery suggestions:")

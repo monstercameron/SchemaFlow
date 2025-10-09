@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/core"
 	"github.com/monstercameron/SchemaFlow/ops"
 )
 
@@ -30,7 +31,8 @@ type MarkdownCV struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		os.Exit(1)
 	}
 
 	// Input: Structured resume data
@@ -69,7 +71,8 @@ func main() {
 	)
 
 	if err != nil {
-		log.Fatalf("Transformation failed: %v", err)
+		core.GetLogger().Error("Transformation failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Display transformed output

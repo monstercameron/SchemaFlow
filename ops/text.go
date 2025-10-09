@@ -9,8 +9,12 @@ import (
 )
 
 func Summarize(input string, opts SummarizeOptions) (string, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting summarize operation", "requestID", opts.CommonOptions.RequestID, "inputLength", len(input))
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
+		logger.Error("Summarize operation validation failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 		return "", fmt.Errorf("invalid options: %w", err)
 	}
 
@@ -59,6 +63,7 @@ Rules:
 
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
+		logger.Error("Summarize operation LLM call failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 		return "", core.SummarizeError{
 			Input:  input,
 			Length: len(input),
@@ -66,12 +71,19 @@ Rules:
 		}
 	}
 
-	return strings.TrimSpace(response), nil
+	result := strings.TrimSpace(response)
+	logger.Debug("Summarize operation succeeded", "requestID", opts.CommonOptions.RequestID, "outputLength", len(result))
+
+	return result, nil
 }
 
 func Rewrite(input string, opts RewriteOptions) (string, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting rewrite operation", "requestID", opts.CommonOptions.RequestID, "inputLength", len(input))
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
+		logger.Error("Rewrite operation validation failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 		return "", fmt.Errorf("invalid options: %w", err)
 	}
 
@@ -134,18 +146,26 @@ Rules:
 
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
+		logger.Error("Rewrite operation LLM call failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 		return "", core.RewriteError{
 			Input:  input,
 			Reason: err.Error(),
 		}
 	}
 
-	return strings.TrimSpace(response), nil
+	result := strings.TrimSpace(response)
+	logger.Debug("Rewrite operation succeeded", "requestID", opts.CommonOptions.RequestID, "outputLength", len(result))
+
+	return result, nil
 }
 
 func Translate(input string, opts TranslateOptions) (string, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting translate operation", "requestID", opts.CommonOptions.RequestID, "inputLength", len(input), "targetLang", opts.TargetLanguage)
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
+		logger.Error("Translate operation validation failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 		return "", fmt.Errorf("invalid options: %w", err)
 	}
 
@@ -204,18 +224,26 @@ Rules:
 
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
+		logger.Error("Translate operation LLM call failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 		return "", core.TranslateError{
 			Input:  input,
 			Reason: err.Error(),
 		}
 	}
 
-	return strings.TrimSpace(response), nil
+	result := strings.TrimSpace(response)
+	logger.Debug("Translate operation succeeded", "requestID", opts.CommonOptions.RequestID, "outputLength", len(result))
+
+	return result, nil
 }
 
 func Expand(input string, opts ExpandOptions) (string, error) {
+	logger := core.GetLogger()
+	logger.Debug("Starting expand operation", "requestID", opts.CommonOptions.RequestID, "inputLength", len(input), "expansionFactor", opts.ExpansionFactor)
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
+		logger.Error("Expand operation validation failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 		return "", fmt.Errorf("invalid options: %w", err)
 	}
 
@@ -268,11 +296,15 @@ Rules:
 
 	response, err := core.CallLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
+		logger.Error("Expand operation LLM call failed", "requestID", opts.CommonOptions.RequestID, "error", err)
 		return "", core.ExpandError{
 			Input:  input,
 			Reason: err.Error(),
 		}
 	}
 
-	return strings.TrimSpace(response), nil
+	result := strings.TrimSpace(response)
+	logger.Debug("Expand operation succeeded", "requestID", opts.CommonOptions.RequestID, "outputLength", len(result))
+
+	return result, nil
 }
