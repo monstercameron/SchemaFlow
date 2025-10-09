@@ -13,12 +13,12 @@ import (
 
 // ExplainResult contains the explanation results
 type ExplainResult struct {
-	Explanation string            `json:"explanation"` // The human-readable explanation
-	Summary     string            `json:"summary"`     // Brief overview
-	KeyPoints   []string          `json:"key_points"`  // Important points to remember
-	Audience    string            `json:"audience"`    // Target audience for the explanation
-	Complexity  string            `json:"complexity"`  // "simple", "intermediate", "advanced"
-	Metadata    map[string]any    `json:"metadata"`    // Additional explanation metadata
+	Explanation string         `json:"explanation"` // The human-readable explanation
+	Summary     string         `json:"summary"`     // Brief overview
+	KeyPoints   []string       `json:"key_points"`  // Important points to remember
+	Audience    string         `json:"audience"`    // Target audience for the explanation
+	Complexity  string         `json:"complexity"`  // "simple", "intermediate", "advanced"
+	Metadata    map[string]any `json:"metadata"`    // Additional explanation metadata
 }
 
 // ExplainOptions configures the Explain operation
@@ -174,11 +174,11 @@ func explainImpl(c *core.Client, data any, opts ExplainOptions) (ExplainResult, 
 
 // dataAnalysis holds analysis of the data to be explained
 type dataAnalysis struct {
-	DataType    string
-	FieldCount  int
-	Complexity  string
-	SampleData  string
-	Structure   string
+	DataType   string
+	FieldCount int
+	Complexity string
+	SampleData string
+	Structure  string
 }
 
 // analyzeDataForExplanation analyzes the data structure for explanation generation

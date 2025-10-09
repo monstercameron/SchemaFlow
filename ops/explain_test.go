@@ -324,11 +324,11 @@ func BenchmarkAnalyzeDataForExplanation(b *testing.B) {
 		IsActive    bool              `json:"is_active"`
 		Description string            `json:"description"`
 	}{
-		Name:     "Benchmark Test",
-		Age:      25,
-		Metadata: map[string]string{"key": "value", "type": "test"},
-		Items:    []string{"item1", "item2", "item3"},
-		IsActive: true,
+		Name:        "Benchmark Test",
+		Age:         25,
+		Metadata:    map[string]string{"key": "value", "type": "test"},
+		Items:       []string{"item1", "item2", "item3"},
+		IsActive:    true,
 		Description: "This is a benchmark test data structure with various field types",
 	}
 
