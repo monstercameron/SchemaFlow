@@ -225,3 +225,23 @@ func Explain(data any, opts ...interface{}) (ops.ExplainResult, error) {
 		return ops.Explain(data, ops.NewExplainOptions())
 	}
 }
+
+// Parse intelligently parses data from various formats into strongly-typed Go structs
+// This function accepts either core.OpOptions or ops.ParseOptions for backward compatibility
+func Parse[T any](input any, opts ...interface{}) (ops.ParseResult[T], error) {
+	if len(opts) == 0 {
+		return ops.Parse[T](input, ops.NewParseOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.ParseOptions:
+		return ops.Parse[T](input, opt)
+	case OpOptions:
+		// Convert OpOptions to ParseOptions for backward compatibility
+		parseOpts := ops.NewParseOptions()
+		parseOpts.OpOptions = opt
+		return ops.Parse[T](input, parseOpts)
+	default:
+		return ops.Parse[T](input, ops.NewParseOptions())
+	}
+}
