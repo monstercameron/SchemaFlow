@@ -165,3 +165,23 @@ func Sort[T any](items []T, opts ...interface{}) ([]T, error) {
 		return ops.Sort(items, ops.NewSortOptions())
 	}
 }
+
+// Infer fills in missing fields in partial data using LLM intelligence
+// This function accepts either core.OpOptions or ops.InferOptions for backward compatibility
+func Infer[T any](partialData T, opts ...interface{}) (T, error) {
+	if len(opts) == 0 {
+		return ops.Infer[T](partialData, ops.NewInferOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.InferOptions:
+		return ops.Infer[T](partialData, opt)
+	case OpOptions:
+		// Convert OpOptions to InferOptions for backward compatibility
+		inferOpts := ops.NewInferOptions()
+		inferOpts.OpOptions = opt
+		return ops.Infer[T](partialData, inferOpts)
+	default:
+		return ops.Infer[T](partialData, ops.NewInferOptions())
+	}
+}
