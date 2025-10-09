@@ -245,3 +245,23 @@ func Parse[T any](input any, opts ...interface{}) (ops.ParseResult[T], error) {
 		return ops.Parse[T](input, ops.NewParseOptions())
 	}
 }
+
+// Complete intelligently completes partial text using LLM intelligence
+// This function accepts either core.OpOptions or ops.CompleteOptions for backward compatibility
+func Complete(partialText string, opts ...interface{}) (ops.CompleteResult, error) {
+	if len(opts) == 0 {
+		return ops.Complete(partialText, ops.NewCompleteOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.CompleteOptions:
+		return ops.Complete(partialText, opt)
+	case OpOptions:
+		// Convert OpOptions to CompleteOptions for backward compatibility
+		completeOpts := ops.NewCompleteOptions()
+		completeOpts.OpOptions = opt
+		return ops.Complete(partialText, completeOpts)
+	default:
+		return ops.Complete(partialText, ops.NewCompleteOptions())
+	}
+}
