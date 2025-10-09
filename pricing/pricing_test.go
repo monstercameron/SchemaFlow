@@ -18,7 +18,34 @@ func TestCalculateCost(t *testing.T) {
 		expectedMax      float64
 	}{
 		{
-			name:             "GPT-4 Turbo",
+			name:             "GPT-5",
+			model:            "gpt-5-2025-08-07",
+			provider:         "openai",
+			promptTokens:     1000,
+			completionTokens: 500,
+			expectedMin:      0.01, // Minimum expected cost
+			expectedMax:      0.05, // Maximum expected cost
+		},
+		{
+			name:             "GPT-5 Nano",
+			model:            "gpt-5-nano-2025-08-07",
+			provider:         "openai",
+			promptTokens:     1000,
+			completionTokens: 500,
+			expectedMin:      0.001,
+			expectedMax:      0.01,
+		},
+		{
+			name:             "GPT-5 Mini",
+			model:            "gpt-5-mini-2025-08-07",
+			provider:         "openai",
+			promptTokens:     1000,
+			completionTokens: 500,
+			expectedMin:      0.005,
+			expectedMax:      0.02,
+		},
+		{
+			name:             "GPT-4 Turbo (legacy)",
 			model:            "gpt-4-turbo-preview",
 			provider:         "openai",
 			promptTokens:     1000,
@@ -27,7 +54,7 @@ func TestCalculateCost(t *testing.T) {
 			expectedMax:      0.05, // Maximum expected cost
 		},
 		{
-			name:             "GPT-3.5 Turbo",
+			name:             "GPT-3.5 Turbo (legacy)",
 			model:            "gpt-3.5-turbo",
 			provider:         "openai",
 			promptTokens:     1000,
@@ -73,7 +100,7 @@ func TestTrackCost(t *testing.T) {
 		TotalTokens:      1500,
 	}
 
-	cost1 := CalculateCost(usage1, "gpt-4-turbo-preview", "openai")
+	cost1 := CalculateCost(usage1, "gpt-5-2025-08-07", "openai")
 	metadata1 := &schemaflow.ResultMetadata{
 		RequestID: "test-001",
 		Operation: "extract",
@@ -104,7 +131,7 @@ func TestGetCostBreakdown(t *testing.T) {
 		TotalTokens:      150,
 	}
 
-	cost := CalculateCost(usage, "gpt-3.5-turbo", "openai")
+	cost := CalculateCost(usage, "gpt-5-mini-2025-08-07", "openai")
 	metadata := &schemaflow.ResultMetadata{
 		RequestID: "test-002",
 		Operation: "classify",
@@ -132,7 +159,7 @@ func TestExportCostReport(t *testing.T) {
 		TotalTokens:      1500,
 	}
 
-	cost := CalculateCost(usage, "gpt-4-turbo-preview", "openai")
+	cost := CalculateCost(usage, "gpt-5-nano-2025-08-07", "openai")
 	metadata := &schemaflow.ResultMetadata{
 		RequestID: "test-003",
 		Operation: "generate",

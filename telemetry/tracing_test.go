@@ -49,7 +49,7 @@ func TestRecordLLMCall(t *testing.T) {
 		Currency:  "USD",
 	}
 
-	RecordLLMCall(span, "gpt-3.5-turbo", "openai", usage, cost, 1*time.Second, nil)
+	RecordLLMCall(span, "gpt-5-nano-2025-08-07", "openai", usage, cost, 1*time.Second, nil)
 
 	// No error expected, just ensuring it doesn't panic
 }

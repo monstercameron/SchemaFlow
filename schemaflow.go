@@ -185,3 +185,23 @@ func Infer[T any](partialData T, opts ...interface{}) (T, error) {
 		return ops.Infer[T](partialData, ops.NewInferOptions())
 	}
 }
+
+// Diff compares two data instances and explains the differences intelligently
+// This function accepts either core.OpOptions or ops.DiffOptions for backward compatibility
+func Diff[T any](oldData, newData T, opts ...interface{}) (ops.DiffResult, error) {
+	if len(opts) == 0 {
+		return ops.Diff[T](oldData, newData, ops.NewDiffOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.DiffOptions:
+		return ops.Diff[T](oldData, newData, opt)
+	case OpOptions:
+		// Convert OpOptions to DiffOptions for backward compatibility
+		diffOpts := ops.NewDiffOptions()
+		diffOpts.OpOptions = opt
+		return ops.Diff[T](oldData, newData, diffOpts)
+	default:
+		return ops.Diff[T](oldData, newData, ops.NewDiffOptions())
+	}
+}

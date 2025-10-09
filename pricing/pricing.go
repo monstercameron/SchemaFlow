@@ -24,6 +24,32 @@ type PricingModel struct {
 var (
 	// Pricing data for different models (prices per 1K tokens in USD)
 	pricingModels = map[string]PricingModel{
+		// OpenAI GPT-5 models
+		"gpt-5-2025-08-07": {
+			Provider:                "openai",
+			Model:                   "gpt-5-2025-08-07",
+			PricePerPromptToken:     0.02, // $20 per 1M tokens
+			PricePerCompletionToken: 0.06, // $60 per 1M tokens
+			Currency:                "USD",
+			EffectiveDate:           time.Date(2025, 8, 7, 0, 0, 0, 0, time.UTC),
+		},
+		"gpt-5-nano-2025-08-07": {
+			Provider:                "openai",
+			Model:                   "gpt-5-nano-2025-08-07",
+			PricePerPromptToken:     0.001, // $1 per 1M tokens
+			PricePerCompletionToken: 0.003, // $3 per 1M tokens
+			Currency:                "USD",
+			EffectiveDate:           time.Date(2025, 8, 7, 0, 0, 0, 0, time.UTC),
+		},
+		"gpt-5-mini-2025-08-07": {
+			Provider:                "openai",
+			Model:                   "gpt-5-mini-2025-08-07",
+			PricePerPromptToken:     0.005, // $5 per 1M tokens
+			PricePerCompletionToken: 0.015, // $15 per 1M tokens
+			Currency:                "USD",
+			EffectiveDate:           time.Date(2025, 8, 7, 0, 0, 0, 0, time.UTC),
+		},
+
 		// OpenAI GPT-4 models
 		"gpt-4-turbo-preview": {
 			Provider:                "openai",
@@ -369,7 +395,7 @@ func MatchesFilters(record CostRecord, filters map[string]string) bool {
 func getDefaultPricing(provider string) PricingModel {
 	switch provider {
 	case "openai":
-		return pricingModels["gpt-3.5-turbo"]
+		return pricingModels["gpt-5-nano-2025-08-07"]
 	case "anthropic":
 		return pricingModels["claude-3-haiku"]
 	default:

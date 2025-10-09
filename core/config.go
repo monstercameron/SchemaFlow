@@ -286,13 +286,13 @@ func ApplyDefaults(opts ...OpOptions) OpOptions {
 func getModel(intelligence Speed) string {
 	switch intelligence {
 	case Smart:
-		return "gpt-4-turbo-preview"
+		return "gpt-5-2025-08-07"
 	case Fast:
-		return "gpt-3.5-turbo"
+		return "gpt-5-nano-2025-08-07"
 	case Quick:
-		return "gpt-3.5-turbo"
+		return "gpt-5-mini-2025-08-07"
 	default:
-		return "gpt-3.5-turbo"
+		return "gpt-5-nano-2025-08-07"
 	}
 }
 
