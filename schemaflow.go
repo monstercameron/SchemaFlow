@@ -265,3 +265,24 @@ func Complete(partialText string, opts ...interface{}) (ops.CompleteResult, erro
 		return ops.Complete(partialText, ops.NewCompleteOptions())
 	}
 }
+
+// Redact removes or masks sensitive information from data
+// Returns a new object of the same type with sensitive data redacted
+// This function accepts either core.OpOptions or ops.RedactOptions for backward compatibility
+func Redact[T any](input T, opts ...interface{}) (T, error) {
+	if len(opts) == 0 {
+		return ops.Redact(input, ops.NewRedactOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.RedactOptions:
+		return ops.Redact(input, opt)
+	case OpOptions:
+		// Convert OpOptions to RedactOptions for backward compatibility
+		redactOpts := ops.NewRedactOptions()
+		redactOpts.OpOptions = opt
+		return ops.Redact(input, redactOpts)
+	default:
+		return ops.Redact(input, ops.NewRedactOptions())
+	}
+}
