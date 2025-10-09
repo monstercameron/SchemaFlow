@@ -286,3 +286,24 @@ func Redact[T any](input T, opts ...interface{}) (T, error) {
 		return ops.Redact(input, ops.NewRedactOptions())
 	}
 }
+
+// Suggest generates context-aware suggestions based on input data and current state
+// Returns a slice of suggestions of the specified type
+// This function accepts either core.OpOptions or ops.SuggestOptions for backward compatibility
+func Suggest[T any](input any, opts ...interface{}) ([]T, error) {
+	if len(opts) == 0 {
+		return ops.Suggest[T](input, ops.NewSuggestOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.SuggestOptions:
+		return ops.Suggest[T](input, opt)
+	case OpOptions:
+		// Convert OpOptions to SuggestOptions for backward compatibility
+		suggestOpts := ops.NewSuggestOptions()
+		suggestOpts.OpOptions = opt
+		return ops.Suggest[T](input, suggestOpts)
+	default:
+		return ops.Suggest[T](input, ops.NewSuggestOptions())
+	}
+}
