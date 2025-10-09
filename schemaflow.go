@@ -205,3 +205,23 @@ func Diff[T any](oldData, newData T, opts ...interface{}) (ops.DiffResult, error
 		return ops.Diff[T](oldData, newData, ops.NewDiffOptions())
 	}
 }
+
+// Explain generates human explanations for complex data or code in simple terms
+// This function accepts either core.OpOptions or ops.ExplainOptions for backward compatibility
+func Explain(data any, opts ...interface{}) (ops.ExplainResult, error) {
+	if len(opts) == 0 {
+		return ops.Explain(data, ops.NewExplainOptions())
+	}
+
+	switch opt := opts[0].(type) {
+	case ops.ExplainOptions:
+		return ops.Explain(data, opt)
+	case OpOptions:
+		// Convert OpOptions to ExplainOptions for backward compatibility
+		explainOpts := ops.NewExplainOptions()
+		explainOpts.OpOptions = opt
+		return ops.Explain(data, explainOpts)
+	default:
+		return ops.Explain(data, ops.NewExplainOptions())
+	}
+}
