@@ -71,6 +71,49 @@ type (
 	Decision[T any] = ops.Decision[T]
 	DecisionResult  = ops.DecisionResult
 	GuardResult     = ops.GuardResult
+
+	// New LLM operation types (v2)
+	AnnotateOptions           = ops.AnnotateOptions
+	Annotation                = ops.Annotation
+	AnnotateResult            = ops.AnnotateResult
+	ClusterOptions            = ops.ClusterOptions
+	ClusterInfo[T any]        = ops.ClusterInfo[T]
+	ClusterResult[T any]      = ops.ClusterResult[T]
+	RankOptions               = ops.RankOptions
+	RankedItem[T any]         = ops.RankedItem[T]
+	RankResult[T any]         = ops.RankResult[T]
+	CompressOptions           = ops.CompressOptions
+	CompressResult[T any]     = ops.CompressResult[T]
+	DecomposeOptions          = ops.DecomposeOptions
+	DecomposedPart[T any]     = ops.DecomposedPart[T]
+	DecomposeResult[T any]    = ops.DecomposeResult[T]
+	EnrichOptions             = ops.EnrichOptions
+	EnrichResult[T any]       = ops.EnrichResult[T]
+	NormalizeOptions          = ops.NormalizeOptions
+	NormalizeChange           = ops.NormalizeChange
+	NormalizeResult[T any]    = ops.NormalizeResult[T]
+	MatchOptions              = ops.MatchOptions
+	MatchPair[S any, T any]   = ops.MatchPair[S, T]
+	MatchResult[S any, T any] = ops.MatchResult[S, T]
+	CritiqueOptions           = ops.CritiqueOptions
+	CritiqueIssue             = ops.CritiqueIssue
+	CritiquePositive          = ops.CritiquePositive
+	CritiqueResult            = ops.CritiqueResult
+	SynthesizeOptions         = ops.SynthesizeOptions
+	SynthesisFact             = ops.SynthesisFact
+	SynthesisInsight          = ops.SynthesisInsight
+	SynthesisConflict         = ops.SynthesisConflict
+	SynthesizeResult[T any]   = ops.SynthesizeResult[T]
+	PredictOptions            = ops.PredictOptions
+	PredictionInterval        = ops.PredictionInterval
+	PredictionScenario        = ops.PredictionScenario
+	PredictionFactor          = ops.PredictionFactor
+	PredictResult[T any]      = ops.PredictResult[T]
+	VerifyOptions             = ops.VerifyOptions
+	ClaimVerification         = ops.ClaimVerification
+	LogicIssue                = ops.LogicIssue
+	ConsistencyIssue          = ops.ConsistencyIssue
+	VerifyResult              = ops.VerifyResult
 )
 
 // Mode constants
@@ -143,6 +186,20 @@ var (
 	NewExpandOptions    = ops.NewExpandOptions
 	NewSuggestOptions   = ops.NewSuggestOptions
 	NewRedactOptions    = ops.NewRedactOptions
+
+	// New LLM operation option constructors (v2)
+	NewAnnotateOptions   = ops.NewAnnotateOptions
+	NewClusterOptions    = ops.NewClusterOptions
+	NewRankOptions       = ops.NewRankOptions
+	NewCompressOptions   = ops.NewCompressOptions
+	NewDecomposeOptions  = ops.NewDecomposeOptions
+	NewEnrichOptions     = ops.NewEnrichOptions
+	NewNormalizeOptions  = ops.NewNormalizeOptions
+	NewMatchOptions      = ops.NewMatchOptions
+	NewCritiqueOptions   = ops.NewCritiqueOptions
+	NewSynthesizeOptions = ops.NewSynthesizeOptions
+	NewPredictOptions    = ops.NewPredictOptions
+	NewVerifyOptions     = ops.NewVerifyOptions
 )
 
 // Core operations - re-export from internal/ops
@@ -391,4 +448,178 @@ func Decide[T any](ctx any, decisions []Decision[T], opts ...OpOptions) (T, Deci
 //	result := schemaflow.Guard(state, check1, check2)
 func Guard[T any](state T, checks ...func(T) (bool, string)) GuardResult {
 	return ops.Guard(state, checks...)
+}
+
+// === New LLM Operations (v2) ===
+
+// Annotate extracts semantic annotations (entities, sentiments, topics) from text.
+//
+// Example:
+//
+//	result, err := schemaflow.Annotate(document, schemaflow.NewAnnotateOptions().WithTypes([]string{"entities", "sentiment"}))
+func Annotate[T any](input T, opts AnnotateOptions) (AnnotateResult, error) {
+	return ops.Annotate(input, opts)
+}
+
+// Cluster groups items by semantic similarity into natural clusters.
+//
+// Example:
+//
+//	result, err := schemaflow.Cluster(documents, schemaflow.NewClusterOptions().WithMaxClusters(5))
+func Cluster[T any](items []T, opts ClusterOptions) (ClusterResult[T], error) {
+	return ops.Cluster(items, opts)
+}
+
+// Rank orders items by relevance to a query using semantic understanding.
+//
+// Example:
+//
+//	result, err := schemaflow.Rank(documents, schemaflow.NewRankOptions().WithQuery("machine learning"))
+func Rank[T any](items []T, opts RankOptions) (RankResult[T], error) {
+	return ops.Rank(items, opts)
+}
+
+// Compress reduces content while preserving essential meaning.
+//
+// Example:
+//
+//	result, err := schemaflow.Compress(document, schemaflow.NewCompressOptions().WithRatio(0.3))
+func Compress[T any](input T, opts CompressOptions) (CompressResult[T], error) {
+	return ops.Compress(input, opts)
+}
+
+// CompressText compresses text content using semantic compression.
+//
+// Example:
+//
+//	compressed, err := schemaflow.CompressText("long text here...", schemaflow.NewCompressOptions().WithRatio(0.5))
+func CompressText(input string, opts CompressOptions) (string, error) {
+	return ops.CompressText(input, opts)
+}
+
+// Decompose breaks down complex items into atomic parts using LLM intelligence.
+//
+// Example:
+//
+//	result, err := schemaflow.Decompose(complexTask, schemaflow.NewDecomposeOptions().WithMode("hierarchical"))
+func Decompose[T any](input T, opts DecomposeOptions) (DecomposeResult[T], error) {
+	return ops.Decompose(input, opts)
+}
+
+// DecomposeToSlice breaks down complex items and returns just the parts.
+//
+// Example:
+//
+//	parts, err := schemaflow.DecomposeToSlice[Task, SubTask](complexTask, schemaflow.NewDecomposeOptions())
+func DecomposeToSlice[T any, U any](input T, opts DecomposeOptions) ([]U, error) {
+	return ops.DecomposeToSlice[T, U](input, opts)
+}
+
+// Enrich adds derived or inferred fields to existing data.
+//
+// Example:
+//
+//	result, err := schemaflow.Enrich[Person, EnrichedPerson](person, schemaflow.NewEnrichOptions().WithFields([]string{"age_bracket", "generation"}))
+func Enrich[T any, U any](input T, opts EnrichOptions) (EnrichResult[U], error) {
+	return ops.Enrich[T, U](input, opts)
+}
+
+// EnrichInPlace enriches data in place, returning the same type.
+//
+// Example:
+//
+//	enriched, err := schemaflow.EnrichInPlace(person, schemaflow.NewEnrichOptions())
+func EnrichInPlace[T any](input T, opts EnrichOptions) (T, error) {
+	return ops.EnrichInPlace(input, opts)
+}
+
+// Normalize standardizes data formats and values for consistency.
+//
+// Example:
+//
+//	result, err := schemaflow.Normalize(data, schemaflow.NewNormalizeOptions().WithRules([]string{"dates", "phone_numbers"}))
+func Normalize[T any](input T, opts NormalizeOptions) (NormalizeResult[T], error) {
+	return ops.Normalize(input, opts)
+}
+
+// NormalizeText normalizes text content.
+//
+// Example:
+//
+//	normalized, err := schemaflow.NormalizeText("messy text...", schemaflow.NewNormalizeOptions())
+func NormalizeText(input string, opts NormalizeOptions) (string, error) {
+	return ops.NormalizeText(input, opts)
+}
+
+// NormalizeBatch normalizes multiple items at once.
+//
+// Example:
+//
+//	results, err := schemaflow.NormalizeBatch(items, schemaflow.NewNormalizeOptions())
+func NormalizeBatch[T any](items []T, opts NormalizeOptions) ([]NormalizeResult[T], error) {
+	return ops.NormalizeBatch(items, opts)
+}
+
+// SemanticMatch pairs items from two sets based on semantic similarity.
+// Note: This is different from the control-flow Match operation.
+//
+// Example:
+//
+//	result, err := schemaflow.SemanticMatch(resumes, jobs, schemaflow.NewMatchOptions().WithThreshold(0.7))
+func SemanticMatch[S any, T any](sources []S, targets []T, opts MatchOptions) (MatchResult[S, T], error) {
+	return ops.SemanticMatch(sources, targets, opts)
+}
+
+// MatchOne finds the best matching targets for a single source item.
+//
+// Example:
+//
+//	matches, err := schemaflow.MatchOne(resume, jobs, schemaflow.NewMatchOptions())
+func MatchOne[S any, T any](source S, targets []T, opts MatchOptions) ([]MatchPair[S, T], error) {
+	return ops.MatchOne(source, targets, opts)
+}
+
+// Critique provides constructive feedback on content quality.
+//
+// Example:
+//
+//	result, err := schemaflow.Critique(essay, schemaflow.NewCritiqueOptions().WithAspects([]string{"clarity", "argument_strength"}))
+func Critique[T any](input T, opts CritiqueOptions) (CritiqueResult, error) {
+	return ops.Critique(input, opts)
+}
+
+// Synthesize combines information from multiple sources into a coherent whole.
+//
+// Example:
+//
+//	result, err := schemaflow.Synthesize[Summary](articles, schemaflow.NewSynthesizeOptions().WithPerspective("balanced"))
+func Synthesize[T any](sources []any, opts SynthesizeOptions) (SynthesizeResult[T], error) {
+	return ops.Synthesize[T](sources, opts)
+}
+
+// Predict forecasts future states or outcomes based on patterns.
+//
+// Example:
+//
+//	result, err := schemaflow.Predict[Forecast](salesData, schemaflow.NewPredictOptions().WithHorizon("next_quarter"))
+func Predict[T any](historicalData any, opts PredictOptions) (PredictResult[T], error) {
+	return ops.Predict[T](historicalData, opts)
+}
+
+// Verify checks facts, logic, and consistency in content.
+//
+// Example:
+//
+//	result, err := schemaflow.Verify("The Earth is flat.", schemaflow.NewVerifyOptions().WithMode("factual"))
+func Verify(input string, opts VerifyOptions) (VerifyResult, error) {
+	return ops.Verify(input, opts)
+}
+
+// VerifyClaim checks a specific claim.
+//
+// Example:
+//
+//	result, err := schemaflow.VerifyClaim("GDP grew 5%", schemaflow.NewVerifyOptions())
+func VerifyClaim(claim string, opts VerifyOptions) (ClaimVerification, error) {
+	return ops.VerifyClaim(claim, opts)
 }
