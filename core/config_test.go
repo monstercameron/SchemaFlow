@@ -62,7 +62,7 @@ func TestGetModelEnvOverride(t *testing.T) {
 	defer func() { provider = originalProvider }()
 
 	t.Setenv("SCHEMAFLOW_MODEL", "custom-model-override")
-	
+
 	provider = "openai"
 	if got := getModel(Smart); got != "custom-model-override" {
 		t.Errorf("Expected env override 'custom-model-override', got %v", got)
@@ -81,9 +81,9 @@ func TestGetModelLevelOverride(t *testing.T) {
 
 	t.Setenv("SCHEMAFLOW_MODEL_SMART", "smart-override")
 	t.Setenv("SCHEMAFLOW_MODEL_FAST", "fast-override")
-	
+
 	provider = "openai"
-	
+
 	if got := getModel(Smart); got != "smart-override" {
 		t.Errorf("Expected smart override 'smart-override', got %v", got)
 	}
@@ -91,7 +91,7 @@ func TestGetModelLevelOverride(t *testing.T) {
 	if got := getModel(Fast); got != "fast-override" {
 		t.Errorf("Expected fast override 'fast-override', got %v", got)
 	}
-	
+
 	// Quick should still be default
 	if got := getModel(Quick); got == "smart-override" || got == "fast-override" {
 		t.Errorf("Expected default for Quick, got %v", got)

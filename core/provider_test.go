@@ -458,7 +458,7 @@ func TestProviderCostEstimation(t *testing.T) {
 		t.Setenv("SCHEMAFLOW_COST_OUTPUT_TEST_MODEL", "200.0") // $200/1M
 
 		provider, _ := NewOpenAIProvider(ProviderConfig{APIKey: "test"})
-		
+
 		req := CompletionRequest{
 			Model:        "test-model",
 			SystemPrompt: strings.Repeat("a", 1000), // ~250 tokens
@@ -482,11 +482,11 @@ func TestProviderCostEstimation(t *testing.T) {
 		// Map a model to a level
 		t.Setenv("SCHEMAFLOW_MODEL_SMART", "level-model")
 		// Set cost for that level
-		t.Setenv("SCHEMAFLOW_COST_INPUT_SMART", "50.0")  // $50/1M
+		t.Setenv("SCHEMAFLOW_COST_INPUT_SMART", "50.0")   // $50/1M
 		t.Setenv("SCHEMAFLOW_COST_OUTPUT_SMART", "100.0") // $100/1M
 
 		provider, _ := NewOpenAIProvider(ProviderConfig{APIKey: "test"})
-		
+
 		req := CompletionRequest{
 			Model:        "level-model", // Must match the model mapped to the level
 			SystemPrompt: strings.Repeat("a", 1000),
