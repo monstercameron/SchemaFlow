@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -10,8 +12,43 @@ import (
 
 func TestProviders(t *testing.T) {
 	t.Run("OpenAIProvider", func(t *testing.T) {
+		// Create mock server
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Verify headers
+			if r.Header.Get("Authorization") != "Bearer test-key" {
+				t.Errorf("Expected Authorization header")
+			}
+			if !strings.Contains(r.URL.Path, "/responses") {
+				t.Errorf("Expected path to contain /responses, got %s", r.URL.Path)
+			}
+
+			// Return mock response
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "resp_123",
+				"output": [
+					{
+						"content": [
+							{
+								"type": "output_text",
+								"text": "OpenAI response"
+							}
+						]
+					}
+				],
+				"model": "gpt-5-2025-08-07",
+				"usage": {
+					"input_tokens": 10,
+					"output_tokens": 20,
+					"total_tokens": 30
+				}
+			}`))
+		}))
+		defer server.Close()
+
 		provider, err := NewOpenAIProvider(ProviderConfig{
-			APIKey: "test-key",
+			APIKey:  "test-key",
+			BaseURL: server.URL,
 		})
 
 		if err != nil {
@@ -20,6 +57,20 @@ func TestProviders(t *testing.T) {
 
 		if provider.Name() != "openai" {
 			t.Errorf("Expected provider name 'openai', got %s", provider.Name())
+		}
+
+		// Test completion with mock server
+		resp, err := provider.Complete(context.Background(), CompletionRequest{
+			SystemPrompt: "You are a helpful assistant",
+			UserPrompt:   "Hello",
+		})
+
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		if resp.Content != "OpenAI response" {
+			t.Errorf("Expected content 'OpenAI response', got %s", resp.Content)
 		}
 
 		// Test cost estimation
@@ -35,8 +86,38 @@ func TestProviders(t *testing.T) {
 	})
 
 	t.Run("AnthropicProvider", func(t *testing.T) {
+		// Create mock server
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Verify headers
+			if r.Header.Get("x-api-key") != "test-key" {
+				t.Errorf("Expected x-api-key header")
+			}
+			if r.Header.Get("anthropic-version") != "2023-06-01" {
+				t.Errorf("Expected anthropic-version header")
+			}
+
+			// Return mock response
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "msg_123",
+				"content": [
+					{
+						"type": "text",
+						"text": "Anthropic response"
+					}
+				],
+				"model": "claude-3-5-sonnet-20240620",
+				"usage": {
+					"input_tokens": 10,
+					"output_tokens": 20
+				}
+			}`))
+		}))
+		defer server.Close()
+
 		provider, err := NewAnthropicProvider(ProviderConfig{
-			APIKey: "test-key",
+			APIKey:  "test-key",
+			BaseURL: server.URL,
 		})
 
 		if err != nil {
@@ -47,7 +128,7 @@ func TestProviders(t *testing.T) {
 			t.Errorf("Expected provider name 'anthropic', got %s", provider.Name())
 		}
 
-		// Test mock completion
+		// Test completion with mock server
 		resp, err := provider.Complete(context.Background(), CompletionRequest{
 			SystemPrompt: "Test",
 			UserPrompt:   "Hello",
@@ -59,6 +140,60 @@ func TestProviders(t *testing.T) {
 
 		if resp.Provider != "anthropic" {
 			t.Errorf("Expected provider 'anthropic' in response, got %s", resp.Provider)
+		}
+
+		if resp.Content != "Anthropic response" {
+			t.Errorf("Expected content 'Anthropic response', got %s", resp.Content)
+		}
+	})
+
+	t.Run("OpenRouterProvider", func(t *testing.T) {
+		provider, err := NewOpenRouterProvider(ProviderConfig{
+			APIKey: "test-key",
+		})
+
+		if err != nil {
+			t.Fatalf("Failed to create OpenRouter provider: %v", err)
+		}
+
+		if provider.Name() != "openrouter" {
+			t.Errorf("Expected provider name 'openrouter', got %s", provider.Name())
+		}
+
+		// Test cost estimation
+		cost := provider.EstimateCost(CompletionRequest{
+			SystemPrompt: "You are a helpful assistant",
+			UserPrompt:   "Hello, how are you?",
+			MaxTokens:    100,
+		})
+
+		if cost <= 0 {
+			t.Error("Expected positive cost estimate")
+		}
+	})
+
+	t.Run("CerebrasProvider", func(t *testing.T) {
+		provider, err := NewCerebrasProvider(ProviderConfig{
+			APIKey: "test-key",
+		})
+
+		if err != nil {
+			t.Fatalf("Failed to create Cerebras provider: %v", err)
+		}
+
+		if provider.Name() != "cerebras" {
+			t.Errorf("Expected provider name 'cerebras', got %s", provider.Name())
+		}
+
+		// Test cost estimation
+		cost := provider.EstimateCost(CompletionRequest{
+			SystemPrompt: "You are a helpful assistant",
+			UserPrompt:   "Hello, how are you?",
+			MaxTokens:    100,
+		})
+
+		if cost <= 0 {
+			t.Error("Expected positive cost estimate")
 		}
 	})
 
@@ -290,12 +425,84 @@ func TestProviderCostEstimation(t *testing.T) {
 		}
 	})
 
+	t.Run("OpenRouterCost", func(t *testing.T) {
+		provider, _ := NewOpenRouterProvider(ProviderConfig{APIKey: "test"})
+		cost := provider.EstimateCost(req)
+
+		if cost <= 0 {
+			t.Errorf("Expected positive cost estimate, got %f", cost)
+		}
+	})
+
+	t.Run("CerebrasCost", func(t *testing.T) {
+		provider, _ := NewCerebrasProvider(ProviderConfig{APIKey: "test"})
+		cost := provider.EstimateCost(req)
+
+		if cost <= 0 {
+			t.Errorf("Expected positive cost estimate, got %f", cost)
+		}
+	})
+
 	t.Run("LocalCost", func(t *testing.T) {
 		provider, _ := NewLocalProvider(ProviderConfig{})
 		cost := provider.EstimateCost(req)
 
 		if cost != 0 {
 			t.Errorf("Expected 0 cost for local provider, got %f", cost)
+		}
+	})
+
+	t.Run("CostOverride", func(t *testing.T) {
+		// Override cost for a specific model
+		t.Setenv("SCHEMAFLOW_COST_INPUT_TEST_MODEL", "100.0")  // $100/1M
+		t.Setenv("SCHEMAFLOW_COST_OUTPUT_TEST_MODEL", "200.0") // $200/1M
+
+		provider, _ := NewOpenAIProvider(ProviderConfig{APIKey: "test"})
+		
+		req := CompletionRequest{
+			Model:        "test-model",
+			SystemPrompt: strings.Repeat("a", 1000), // ~250 tokens
+			UserPrompt:   strings.Repeat("b", 1000), // ~250 tokens
+			MaxTokens:    500,
+		}
+
+		cost := provider.EstimateCost(req)
+
+		// Expected cost:
+		// Input: 500 tokens * ($100 / 1M) = 0.05
+		// Output: 500 tokens * ($200 / 1M) = 0.10
+		// Total: 0.15
+
+		if cost < 0.14 || cost > 0.16 {
+			t.Errorf("Expected cost ~0.15, got %f", cost)
+		}
+	})
+
+	t.Run("LevelCostOverride", func(t *testing.T) {
+		// Map a model to a level
+		t.Setenv("SCHEMAFLOW_MODEL_SMART", "level-model")
+		// Set cost for that level
+		t.Setenv("SCHEMAFLOW_COST_INPUT_SMART", "50.0")  // $50/1M
+		t.Setenv("SCHEMAFLOW_COST_OUTPUT_SMART", "100.0") // $100/1M
+
+		provider, _ := NewOpenAIProvider(ProviderConfig{APIKey: "test"})
+		
+		req := CompletionRequest{
+			Model:        "level-model", // Must match the model mapped to the level
+			SystemPrompt: strings.Repeat("a", 1000),
+			UserPrompt:   strings.Repeat("b", 1000),
+			MaxTokens:    500,
+		}
+
+		cost := provider.EstimateCost(req)
+
+		// Expected cost:
+		// Input: 500 tokens * ($50 / 1M) = 0.025
+		// Output: 500 tokens * ($100 / 1M) = 0.05
+		// Total: 0.075
+
+		if cost < 0.074 || cost > 0.076 {
+			t.Errorf("Expected cost ~0.075, got %f", cost)
 		}
 	})
 }

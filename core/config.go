@@ -91,6 +91,10 @@ func (client *Client) WithProvider(providerName string) *Client {
 		provider, err = NewOpenAIProvider(config)
 	case "anthropic":
 		provider, err = NewAnthropicProvider(config)
+	case "openrouter":
+		provider, err = NewOpenRouterProvider(config)
+	case "cerebras":
+		provider, err = NewCerebrasProvider(config)
 	case "local", "mock":
 		provider, err = NewLocalProvider(config)
 	default:
@@ -284,6 +288,66 @@ func ApplyDefaults(opts ...OpOptions) OpOptions {
 
 // getModel returns the appropriate OpenAI model based on intelligence level
 func getModel(intelligence Speed) string {
+	// Check for global model override via environment variable
+	if envModel := os.Getenv("SCHEMAFLOW_MODEL"); envModel != "" {
+		return envModel
+	}
+
+	// Check for intelligence-level specific overrides
+	var envLevelModel string
+	switch intelligence {
+	case Smart:
+		envLevelModel = os.Getenv("SCHEMAFLOW_MODEL_SMART")
+	case Fast:
+		envLevelModel = os.Getenv("SCHEMAFLOW_MODEL_FAST")
+	case Quick:
+		envLevelModel = os.Getenv("SCHEMAFLOW_MODEL_QUICK")
+	}
+
+	if envLevelModel != "" {
+		return envLevelModel
+	}
+
+	// Check global provider
+	if provider == "openrouter" {
+		switch intelligence {
+		case Smart:
+			return "openai/gpt-4o"
+		case Fast:
+			return "openai/gpt-4o-mini"
+		case Quick:
+			return "openai/gpt-4o-mini"
+		default:
+			return "openai/gpt-4o-mini"
+		}
+	}
+
+	if provider == "cerebras" {
+		switch intelligence {
+		case Smart:
+			return "llama-3.3-70b"
+		case Fast:
+			return "llama3.1-8b"
+		case Quick:
+			return "llama3.1-8b"
+		default:
+			return "llama3.1-8b"
+		}
+	}
+
+	if provider == "anthropic" {
+		switch intelligence {
+		case Smart:
+			return "claude-3-5-sonnet-20240620"
+		case Fast:
+			return "claude-3-haiku-20240307"
+		case Quick:
+			return "claude-3-haiku-20240307"
+		default:
+			return "claude-3-haiku-20240307"
+		}
+	}
+
 	switch intelligence {
 	case Smart:
 		return "gpt-5-2025-08-07"
