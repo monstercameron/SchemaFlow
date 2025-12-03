@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 func main() {
@@ -15,7 +13,7 @@ func main() {
 	// Initialize SchemaFlow
 	fmt.Println("🔧 Initializing SchemaFlow...")
 	if err := schemaflow.InitWithEnv(".env"); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
 	fmt.Println("✅ SchemaFlow initialized successfully")
@@ -53,9 +51,9 @@ func main() {
 
 	fmt.Println("🤖 Analyzing differences...")
 	result, err := schemaflow.Diff(oldCustomer, newCustomer,
-		ops.NewDiffOptions().WithContext("Customer management system"))
+		schemaflow.NewDiffOptions().WithContext("Customer management system"))
 	if err != nil {
-		core.GetLogger().Error("Diff failed", "error", err)
+		schemaflow.GetLogger().Error("Diff failed", "error", err)
 		return
 	}
 
@@ -107,9 +105,9 @@ func main() {
 
 	fmt.Println("🤖 Analyzing differences...")
 	productResult, err := schemaflow.Diff(oldProduct, newProduct,
-		ops.NewDiffOptions().WithContext("E-commerce product catalog"))
+		schemaflow.NewDiffOptions().WithContext("E-commerce product catalog"))
 	if err != nil {
-		core.GetLogger().Error("Diff failed", "error", err)
+		schemaflow.GetLogger().Error("Diff failed", "error", err)
 		return
 	}
 
@@ -156,11 +154,11 @@ func main() {
 
 	fmt.Println("🤖 Analyzing differences (ignoring timestamps)...")
 	configResult, err := schemaflow.Diff(oldConfig, newConfig,
-		ops.NewDiffOptions().
+		schemaflow.NewDiffOptions().
 			WithContext("Service configuration management").
 			WithIgnoreFields([]string{"LastUpdated"}))
 	if err != nil {
-		core.GetLogger().Error("Diff failed", "error", err)
+		schemaflow.GetLogger().Error("Diff failed", "error", err)
 		return
 	}
 

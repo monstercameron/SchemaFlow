@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	schemaflow "github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
 func TestCalculateCost(t *testing.T) {
@@ -75,7 +75,7 @@ func TestCalculateCost(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			usage := &schemaflow.TokenUsage{
+			usage := &types.TokenUsage{
 				PromptTokens:     tt.promptTokens,
 				CompletionTokens: tt.completionTokens,
 				TotalTokens:      tt.promptTokens + tt.completionTokens,
@@ -94,14 +94,14 @@ func TestCalculateCost(t *testing.T) {
 
 func TestTrackCost(t *testing.T) {
 	// Test tracking costs
-	usage1 := &schemaflow.TokenUsage{
+	usage1 := &types.TokenUsage{
 		PromptTokens:     1000,
 		CompletionTokens: 500,
 		TotalTokens:      1500,
 	}
 
 	cost1 := CalculateCost(usage1, "gpt-5-2025-08-07", "openai")
-	metadata1 := &schemaflow.ResultMetadata{
+	metadata1 := &types.ResultMetadata{
 		RequestID: "test-001",
 		Operation: "extract",
 	}
@@ -125,14 +125,14 @@ func TestTrackCost(t *testing.T) {
 
 func TestGetCostBreakdown(t *testing.T) {
 	// Add some costs first
-	usage := &schemaflow.TokenUsage{
+	usage := &types.TokenUsage{
 		PromptTokens:     100,
 		CompletionTokens: 50,
 		TotalTokens:      150,
 	}
 
 	cost := CalculateCost(usage, "gpt-5-mini-2025-08-07", "openai")
-	metadata := &schemaflow.ResultMetadata{
+	metadata := &types.ResultMetadata{
 		RequestID: "test-002",
 		Operation: "classify",
 	}
@@ -153,14 +153,14 @@ func TestGetCostBreakdown(t *testing.T) {
 
 func TestExportCostReport(t *testing.T) {
 	// Add some costs first
-	usage := &schemaflow.TokenUsage{
+	usage := &types.TokenUsage{
 		PromptTokens:     1000,
 		CompletionTokens: 500,
 		TotalTokens:      1500,
 	}
 
 	cost := CalculateCost(usage, "gpt-5-nano-2025-08-07", "openai")
-	metadata := &schemaflow.ResultMetadata{
+	metadata := &types.ResultMetadata{
 		RequestID: "test-003",
 		Operation: "generate",
 	}

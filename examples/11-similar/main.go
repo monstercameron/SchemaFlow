@@ -24,7 +24,7 @@ func main() {
 	fmt.Println("   3. Use the Deduplicate() function in ops/extended.go")
 	fmt.Println()
 	fmt.Println("Example using Deduplicate (alternative):")
-	fmt.Println("   result, err := ops.Deduplicate(tickets, 0.85)")
+	fmt.Println("   result, err := schemaflow.Deduplicate(tickets, 0.85)")
 	fmt.Println()
 	fmt.Println("See examples/10-compare for using Compare operation")
 }

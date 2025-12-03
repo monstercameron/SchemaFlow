@@ -5,8 +5,6 @@ import (
 	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // Task represents a work task
@@ -22,7 +20,7 @@ type Task struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)
 	}
 
@@ -78,14 +76,14 @@ func main() {
 	}
 
 	// Sort tasks by priority (urgency + impact + effort)
-	sortOpts := ops.NewSortOptions().WithCriteria("Priority by: 1) Urgency (deadline), 2) Business impact, 3) Effort (quick wins first)")
+	sortOpts := schemaflow.NewSortOptions().WithCriteria("Priority by: 1) Urgency (deadline), 2) Business impact, 3) Effort (quick wins first)")
 	sortOpts.OpOptions.Intelligence = schemaflow.Smart
 	sortOpts.OpOptions.Steering = "Consider deadline urgency, business impact, and effort. Quick high-impact tasks should be prioritized."
 
 	sortedTasks, err := schemaflow.Sort(tasks, sortOpts)
 
 	if err != nil {
-		core.GetLogger().Error("Sorting failed", "error", err)
+		schemaflow.GetLogger().Error("Sorting failed", "error", err)
 		os.Exit(1)
 	}
 

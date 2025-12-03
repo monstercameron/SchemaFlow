@@ -5,8 +5,6 @@ import (
 	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // Product represents a product in the catalog
@@ -22,7 +20,7 @@ type Product struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)
 	}
 
@@ -75,14 +73,14 @@ func main() {
 	}
 
 	// Choose the best product for the customer
-	chooseOpts := ops.NewChooseOptions().WithCriteria([]string{customerQuery})
+	chooseOpts := schemaflow.NewChooseOptions().WithCriteria([]string{customerQuery})
 	chooseOpts.OpOptions.Intelligence = schemaflow.Smart
 	chooseOpts.OpOptions.Steering = "Consider budget, portability, and intended use. Prioritize value for students."
 
 	chosen, err := schemaflow.Choose(products, chooseOpts)
 
 	if err != nil {
-		core.GetLogger().Error("Selection failed", "error", err)
+		schemaflow.GetLogger().Error("Selection failed", "error", err)
 		os.Exit(1)
 	}
 

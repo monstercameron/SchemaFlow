@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // Product represents a product to compare
@@ -19,7 +17,7 @@ type Product struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
 
@@ -72,15 +70,15 @@ func main() {
 	fmt.Println("   Features:", productB.Features)
 
 	// Compare the products
-	compareOpts := ops.NewCompareOptions().
+	compareOpts := schemaflow.NewCompareOptions().
 		WithComparisonAspects([]string{"camera", "battery", "display", "performance", "value"}).
 		WithOutputFormat("structured")
 	compareOpts.Depth = 7
 	compareOpts.OpOptions.Intelligence = schemaflow.Smart
 
-	comparison, err := ops.Compare(productA, productB, compareOpts)
+	comparison, err := schemaflow.Compare(productA, productB, compareOpts)
 	if err != nil {
-		core.GetLogger().Error("Comparison failed", "error", err)
+		schemaflow.GetLogger().Error("Comparison failed", "error", err)
 		return
 	}
 

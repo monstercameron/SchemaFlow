@@ -6,8 +6,6 @@ import (
 	"time"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // Email represents a structured email
@@ -23,7 +21,7 @@ type Email struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)
 	}
 
@@ -52,12 +50,12 @@ Sent: December 15, 2024
 	fmt.Println(rawEmail)
 
 	// Extract structured email from unstructured text
-	email, err := schemaflow.Extract[Email](rawEmail, ops.NewExtractOptions().
+	email, err := schemaflow.Extract[Email](rawEmail, schemaflow.NewExtractOptions().
 		WithIntelligence(schemaflow.Fast).
 		WithSteering("Extract all email fields including metadata and categorize by tags"))
 
 	if err != nil {
-		core.GetLogger().Error("Extraction failed", "error", err)
+		schemaflow.GetLogger().Error("Extraction failed", "error", err)
 		os.Exit(1)
 	}
 

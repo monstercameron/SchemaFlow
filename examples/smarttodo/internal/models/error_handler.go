@@ -7,8 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/core"
-)
+	)
 
 // ErrorSeverity defines the severity of errors
 type ErrorSeverity int
@@ -65,7 +64,7 @@ func HandleError(err error, context string) error {
 	}
 
 	// Log the error
-	core.GetLogger().Error("Error in operation", "context", context, "error", err)
+	schemaflow.GetLogger().Error("Error in operation", "context", context, "error", err)
 
 	// Check for specific error types and provide recovery strategies
 	switch {
@@ -106,7 +105,7 @@ func HandleError(err error, context string) error {
 func RecoverFromPanic(context string) error {
 	if r := recover(); r != nil {
 		_ = fmt.Errorf("panic recovered: %v", r)
-		core.GetLogger().Error("PANIC recovered", "context", context, "panic", r, "stack", string(debug.Stack()))
+		schemaflow.GetLogger().Error("PANIC recovered", "context", context, "panic", r, "stack", string(debug.Stack()))
 		return NewAppError(
 			fmt.Sprintf("Unexpected error: %v", r),
 			ErrorCritical,
@@ -127,7 +126,7 @@ func RetryWithBackoff(operation func() error, maxAttempts int, context string) e
 		} else {
 			lastErr = err
 			if attempt < maxAttempts {
-				core.GetLogger().Warn("Retry attempt failed", "attempt", attempt, "maxAttempts", maxAttempts, "context", context, "error", err, "backoff", backoff)
+				schemaflow.GetLogger().Warn("Retry attempt failed", "attempt", attempt, "maxAttempts", maxAttempts, "context", context, "error", err, "backoff", backoff)
 				time.Sleep(backoff)
 				backoff *= 2
 				if backoff > 30*time.Second {
@@ -147,8 +146,10 @@ func RetryWithBackoff(operation func() error, maxAttempts int, context string) e
 func SafeExecute(fn func() error, context string) error {
 	defer func() {
 		if err := RecoverFromPanic(context); err != nil {
-			core.GetLogger().Error("Recovered from panic in operation", "context", context, "error", err)
+			schemaflow.GetLogger().Error("Recovered from panic in operation", "context", context, "error", err)
 		}
 	}()
 	return fn()
 }
+
+

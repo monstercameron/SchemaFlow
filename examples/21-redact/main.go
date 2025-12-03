@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/monstercameron/SchemaFlow/ops"
+	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
 func main() {
@@ -14,7 +14,7 @@ func main() {
 	text1 := "Contact john@example.com or call 555-123-4567 for support."
 	fmt.Printf("   Original: %q\n", text1)
 
-	result1, _ := ops.Redact(text1, ops.NewRedactOptions().WithCategories([]string{"PII"}))
+	result1, _ := schemaflow.Redact(text1, schemaflow.NewRedactOptions().WithCategories([]string{"PII"}))
 	fmt.Printf("   Redacted: %q\n", result1)
 
 	// Example 2: Different redaction strategies
@@ -23,15 +23,15 @@ func main() {
 
 	strategies := []struct {
 		name string
-		opts ops.RedactOptions
+		opts schemaflow.RedactOptions
 	}{
-		{"Mask", ops.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(ops.RedactMask)},
-		{"Nil", ops.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(ops.RedactNil)},
-		{"Jumble", ops.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(ops.RedactJumble).WithJumbleSeed(42)},
+		{"Mask", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(schemaflow.RedactMask)},
+		{"Nil", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(schemaflow.RedactNil)},
+		{"Jumble", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(schemaflow.RedactJumble).WithJumbleSeed(42)},
 	}
 
 	for _, strategy := range strategies {
-		result, _ := ops.Redact(email, strategy.opts)
+		result, _ := schemaflow.Redact(email, strategy.opts)
 		fmt.Printf("   %s: %q → %q\n", strategy.name, email, result)
 	}
 
@@ -52,7 +52,7 @@ func main() {
 	}
 
 	fmt.Printf("   Original: %+v\n", user)
-	redactedUser, _ := ops.Redact(user, ops.NewRedactOptions().WithCategories([]string{"PII"}))
+	redactedUser, _ := schemaflow.Redact(user, schemaflow.NewRedactOptions().WithCategories([]string{"PII"}))
 	fmt.Printf("   Redacted: %+v\n", redactedUser)
 
 	// Example 4: Struct field name detection
@@ -70,7 +70,7 @@ func main() {
 	}
 
 	fmt.Printf("   Original: %+v\n", config)
-	redactedConfig, _ := ops.Redact(config, ops.NewRedactOptions().WithCategories([]string{"secrets"}))
+	redactedConfig, _ := schemaflow.Redact(config, schemaflow.NewRedactOptions().WithCategories([]string{"secrets"}))
 	fmt.Printf("   Redacted: %+v\n", redactedConfig)
 
 	// Example 5: Map redaction
@@ -83,7 +83,7 @@ func main() {
 	}
 
 	fmt.Printf("   Original: %+v\n", data)
-	redactedData, _ := ops.Redact(data, ops.NewRedactOptions().WithCategories([]string{"PII", "secrets"}))
+	redactedData, _ := schemaflow.Redact(data, schemaflow.NewRedactOptions().WithCategories([]string{"PII", "secrets"}))
 	fmt.Printf("   Redacted: %+v\n", redactedData)
 
 	// Example 6: Slice redaction
@@ -95,7 +95,7 @@ func main() {
 	}
 
 	fmt.Printf("   Original: %v\n", emails)
-	redactedEmails, _ := ops.Redact(emails, ops.NewRedactOptions().WithCategories([]string{"PII"}))
+	redactedEmails, _ := schemaflow.Redact(emails, schemaflow.NewRedactOptions().WithCategories([]string{"PII"}))
 	fmt.Printf("   Redacted: %v\n", redactedEmails)
 
 	// Example 7: Jumble variations
@@ -105,16 +105,16 @@ func main() {
 
 	jumbleOpts := []struct {
 		desc string
-		opts ops.RedactOptions
+		opts schemaflow.RedactOptions
 	}{
-		{"Basic Jumble", ops.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(ops.RedactJumble).WithJumbleMode(ops.JumbleBasic).WithJumbleSeed(123)},
-		{"Type-Aware Jumble", ops.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(ops.RedactJumble).WithJumbleMode(ops.JumbleTypeAware).WithJumbleSeed(123)},
+		{"Basic Jumble", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(schemaflow.RedactJumble).WithJumbleMode(schemaflow.JumbleBasic).WithJumbleSeed(123)},
+		{"Type-Aware Jumble", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(schemaflow.RedactJumble).WithJumbleMode(schemaflow.JumbleTypeAware).WithJumbleSeed(123)},
 	}
 
 	for _, item := range []string{phone, name} {
 		fmt.Printf("   Item: %q\n", item)
 		for _, jumbleOpt := range jumbleOpts {
-			result, _ := ops.Redact(item, jumbleOpt.opts)
+			result, _ := schemaflow.Redact(item, jumbleOpt.opts)
 			fmt.Printf("     %s: %q\n", jumbleOpt.desc, result)
 		}
 	}
@@ -124,7 +124,7 @@ func main() {
 	mixedText := "User john@example.com has SSN 123-45-6789 and password: secret123"
 	fmt.Printf("   Original: %q\n", mixedText)
 
-	result8, _ := ops.Redact(mixedText, ops.NewRedactOptions().WithCategories([]string{"PII", "secrets"}))
+	result8, _ := schemaflow.Redact(mixedText, schemaflow.NewRedactOptions().WithCategories([]string{"PII", "secrets"}))
 	fmt.Printf("   Redacted: %q\n", result8)
 
 	// Example 9: Custom patterns
@@ -132,7 +132,7 @@ func main() {
 	customText := "API key: sk-1234567890abcdef, DB: mysql://user:pass@host/db"
 	fmt.Printf("   Original: %q\n", customText)
 
-	result9, _ := ops.Redact(customText, ops.NewRedactOptions().
+	result9, _ := schemaflow.Redact(customText, schemaflow.NewRedactOptions().
 		WithCategories([]string{"secrets"}).
 		WithCustomPatterns([]string{`sk-\w{20}`, `mysql://\S+`}))
 	fmt.Printf("   Redacted: %q\n", result9)
@@ -143,17 +143,17 @@ func main() {
 
 	masks := []struct {
 		desc string
-		opts ops.RedactOptions
+		opts schemaflow.RedactOptions
 	}{
-		{"Default mask", ops.NewRedactOptions().WithCategories([]string{"PII"})},
-		{"Custom text", ops.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskText("[PRIVATE]")},
-		{"Hash symbols", ops.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskChar('#').WithMaskLength(5)},
-		{"At symbols", ops.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskChar('@').WithMaskLength(8)},
-		{"Original length X", ops.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskChar('X').WithMaskLength(-1)},
+		{"Default mask", schemaflow.NewRedactOptions().WithCategories([]string{"PII"})},
+		{"Custom text", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskText("[PRIVATE]")},
+		{"Hash symbols", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskChar('#').WithMaskLength(5)},
+		{"At symbols", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskChar('@').WithMaskLength(8)},
+		{"Original length X", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskChar('X').WithMaskLength(-1)},
 	}
 
 	for _, mask := range masks {
-		result, _ := ops.Redact(sampleEmail, mask.opts)
+		result, _ := schemaflow.Redact(sampleEmail, mask.opts)
 		fmt.Printf("   %s: %q → %q\n", mask.desc, sampleEmail, result)
 	}
 
@@ -162,13 +162,13 @@ func main() {
 	fmt.Println("   Testing various error conditions...")
 
 	// Test empty categories
-	_, err1 := ops.Redact("test", ops.NewRedactOptions().WithCategories([]string{}))
+	_, err1 := schemaflow.Redact("test", schemaflow.NewRedactOptions().WithCategories([]string{}))
 	if err1 != nil {
 		fmt.Printf("   ✓ Empty categories rejected: %v\n", err1)
 	}
 
 	// Test invalid strategy
-	_, err2 := ops.Redact("test", ops.RedactOptions{Categories: []string{"PII"}, Strategy: "invalid"})
+	_, err2 := schemaflow.Redact("test", schemaflow.RedactOptions{Categories: []string{"PII"}, Strategy: "invalid"})
 	if err2 != nil {
 		fmt.Printf("   ✓ Invalid strategy rejected: %v\n", err2)
 	}

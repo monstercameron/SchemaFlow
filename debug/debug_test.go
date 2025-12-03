@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/internal/config"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
 // Test helper type
@@ -16,37 +17,37 @@ type Person struct {
 
 func TestDebug(t *testing.T) {
 	// Save original state
-	originalDebug := core.IsDebugMode()
-	originalMetrics := core.IsMetricsEnabled()
-	core.Init("test-api-key") // Ensure logger is initialized
+	originalDebug := config.GetDebugMode()
+	originalMetrics := config.IsMetricsEnabled()
+	config.Init("test-api-key") // Ensure config is initialized
 
 	// Defer restoration
 	defer func() {
-		core.SetDebugMode(originalDebug)
-		core.SetMetricsEnabled(originalMetrics)
+		config.SetDebugMode(originalDebug)
+		config.SetMetricsEnabled(originalMetrics)
 	}()
 
 	// Test setting debug mode
-	core.SetDebugMode(true)
-	if !core.IsDebugMode() {
+	config.SetDebugMode(true)
+	if !config.GetDebugMode() {
 		t.Error("Expected debug mode to be enabled")
 	}
 
 	// Test disabling debug mode
-	core.SetDebugMode(false)
-	if core.IsDebugMode() {
+	config.SetDebugMode(false)
+	if config.GetDebugMode() {
 		t.Error("Expected debug mode to be disabled")
 	}
 
 	// Test setting metrics
-	core.SetMetricsEnabled(true)
-	if !core.IsMetricsEnabled() {
+	config.SetMetricsEnabled(true)
+	if !config.IsMetricsEnabled() {
 		t.Error("Expected metrics to be enabled")
 	}
 
 	// Test disabling metrics
-	core.SetMetricsEnabled(false)
-	if core.IsMetricsEnabled() {
+	config.SetMetricsEnabled(false)
+	if config.IsMetricsEnabled() {
 		t.Error("Expected metrics to be disabled")
 	}
 }
@@ -150,11 +151,11 @@ func TestValidateInput(t *testing.T) {
 }
 
 func TestDumpOperation(t *testing.T) {
-	opts := core.OpOptions{
+	opts := types.OpOptions{
 		Steering:     "test steering",
 		Threshold:    0.8,
-		Mode:         core.TransformMode,
-		Intelligence: core.Smart,
+		Mode:         types.TransformMode,
+		Intelligence: types.Smart,
 	}
 
 	dump := DumpOperation("TestOp", "input", "output", nil, opts)

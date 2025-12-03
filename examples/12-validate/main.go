@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // UserRegistration represents user registration data
@@ -21,7 +19,7 @@ type UserRegistration struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
 
@@ -94,9 +92,9 @@ Validation Rules:
 		fmt.Printf("   Country: %s\n", tc.data.Country)
 
 		// Validate
-		result, err := ops.Validate(tc.data, validationRules)
+		result, err := schemaflow.Validate(tc.data, validationRules)
 		if err != nil {
-			core.GetLogger().Error("Validation error", "error", err)
+			schemaflow.GetLogger().Error("Validation error", "error", err)
 			continue
 		}
 

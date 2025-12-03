@@ -5,15 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
 func TestStartSpan(t *testing.T) {
 	// Test span creation
 	ctx := context.Background()
-	opts := core.OpOptions{
-		Mode:         core.TransformMode,
-		Intelligence: core.Fast,
+	opts := types.OpOptions{
+		Mode:         types.TransformMode,
+		Intelligence: types.Fast,
 	}
 
 	newCtx, span := StartSpan(ctx, "test-operation", opts)
@@ -29,22 +29,22 @@ func TestStartSpan(t *testing.T) {
 
 func TestRecordLLMCall(t *testing.T) {
 	ctx := context.Background()
-	opts := core.OpOptions{
-		Mode:         core.TransformMode,
-		Intelligence: core.Fast,
+	opts := types.OpOptions{
+		Mode:         types.TransformMode,
+		Intelligence: types.Fast,
 	}
 
 	_, span := StartSpan(ctx, "test-operation", opts)
 	defer span.End()
 
 	// Test recording LLM call
-	usage := &core.TokenUsage{
+	usage := &types.TokenUsage{
 		PromptTokens:     100,
 		CompletionTokens: 50,
 		TotalTokens:      150,
 	}
 
-	cost := &core.CostInfo{
+	cost := &types.CostInfo{
 		TotalCost: 0.05,
 		Currency:  "USD",
 	}
@@ -56,9 +56,9 @@ func TestRecordLLMCall(t *testing.T) {
 
 func TestAddSpanTags(t *testing.T) {
 	ctx := context.Background()
-	opts := core.OpOptions{
-		Mode:         core.TransformMode,
-		Intelligence: core.Fast,
+	opts := types.OpOptions{
+		Mode:         types.TransformMode,
+		Intelligence: types.Fast,
 	}
 
 	newCtx, span := StartSpan(ctx, "test-operation", opts)
@@ -77,9 +77,9 @@ func TestAddSpanTags(t *testing.T) {
 
 func TestGetSpanID(t *testing.T) {
 	ctx := context.Background()
-	opts := core.OpOptions{
-		Mode:         core.TransformMode,
-		Intelligence: core.Fast,
+	opts := types.OpOptions{
+		Mode:         types.TransformMode,
+		Intelligence: types.Fast,
 	}
 
 	newCtx, span := StartSpan(ctx, "test-operation", opts)

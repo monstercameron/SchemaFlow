@@ -3,8 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
+	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
 func main() {
@@ -19,12 +18,12 @@ func main() {
 		"current_stack": []string{"Python", "Pandas", "PostgreSQL"},
 	}
 
-	suggestions, err := ops.Suggest[string](currentState,
-		ops.NewSuggestOptions().
+	suggestions, err := schemaflow.Suggest[string](currentState,
+		schemaflow.NewSuggestOptions().
 			WithTopN(5).
 			WithDomain("data-engineering"))
 	if err != nil {
-		core.GetLogger().Error("Example 1 failed", "error", err)
+		schemaflow.GetLogger().Error("Example 1 failed", "error", err)
 	} else {
 		fmt.Println("Current state:", currentState["task"])
 		fmt.Println("Suggestions:")
@@ -42,13 +41,13 @@ func main() {
 		"data_fields": []string{"id", "name", "email", "preferences"},
 	}
 
-	apiSuggestions, err := ops.Suggest[string](apiContext,
-		ops.NewSuggestOptions().
-			WithStrategy(ops.SuggestPattern).
+	apiSuggestions, err := schemaflow.Suggest[string](apiContext,
+		schemaflow.NewSuggestOptions().
+			WithStrategy(schemaflow.SuggestPattern).
 			WithTopN(4).
 			WithDomain("api-design"))
 	if err != nil {
-		core.GetLogger().Error("Example 2 failed", "error", err)
+		schemaflow.GetLogger().Error("Example 2 failed", "error", err)
 	} else {
 		fmt.Println("Resource:", apiContext["resource"])
 		fmt.Println("API endpoint suggestions:")
@@ -67,13 +66,13 @@ func main() {
 		"tech_stack":   []string{"Go", "PostgreSQL", "Redis"},
 	}
 
-	configSuggestions, err := ops.Suggest[string](configContext,
-		ops.NewSuggestOptions().
-			WithStrategy(ops.SuggestHybrid).
+	configSuggestions, err := schemaflow.Suggest[string](configContext,
+		schemaflow.NewSuggestOptions().
+			WithStrategy(schemaflow.SuggestHybrid).
 			WithTopN(3).
 			WithIncludeReasons(true))
 	if err != nil {
-		core.GetLogger().Error("Example 3 failed", "error", err)
+		schemaflow.GetLogger().Error("Example 3 failed", "error", err)
 	} else {
 		fmt.Println("System:", configContext["system"])
 		fmt.Println("Optimization suggestions:")
@@ -99,12 +98,12 @@ func main() {
 		"deadline": "end of week",
 	}
 
-	actionSuggestions, err := ops.Suggest[Action](workflowContext,
-		ops.NewSuggestOptions().
+	actionSuggestions, err := schemaflow.Suggest[Action](workflowContext,
+		schemaflow.NewSuggestOptions().
 			WithTopN(3).
 			WithDomain("data-quality"))
 	if err != nil {
-		core.GetLogger().Error("Example 4 failed", "error", err)
+		schemaflow.GetLogger().Error("Example 4 failed", "error", err)
 	} else {
 		fmt.Println("Workflow phase:", workflowContext["phase"])
 		fmt.Println("Action suggestions:")
@@ -123,13 +122,13 @@ func main() {
 		"constraints": []string{"zero downtime", "preserve user sessions"},
 	}
 
-	recoverySuggestions, err := ops.Suggest[string](errorContext,
-		ops.NewSuggestOptions().
+	recoverySuggestions, err := schemaflow.Suggest[string](errorContext,
+		schemaflow.NewSuggestOptions().
 			WithConstraints([]string{"zero downtime", "preserve user sessions"}).
 			WithCategories([]string{"reliability", "monitoring"}).
 			WithTopN(3))
 	if err != nil {
-		core.GetLogger().Error("Example 5 failed", "error", err)
+		schemaflow.GetLogger().Error("Example 5 failed", "error", err)
 	} else {
 		fmt.Println("Error:", errorContext["error"])
 		fmt.Println("Recovery suggestions:")

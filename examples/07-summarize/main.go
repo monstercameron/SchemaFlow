@@ -5,14 +5,12 @@ import (
 	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)
 	}
 
@@ -59,16 +57,16 @@ socioeconomic status.
 	fmt.Println("---")
 
 	// Summarize the article
-	summaryOpts := ops.NewSummarizeOptions()
+	summaryOpts := schemaflow.NewSummarizeOptions()
 	summaryOpts.TargetLength = 3 // 3 sentences
 	summaryOpts.LengthUnit = "sentences"
 	summaryOpts.OpOptions.Intelligence = schemaflow.Fast
 	summaryOpts.OpOptions.Steering = "Create a concise summary capturing key points: AI in diagnostics, drug discovery, patient care, and challenges."
 
-	summary, err := ops.Summarize(article, summaryOpts)
+	summary, err := schemaflow.Summarize(article, summaryOpts)
 
 	if err != nil {
-		core.GetLogger().Error("Summarization failed", "error", err)
+		schemaflow.GetLogger().Error("Summarization failed", "error", err)
 		os.Exit(1)
 	}
 

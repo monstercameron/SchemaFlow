@@ -10,7 +10,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/monstercameron/schemaflow"
-	"github.com/monstercameron/schemaflow/core"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/database"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/localization"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/models"
@@ -66,7 +65,7 @@ func main() {
 	if dbPath == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			core.GetLogger().Error("Failed to get home directory", "error", err)
+			schemaflow.GetLogger().Error("Failed to get home directory", "error", err)
 			os.Exit(1)
 		}
 		dbPath = filepath.Join(home, ".smarttodo.db")
@@ -75,7 +74,7 @@ func main() {
 	// Initialize database
 	db, err := database.NewDatabase(dbPath)
 	if err != nil {
-		core.GetLogger().Error("Failed to initialize database", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize database", "error", err)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -97,7 +96,7 @@ func main() {
 	// Handle signals in a goroutine
 	go func() {
 		sig := <-sigChan
-		core.GetLogger().Info("Received signal, initiating graceful shutdown", "signal", sig)
+		schemaflow.GetLogger().Info("Received signal, initiating graceful shutdown", "signal", sig)
 
 		// Send a message to start the closing animation
 		p.Send(models.StartClosingMsg{})
@@ -111,7 +110,7 @@ func main() {
 
 	// Run the program
 	if _, err := p.Run(); err != nil {
-		core.GetLogger().Error("Error running program", "error", err)
+		schemaflow.GetLogger().Error("Error running program", "error", err)
 		// Ensure database is closed
 		if db != nil {
 			db.Close()
@@ -120,6 +119,8 @@ func main() {
 	}
 
 	// Program exited normally
-	core.GetLogger().Info("Smart Todo closed successfully")
+	schemaflow.GetLogger().Info("Smart Todo closed successfully")
 	os.Exit(0)
 }
+
+

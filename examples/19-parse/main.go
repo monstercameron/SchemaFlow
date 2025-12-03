@@ -3,8 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
+	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
 type Person struct {
@@ -32,9 +31,9 @@ func main() {
 	// Example 1: Parse standard JSON
 	fmt.Println("1. Parsing Standard JSON:")
 	jsonData := `{"name":"Alice","age":28,"job":"Engineer"}`
-	result1, err := ops.Parse[Person](jsonData, ops.NewParseOptions())
+	result1, err := schemaflow.Parse[Person](jsonData, schemaflow.NewParseOptions())
 	if err != nil {
-		core.GetLogger().Error("JSON parse error", "error", err)
+		schemaflow.GetLogger().Error("JSON parse error", "error", err)
 	} else {
 		fmt.Printf("   Result: %+v (Format: %s)\n", result1.Data, result1.Format)
 	}
@@ -42,9 +41,9 @@ func main() {
 	// Example 2: Parse XML
 	fmt.Println("\n2. Parsing XML:")
 	xmlData := `<person><name>Bob</name><age>35</age><job>Manager</job></person>`
-	result2, err := ops.Parse[Person](xmlData, ops.NewParseOptions())
+	result2, err := schemaflow.Parse[Person](xmlData, schemaflow.NewParseOptions())
 	if err != nil {
-		core.GetLogger().Error("XML parse error", "error", err)
+		schemaflow.GetLogger().Error("XML parse error", "error", err)
 	} else {
 		fmt.Printf("   Result: %+v (Format: %s)\n", result2.Data, result2.Format)
 	}
@@ -54,9 +53,9 @@ func main() {
 	yamlData := `name: Charlie
 age: 42
 job: Director`
-	result3, err := ops.Parse[Person](yamlData, ops.NewParseOptions())
+	result3, err := schemaflow.Parse[Person](yamlData, schemaflow.NewParseOptions())
 	if err != nil {
-		core.GetLogger().Error("YAML parse error", "error", err)
+		schemaflow.GetLogger().Error("YAML parse error", "error", err)
 	} else {
 		fmt.Printf("   Result: %+v (Format: %s)\n", result3.Data, result3.Format)
 	}
@@ -67,9 +66,9 @@ job: Director`
 John,30,75000,true
 Jane,25,65000,false
 Bob,35,80000,true`
-	result4, err := ops.Parse[[]Employee](csvData, ops.NewParseOptions())
+	result4, err := schemaflow.Parse[[]Employee](csvData, schemaflow.NewParseOptions())
 	if err != nil {
-		core.GetLogger().Error("CSV parse error", "error", err)
+		schemaflow.GetLogger().Error("CSV parse error", "error", err)
 	} else {
 		fmt.Printf("   Result: %d employees parsed (Format: %s)\n", len(result4.Data), result4.Format)
 		for i, emp := range result4.Data {
@@ -81,9 +80,9 @@ Bob,35,80000,true`
 	fmt.Println("\n5. Parsing Pipe-Delimited Data:")
 	pipeData := `David|40|90000|true
 Eva|28|70000|false`
-	result5, err := ops.Parse[[]Employee](pipeData, ops.NewParseOptions())
+	result5, err := schemaflow.Parse[[]Employee](pipeData, schemaflow.NewParseOptions())
 	if err != nil {
-		core.GetLogger().Error("Pipe-delimited parse error", "error", err)
+		schemaflow.GetLogger().Error("Pipe-delimited parse error", "error", err)
 	} else {
 		fmt.Printf("   Result: %d employees parsed (Format: %s)\n", len(result5.Data), result5.Format)
 		for i, emp := range result5.Data {
@@ -94,10 +93,10 @@ Eva|28|70000|false`
 	// Example 6: Parse with format hints for custom mapping
 	fmt.Println("\n6. Parsing with Format Hints:")
 	customData := `Alice|29|Senior Developer`
-	result6, err := ops.Parse[Person](customData,
-		ops.NewParseOptions().WithFormatHints([]string{"name|age|job"}))
+	result6, err := schemaflow.Parse[Person](customData,
+		schemaflow.NewParseOptions().WithFormatHints([]string{"name|age|job"}))
 	if err != nil {
-		core.GetLogger().Error("Custom format parse error", "error", err)
+		schemaflow.GetLogger().Error("Custom format parse error", "error", err)
 	} else {
 		fmt.Printf("   Result: %+v (Format: %s)\n", result6.Data, result6.Format)
 	}
@@ -112,9 +111,9 @@ Eva|28|70000|false`
     "retries": "3"
   }
 }`
-	result7, err := ops.Parse[Config](mixedData, ops.NewParseOptions())
+	result7, err := schemaflow.Parse[Config](mixedData, schemaflow.NewParseOptions())
 	if err != nil {
-		core.GetLogger().Error("Mixed format parse error", "error", err)
+		schemaflow.GetLogger().Error("Mixed format parse error", "error", err)
 	} else {
 		fmt.Printf("   Result: Database config parsed (Format: %s)\n", result7.Format)
 		fmt.Printf("     Database: %q\n", result7.Data.Database)
@@ -126,10 +125,10 @@ Eva|28|70000|false`
 	fmt.Println("\n8. Parsing with Custom Delimiters:")
 	customDelimData := `Name;Age;Job
 Frank;45;Architect`
-	result8, err := ops.Parse[Person](customDelimData,
-		ops.NewParseOptions().WithCustomDelimiters([]string{";"}))
+	result8, err := schemaflow.Parse[Person](customDelimData,
+		schemaflow.NewParseOptions().WithCustomDelimiters([]string{";"}))
 	if err != nil {
-		core.GetLogger().Error("Custom delimiter parse error", "error", err)
+		schemaflow.GetLogger().Error("Custom delimiter parse error", "error", err)
 	} else {
 		fmt.Printf("   Result: %+v (Format: %s)\n", result8.Data, result8.Format)
 	}
@@ -137,7 +136,7 @@ Frank;45;Architect`
 	// Example 9: Demonstrate error handling for malformed data
 	fmt.Println("\n9. Error Handling for Malformed Data:")
 	malformedData := `{"name":"Grace","age":32,"job":` // Missing closing quote and brace
-	result9, err := ops.Parse[Person](malformedData, ops.NewParseOptions())
+	result9, err := schemaflow.Parse[Person](malformedData, schemaflow.NewParseOptions())
 	if err != nil {
 		fmt.Printf("   Expected error for malformed JSON: %v\n", err)
 		fmt.Printf("   (This would succeed with AllowLLMFallback=true)\n")
@@ -149,9 +148,9 @@ Frank;45;Architect`
 	fmt.Println("\n10. Type Conversion:")
 	typeConversionData := `Name,Age,Height,Active,Count
 Helen,33,5.7,true,250`
-	result10, err := ops.Parse[Employee](typeConversionData, ops.NewParseOptions())
+	result10, err := schemaflow.Parse[Employee](typeConversionData, schemaflow.NewParseOptions())
 	if err != nil {
-		core.GetLogger().Error("Type conversion parse error", "error", err)
+		schemaflow.GetLogger().Error("Type conversion parse error", "error", err)
 	} else {
 		fmt.Printf("   Result: %+v (Format: %s)\n", result10.Data, result10.Format)
 		fmt.Printf("   Types: Name=%T, Age=%T, Salary=%T, Active=%T\n",

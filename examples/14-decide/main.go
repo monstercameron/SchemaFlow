@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // SupportTicket represents a customer support ticket
@@ -28,7 +26,7 @@ type Department struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
 
@@ -36,7 +34,7 @@ func main() {
 	fmt.Println("=" + string(make([]byte, 60)))
 
 	// Available departments
-	departments := []ops.Decision[Department]{
+	departments := []schemaflow.Decision[Department]{
 		{
 			Value: Department{
 				Name:        "Technical Support",
@@ -111,9 +109,9 @@ func main() {
 		fmt.Println("   🔄 Routing ticket...")
 
 		// Use Decide to route the ticket
-		chosen, result, err := ops.Decide(ticket, departments)
+		chosen, result, err := schemaflow.Decide(ticket, departments)
 		if err != nil {
-			core.GetLogger().Error("Routing error", "error", err)
+			schemaflow.GetLogger().Error("Routing error", "error", err)
 			continue
 		}
 

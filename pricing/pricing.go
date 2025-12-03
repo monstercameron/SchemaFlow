@@ -6,7 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/internal/logger"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
 // PricingModel defines the cost structure for a specific model
@@ -159,13 +160,13 @@ type CostRecord struct {
 	Operation  string
 	Model      string
 	Provider   string
-	TokenUsage core.TokenUsage
-	Cost       core.CostInfo
+	TokenUsage types.TokenUsage
+	Cost       types.CostInfo
 	Tags       map[string]string
 }
 
 // CalculateCost calculates the cost of an LLM operation
-func CalculateCost(usage *core.TokenUsage, model string, provider string) *core.CostInfo {
+func CalculateCost(usage *types.TokenUsage, model string, provider string) *types.CostInfo {
 	if usage == nil {
 		return nil
 	}
@@ -176,8 +177,8 @@ func CalculateCost(usage *core.TokenUsage, model string, provider string) *core.
 		// Try to find a default pricing for the provider
 		pricing = getDefaultPricing(provider)
 		if pricing.Model == "" {
-			core.GetLogger().Warn("No pricing information available", "model", model, "provider", provider)
-			return &core.CostInfo{
+			logger.GetLogger().Warn("No pricing information available", "model", model, "provider", provider)
+			return &types.CostInfo{
 				Currency:  "USD",
 				TotalCost: 0,
 			}
@@ -198,7 +199,7 @@ func CalculateCost(usage *core.TokenUsage, model string, provider string) *core.
 
 	totalCost := promptCost + completionCost + cachedCost + reasoningCost
 
-	return &core.CostInfo{
+	return &types.CostInfo{
 		TotalCost:               totalCost,
 		PromptCost:              promptCost,
 		CompletionCost:          completionCost,
@@ -211,7 +212,7 @@ func CalculateCost(usage *core.TokenUsage, model string, provider string) *core.
 }
 
 // TrackCost records a cost entry for monitoring and budgeting
-func TrackCost(cost *core.CostInfo, metadata *core.ResultMetadata) {
+func TrackCost(cost *types.CostInfo, metadata *types.ResultMetadata) {
 	if cost == nil || metadata == nil {
 		return
 	}
@@ -265,7 +266,7 @@ func TrackCost(cost *core.CostInfo, metadata *core.ResultMetadata) {
 
 	// Log high-cost operations
 	if cost.TotalCost > 0.10 { // Log operations over $0.10
-		core.GetLogger().Info("High-cost operation tracked",
+		logger.GetLogger().Info("High-cost operation tracked",
 			"requestID", metadata.RequestID,
 			"operation", metadata.Operation,
 			"model", metadata.Model,
@@ -311,7 +312,7 @@ func SetBudget(daily, weekly, monthly float64, callback func(current, limit floa
 	budgetLimits["monthly"] = monthly
 	budgetCallback = callback
 
-	core.GetLogger().Info("Budget limits configured",
+	logger.GetLogger().Info("Budget limits configured",
 		"daily", fmt.Sprintf("$%.2f", daily),
 		"weekly", fmt.Sprintf("$%.2f", weekly),
 		"monthly", fmt.Sprintf("$%.2f", monthly),

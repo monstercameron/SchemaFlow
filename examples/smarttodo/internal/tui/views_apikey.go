@@ -138,3 +138,4 @@ func saveAPIKey(apiKey string) error {
 	newContent := strings.Join(existingLines, "\n")
 	return os.WriteFile(envPath, []byte(newContent), 0600)
 }
+

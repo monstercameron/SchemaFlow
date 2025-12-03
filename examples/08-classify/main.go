@@ -5,8 +5,6 @@ import (
 	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // Review represents a customer review
@@ -20,7 +18,7 @@ type Review struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)
 	}
 
@@ -73,12 +71,12 @@ func main() {
 	}
 
 	for _, review := range reviews {
-		classifyOpts := ops.NewClassifyOptions().WithCategories(categories)
+		classifyOpts := schemaflow.NewClassifyOptions().WithCategories(categories)
 		classifyOpts.OpOptions.Intelligence = schemaflow.Fast
 
-		sentiment, err := ops.Classify(review.Text, classifyOpts)
+		sentiment, err := schemaflow.Classify(review.Text, classifyOpts)
 		if err != nil {
-			core.GetLogger().Warn("Failed to classify review", "review_id", review.ID, "error", err)
+			schemaflow.GetLogger().Warn("Failed to classify review", "review_id", review.ID, "error", err)
 			continue
 		}
 

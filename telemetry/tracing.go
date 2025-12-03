@@ -7,7 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/internal/logger"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -40,7 +41,7 @@ var (
 func InitTracing(serviceName string) error {
 	// Check if tracing is enabled
 	if enabled := os.Getenv("SCHEMAFLOW_ENABLE_TRACING"); enabled != "true" && enabled != "1" {
-		core.GetLogger().Info("Tracing disabled")
+		logger.GetLogger().Info("Tracing disabled")
 		return nil
 	}
 
@@ -78,10 +79,10 @@ func InitTracing(serviceName string) error {
 			stdouttrace.WithPrettyPrint(),
 		)
 		if err != nil {
-			core.GetLogger().Error("Failed to create stdout exporter", "error", err)
+			logger.GetLogger().Error("Failed to create stdout exporter", "error", err)
 		} else {
 			exporters = append(exporters, stdoutExporter)
-			core.GetLogger().Info("Stdout trace exporter enabled")
+			logger.GetLogger().Info("Stdout trace exporter enabled")
 		}
 	}
 
@@ -91,10 +92,10 @@ func InitTracing(serviceName string) error {
 			jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(endpoint)),
 		)
 		if err != nil {
-			core.GetLogger().Error("Failed to create Jaeger exporter", "error", err, "endpoint", endpoint)
+			logger.GetLogger().Error("Failed to create Jaeger exporter", "error", err, "endpoint", endpoint)
 		} else {
 			exporters = append(exporters, jaegerExporter)
-			core.GetLogger().Info("Jaeger trace exporter enabled", "endpoint", endpoint)
+			logger.GetLogger().Info("Jaeger trace exporter enabled", "endpoint", endpoint)
 		}
 	}
 
@@ -108,10 +109,10 @@ func InitTracing(serviceName string) error {
 
 		otlpExporter, err := otlptrace.New(ctx, client)
 		if err != nil {
-			core.GetLogger().Error("Failed to create OTLP exporter", "error", err, "endpoint", endpoint)
+			logger.GetLogger().Error("Failed to create OTLP exporter", "error", err, "endpoint", endpoint)
 		} else {
 			exporters = append(exporters, otlpExporter)
-			core.GetLogger().Info("OTLP trace exporter enabled", "endpoint", endpoint)
+			logger.GetLogger().Info("OTLP trace exporter enabled", "endpoint", endpoint)
 		}
 	}
 
@@ -141,7 +142,7 @@ func InitTracing(serviceName string) error {
 	// Create tracer
 	tracer = otel.Tracer("github.com/monstercameron/schemaflow")
 
-	core.GetLogger().Info("Tracing initialized",
+	logger.GetLogger().Info("Tracing initialized",
 		"serviceName", serviceName,
 		"sampleRate", traceSampleRate,
 		"exporters", len(exporters),
@@ -159,7 +160,7 @@ func ShutdownTracing(ctx context.Context) error {
 }
 
 // StartSpan starts a new trace span for an operation
-func StartSpan(ctx context.Context, operation string, opts core.OpOptions) (context.Context, trace.Span) {
+func StartSpan(ctx context.Context, operation string, opts types.OpOptions) (context.Context, trace.Span) {
 	if !tracingEnabled || tracer == nil {
 		// Return no-op span if tracing is disabled
 		return ctx, trace.SpanFromContext(ctx)
@@ -192,7 +193,7 @@ func StartSpan(ctx context.Context, operation string, opts core.OpOptions) (cont
 }
 
 // RecordLLMCall records details of an LLM API call in the span
-func RecordLLMCall(span trace.Span, model string, provider string, usage *core.TokenUsage, cost *core.CostInfo, duration time.Duration, err error) {
+func RecordLLMCall(span trace.Span, model string, provider string, usage *types.TokenUsage, cost *types.CostInfo, duration time.Duration, err error) {
 	if span == nil || !span.IsRecording() {
 		return
 	}

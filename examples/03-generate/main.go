@@ -6,8 +6,6 @@ import (
 	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // TestUser represents a user for testing
@@ -31,7 +29,7 @@ type TestUserBatch struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)
 	}
 
@@ -56,13 +54,13 @@ Make the data realistic and varied.`
 	// Generate structured test data
 	batch, err := schemaflow.Generate[TestUserBatch](
 		prompt,
-		ops.NewGenerateOptions().
+		schemaflow.NewGenerateOptions().
 			WithIntelligence(schemaflow.Fast).
 			WithSteering("Create realistic, diverse test data with proper formatting"),
 	)
 
 	if err != nil {
-		core.GetLogger().Error("Generation failed", "error", err)
+		schemaflow.GetLogger().Error("Generation failed", "error", err)
 		os.Exit(1)
 	}
 

@@ -137,3 +137,4 @@ func idleCheckCmd() tea.Cmd {
 		return models.IdleCheckMsg{}
 	})
 }
+

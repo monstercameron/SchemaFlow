@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // CustomerRecord represents customer information from different sources
@@ -22,7 +20,7 @@ type CustomerRecord struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
 
@@ -80,9 +78,9 @@ Merge Strategy:
 	fmt.Println("\n🔄 Merging records...")
 
 	// Merge records
-	merged, err := ops.Merge(records, strategy)
+	merged, err := schemaflow.Merge(records, strategy)
 	if err != nil {
-		core.GetLogger().Error("Failed to merge records", "error", err)
+		schemaflow.GetLogger().Error("Failed to merge records", "error", err)
 		return
 	}
 

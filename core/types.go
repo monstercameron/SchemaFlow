@@ -88,9 +88,6 @@ type OpOptions struct {
 	// Default: Fast
 	Intelligence Speed
 
-	// Client is the client to use for the operation.
-	Client *Client
-
 	// Context for cancellation
 	Context context.Context
 
@@ -113,9 +110,6 @@ type Case struct {
 	Condition any    // String pattern, type, or value to match
 	Action    func() // Function to execute when matched
 }
-
-// callLLMFunc is the function type for LLM calls (can be mocked for testing)
-type callLLMFunc func(ctx context.Context, systemPrompt, userPrompt string, opts OpOptions) (string, error)
 
 // Extended types for internal use (not in CORE.md spec but needed for implementation)
 

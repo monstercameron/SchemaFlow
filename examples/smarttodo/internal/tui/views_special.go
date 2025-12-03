@@ -298,3 +298,4 @@ func (m Model) statsViewRender() string {
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }
 
+

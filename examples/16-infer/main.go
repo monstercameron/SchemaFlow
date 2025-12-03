@@ -6,8 +6,6 @@ import (
 	"time"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // Person represents a person with some fields that might be missing
@@ -30,7 +28,7 @@ func main() {
 	// Initialize SchemaFlow
 	fmt.Println("🔧 Initializing SchemaFlow...")
 	if err := schemaflow.InitWithEnv(".env"); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
 	fmt.Println("✅ SchemaFlow initialized successfully")
@@ -57,7 +55,7 @@ func main() {
 	fmt.Println("\n🤖 Starting person inference...")
 
 	// Set timeout context on the options
-	opts := ops.NewInferOptions().
+	opts := schemaflow.NewInferOptions().
 		WithContext("Tech professional working in San Francisco").
 		WithIntelligence(schemaflow.Fast)
 	opts.OpOptions.Context = ctx
@@ -65,7 +63,7 @@ func main() {
 	completePerson, err := schemaflow.Infer[Person](partialPerson, opts)
 
 	if err != nil {
-		core.GetLogger().Error("Person inference failed", "error", err)
+		schemaflow.GetLogger().Error("Person inference failed", "error", err)
 		return
 	}
 	fmt.Println("✅ Person inference completed")
@@ -90,7 +88,7 @@ func main() {
 	fmt.Println("\n🤖 Starting product inference...")
 
 	// Set timeout context on the options
-	productOpts := ops.NewInferOptions().
+	productOpts := schemaflow.NewInferOptions().
 		WithContext("Latest Apple smartphone released in 2023 with premium pricing").
 		WithIntelligence(schemaflow.Fast)
 	productOpts.OpOptions.Context = ctx
@@ -98,7 +96,7 @@ func main() {
 	completeProduct, err := schemaflow.Infer[Product](partialProduct, productOpts)
 
 	if err != nil {
-		core.GetLogger().Error("Product inference failed", "error", err)
+		schemaflow.GetLogger().Error("Product inference failed", "error", err)
 		return
 	}
 	fmt.Println("✅ Product inference completed")

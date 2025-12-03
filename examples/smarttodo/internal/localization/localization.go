@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/SchemaFlow/core"
 	schemaflow "github.com/monstercameron/schemaflow"
 )
 
@@ -32,7 +31,7 @@ func InitLocalization() {
 
 	// Log the detected locale
 	if locale != "en" && locale != "" {
-		core.GetLogger().Info("Detected system locale - UI will be translated", "locale", locale)
+		schemaflow.GetLogger().Info("Detected system locale - UI will be translated", "locale", locale)
 	}
 }
 
@@ -311,3 +310,5 @@ func PreloadCommonStrings() {
 	// Batch translate for efficiency
 	BatchTranslate(commonStrings)
 }
+
+

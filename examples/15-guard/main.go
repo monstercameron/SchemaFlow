@@ -5,8 +5,6 @@ import (
 	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // Order represents an e-commerce order
@@ -23,7 +21,7 @@ type Order struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)
 	}
 
@@ -134,7 +132,7 @@ func main() {
 		fmt.Println("   🛡️ Running guard checks...")
 
 		// Run guards
-		result := ops.Guard(tc.order, checks...)
+		result := schemaflow.Guard(tc.order, checks...)
 
 		fmt.Println()
 		if result.CanProceed {

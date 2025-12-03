@@ -85,3 +85,4 @@ Format: Just the quote text, no attribution or quotation marks.`, theme, figure)
 
 	return fmt.Sprintf("\"%s\" - %s", quote, figure), nil
 }
+

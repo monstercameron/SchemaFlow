@@ -9,22 +9,25 @@ import (
 	"strings"
 	"time"
 
-	schemaflow "github.com/monstercameron/SchemaFlow/core"
+	"github.com/monstercameron/SchemaFlow/internal/config"
+	"github.com/monstercameron/SchemaFlow/internal/logger"
+	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/SchemaFlow/internal/utils"
 )
 
 // Debug enables debug mode for detailed operation tracking
 func Debug(enabled bool) {
-	schemaflow.SetDebugMode(enabled)
+	config.SetDebugMode(enabled)
 }
 
 // GetDebugInfo returns current debug information
-func GetDebugInfo() schemaflow.DebugInfo {
+func GetDebugInfo() types.DebugInfo {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	return schemaflow.DebugInfo{
-		RequestID: schemaflow.GenerateRequestID(),
-		MemoryUsage: schemaflow.MemoryStats{
+	return types.DebugInfo{
+		RequestID: utils.GenerateRequestID(),
+		MemoryUsage: types.MemoryStats{
 			Allocated:      m.Alloc,
 			TotalAllocated: m.TotalAlloc,
 			System:         m.Sys,
@@ -38,7 +41,7 @@ func GetDebugInfo() schemaflow.DebugInfo {
 func TraceOperation(operation string, input any) *OperationTrace {
 	return &OperationTrace{
 		Operation: operation,
-		RequestID: schemaflow.GenerateRequestID(),
+		RequestID: utils.GenerateRequestID(),
 		StartTime: time.Now(),
 		Input:     input,
 	}
@@ -53,7 +56,7 @@ type OperationTrace struct {
 	Input     any
 	Output    any
 	Error     error
-	LLMCalls  []schemaflow.LLMCallInfo
+	LLMCalls  []types.LLMCallInfo
 }
 
 // Complete marks the operation as complete
@@ -62,7 +65,7 @@ func (t *OperationTrace) Complete(output any, err error) {
 	t.Output = output
 	t.Error = err
 
-	if schemaflow.GetTraceEnabled() {
+	if config.GetTraceEnabled() {
 		t.log()
 	}
 }
@@ -78,17 +81,17 @@ func (t *OperationTrace) log() {
 	}
 
 	if t.Error != nil {
-		schemaflow.GetLogger().Error("Operation failed",
+		logger.GetLogger().Error("Operation failed",
 			append(fields, "error", t.Error)...,
 		)
 	} else {
-		schemaflow.GetLogger().Info("Operation completed",
+		logger.GetLogger().Info("Operation completed",
 			fields...,
 		)
 	}
 
-	if schemaflow.GetDebugMode() {
-		schemaflow.GetLogger().Debug("Operation trace",
+	if config.GetDebugMode() {
+		logger.GetLogger().Debug("Operation trace",
 			"requestID", t.RequestID,
 			"input", formatForLog(t.Input),
 			"output", formatForLog(t.Output),
@@ -107,7 +110,7 @@ func ValidateInput(input any, operation string) error {
 
 	// Check for zero values
 	if v.IsZero() {
-		schemaflow.GetLogger().Warn("Zero value input",
+		logger.GetLogger().Warn("Zero value input",
 			"operation", operation,
 			"type", v.Type().String(),
 		)
@@ -170,7 +173,7 @@ func sanitizeString(s string) error {
 	lower := strings.ToLower(s)
 	for _, pattern := range dangerousPatterns {
 		if strings.Contains(lower, pattern) {
-			schemaflow.GetLogger().Warn("Potentially dangerous pattern detected",
+			logger.GetLogger().Warn("Potentially dangerous pattern detected",
 				"pattern", pattern,
 				"input", s[:min(len(s), 50)],
 			)
@@ -181,10 +184,10 @@ func sanitizeString(s string) error {
 }
 
 // DumpOperation creates a detailed dump of an operation for debugging
-func DumpOperation(op string, input any, output any, err error, opts schemaflow.OpOptions) string {
+func DumpOperation(op string, input any, output any, err error, opts types.OpOptions) string {
 	dump := OperationDump{
 		Operation:   op,
-		RequestID:   schemaflow.GenerateRequestID(),
+		RequestID:   utils.GenerateRequestID(),
 		Timestamp:   time.Now(),
 		Input:       input,
 		Output:      output,
@@ -201,23 +204,23 @@ func DumpOperation(op string, input any, output any, err error, opts schemaflow.
 
 // OperationDump contains complete operation information
 type OperationDump struct {
-	Operation   string                 `json:"operation"`
-	RequestID   string                 `json:"request_id"`
-	Timestamp   time.Time              `json:"timestamp"`
-	Input       any                    `json:"input"`
-	Output      any                    `json:"output"`
-	Error       error                  `json:"error,omitempty"`
-	Options     schemaflow.OpOptions   `json:"options"`
-	MemoryStats schemaflow.MemoryStats `json:"memory_stats"`
-	Goroutines  int                    `json:"goroutines"`
-	StackTrace  []string               `json:"stack_trace"`
+	Operation   string            `json:"operation"`
+	RequestID   string            `json:"request_id"`
+	Timestamp   time.Time         `json:"timestamp"`
+	Input       any               `json:"input"`
+	Output      any               `json:"output"`
+	Error       error             `json:"error,omitempty"`
+	Options     types.OpOptions   `json:"options"`
+	MemoryStats types.MemoryStats `json:"memory_stats"`
+	Goroutines  int               `json:"goroutines"`
+	StackTrace  []string          `json:"stack_trace"`
 }
 
 // getMemoryStats returns current memory statistics
-func getMemoryStats() schemaflow.MemoryStats {
+func getMemoryStats() types.MemoryStats {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	return schemaflow.MemoryStats{
+	return types.MemoryStats{
 		Allocated:      m.Alloc,
 		TotalAllocated: m.TotalAlloc,
 		System:         m.Sys,

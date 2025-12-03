@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/monstercameron/SchemaFlow/ops"
+	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
 func main() {
@@ -16,7 +16,7 @@ func main() {
 
 	// Note: In a real scenario, this would call the LLM
 	// For demo purposes, we'll show the structure
-	opts1 := ops.NewCompleteOptions().WithMaxLength(50)
+	opts1 := schemaflow.NewCompleteOptions().WithMaxLength(50)
 	fmt.Printf("   Options: MaxLength=%d, Temperature=%.1f\n", opts1.MaxLength, opts1.Temperature)
 	fmt.Printf("   Mock Completion: %q\n", "The weather today is beautiful and sunny with clear blue skies. Perfect for outdoor activities!")
 
@@ -34,7 +34,7 @@ func main() {
 		fmt.Printf("     %d. %s\n", i+1, msg)
 	}
 
-	opts2 := ops.NewCompleteOptions().
+	opts2 := schemaflow.NewCompleteOptions().
 		WithContext(context2).
 		WithMaxLength(100).
 		WithTemperature(0.8)
@@ -48,7 +48,7 @@ func main() {
 	fmt.Printf("   Input: %q\n", partial3)
 	fmt.Printf("   Stop Sequences: %v\n", stopSeq3)
 
-	opts3 := ops.NewCompleteOptions().
+	opts3 := schemaflow.NewCompleteOptions().
 		WithStopSequences(stopSeq3).
 		WithMaxLength(200).
 		WithTemperature(0.3) // Lower temperature for code
@@ -66,7 +66,7 @@ func main() {
 	partial4 := "Once upon a time, in a land far away,"
 	fmt.Printf("   Input: %q\n", partial4)
 
-	opts4 := ops.NewCompleteOptions().
+	opts4 := schemaflow.NewCompleteOptions().
 		WithMaxLength(150).
 		WithTemperature(1.2). // Higher temperature for creativity
 		WithTopP(0.95)
@@ -84,7 +84,7 @@ func main() {
 	fmt.Printf("   Input: %q\n", partial5)
 	fmt.Printf("   Context: %v\n", context5)
 
-	opts5 := ops.NewCompleteOptions().
+	opts5 := schemaflow.NewCompleteOptions().
 		WithContext(context5).
 		WithMaxLength(300).
 		WithStopSequences([]string{"Best regards", "Sincerely"})
@@ -105,12 +105,12 @@ Best regards,
 
 	modes := []struct {
 		name string
-		opts ops.CompleteOptions
+		opts schemaflow.CompleteOptions
 		mock string
 	}{
-		{"Conservative", ops.NewCompleteOptions().WithTemperature(0.1).WithMaxLength(80), "The new feature will improve user experience by providing faster load times and better error handling."},
-		{"Balanced", ops.NewCompleteOptions().WithTemperature(0.7).WithMaxLength(80), "The new feature will help users manage their tasks more efficiently with an intuitive interface."},
-		{"Creative", ops.NewCompleteOptions().WithTemperature(1.5).WithMaxLength(80), "The new feature will revolutionize how users interact with data through magical visualization portals."},
+		{"Conservative", schemaflow.NewCompleteOptions().WithTemperature(0.1).WithMaxLength(80), "The new feature will improve user experience by providing faster load times and better error handling."},
+		{"Balanced", schemaflow.NewCompleteOptions().WithTemperature(0.7).WithMaxLength(80), "The new feature will help users manage their tasks more efficiently with an intuitive interface."},
+		{"Creative", schemaflow.NewCompleteOptions().WithTemperature(1.5).WithMaxLength(80), "The new feature will revolutionize how users interact with data through magical visualization portals."},
 	}
 
 	for _, mode := range modes {
@@ -123,7 +123,7 @@ Best regards,
 	partial7 := "In conclusion,"
 	fmt.Printf("   Input: %q\n", partial7)
 
-	opts7 := ops.NewCompleteOptions().
+	opts7 := schemaflow.NewCompleteOptions().
 		WithMaxLength(50). // Very short completion
 		WithStopSequences([]string{".", "!"})
 	fmt.Printf("   Options: MaxLength=%d, StopSequences=%v\n",
@@ -135,7 +135,7 @@ Best regards,
 	partial8 := "// GET /api/users - Retrieve a list of users"
 	fmt.Printf("   Input: %q\n", partial8)
 
-	opts8 := ops.NewCompleteOptions().
+	opts8 := schemaflow.NewCompleteOptions().
 		WithMaxLength(250).
 		WithTemperature(0.4). // Technical writing
 		WithStopSequences([]string{"\n\n", "// POST"})
@@ -164,7 +164,7 @@ Best regards,
 	fmt.Printf("   Input: %q\n", partial9)
 	fmt.Printf("   Context: %d messages\n", len(context9))
 
-	opts9 := ops.NewCompleteOptions().
+	opts9 := schemaflow.NewCompleteOptions().
 		WithContext(context9).
 		WithMaxLength(120).
 		WithTemperature(0.9)
@@ -177,14 +177,14 @@ Best regards,
 	fmt.Println("   Testing various error conditions...")
 
 	// Test empty input
-	_, err1 := ops.Complete("", ops.NewCompleteOptions())
+	_, err1 := schemaflow.Complete("", schemaflow.NewCompleteOptions())
 	if err1 != nil {
 		fmt.Printf("   ✓ Empty input rejected: %v\n", err1)
 	}
 
 	// Test invalid options
-	invalidOpts := ops.NewCompleteOptions().WithMaxLength(-1)
-	_, err2 := ops.Complete("test", invalidOpts)
+	invalidOpts := schemaflow.NewCompleteOptions().WithMaxLength(-1)
+	_, err2 := schemaflow.Complete("test", invalidOpts)
 	if err2 != nil {
 		fmt.Printf("   ✓ Invalid options rejected: %v\n", err2)
 	}

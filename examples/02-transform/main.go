@@ -5,8 +5,6 @@ import (
 	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // Resume represents structured resume data
@@ -31,7 +29,7 @@ type MarkdownCV struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)
 	}
 
@@ -65,13 +63,13 @@ func main() {
 	// Transform: Resume → Professional Markdown CV
 	cv, err := schemaflow.Transform[Resume, MarkdownCV](
 		resume,
-		ops.NewTransformOptions().
+		schemaflow.NewTransformOptions().
 			WithIntelligence(schemaflow.Smart).
 			WithSteering("Create a professional, well-formatted CV in markdown. Use headers, bullet points, and emphasis. Make it visually appealing."),
 	)
 
 	if err != nil {
-		core.GetLogger().Error("Transformation failed", "error", err)
+		schemaflow.GetLogger().Error("Transformation failed", "error", err)
 		os.Exit(1)
 	}
 

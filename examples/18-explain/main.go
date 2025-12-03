@@ -18,8 +18,8 @@ func main() {
 	fmt.Println("1. Explanation for Non-Technical Audience:")
 	fmt.Println("------------------------------------------")
 	fmt.Println("Code that would be executed:")
-	fmt.Println(`explanation, err := ops.Explain(sampleData,
-    ops.NewExplainOptions().
+	fmt.Println(`explanation, err := schemaflow.Explain(sampleData,
+    schemaflow.NewExplainOptions().
         WithAudience("non-technical").
         WithDepth(2).
         WithFormat("paragraph").
@@ -42,8 +42,8 @@ func main() {
 	fmt.Println("2. Technical Explanation (Implementation Focus):")
 	fmt.Println("------------------------------------------------")
 	fmt.Println("Code that would be executed:")
-	fmt.Println(`explanation, err := ops.Explain(sampleData,
-    ops.NewExplainOptions().
+	fmt.Println(`explanation, err := schemaflow.Explain(sampleData,
+    schemaflow.NewExplainOptions().
         WithAudience("technical").
         WithDepth(3).
         WithFormat("structured").
@@ -78,8 +78,8 @@ func main() {
 	fmt.Println("3. Executive Summary (Bullet Points):")
 	fmt.Println("-------------------------------------")
 	fmt.Println("Code that would be executed:")
-	fmt.Println(`explanation, err := ops.Explain(sampleData,
-    ops.NewExplainOptions().
+	fmt.Println(`explanation, err := schemaflow.Explain(sampleData,
+    schemaflow.NewExplainOptions().
         WithAudience("executive").
         WithDepth(2).
         WithFormat("bullet-points").
@@ -107,8 +107,8 @@ func main() {
 	fmt.Println("4. Beginner-Friendly Explanation:")
 	fmt.Println("----------------------------------")
 	fmt.Println("Code that would be executed:")
-	fmt.Println(`explanation, err := ops.Explain(sampleData.UserProfile,
-    ops.NewExplainOptions().
+	fmt.Println(`explanation, err := schemaflow.Explain(sampleData.UserProfile,
+    schemaflow.NewExplainOptions().
         WithAudience("beginner").
         WithDepth(1).
         WithFormat("step-by-step").
@@ -146,8 +146,8 @@ func main() {
     "in_stock": true,
 }
 
-explanation, err := ops.Explain(simpleData,
-    ops.NewExplainOptions().
+explanation, err := schemaflow.Explain(simpleData,
+    schemaflow.NewExplainOptions().
         WithAudience("children").
         WithDepth(2).
         WithFormat("paragraph").

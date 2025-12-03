@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // CodeSnippet represents a code submission
@@ -19,7 +17,7 @@ type CodeSnippet struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
 
@@ -101,15 +99,15 @@ func CalculateTotal(prices []float64) float64 {
 		fmt.Println("---")
 
 		// Score the code
-		scoreOpts := ops.NewScoreOptions().
+		scoreOpts := schemaflow.NewScoreOptions().
 			WithScaleMin(1).
 			WithScaleMax(10).
 			WithCriteria(criteria)
 		scoreOpts.OpOptions.Intelligence = schemaflow.Smart
 
-		score, err := ops.Score(snippet.Code, scoreOpts)
+		score, err := schemaflow.Score(snippet.Code, scoreOpts)
 		if err != nil {
-			core.GetLogger().Error("Failed to score snippet", "snippetID", snippet.ID, "error", err)
+			schemaflow.GetLogger().Error("Failed to score snippet", "snippetID", snippet.ID, "error", err)
 			continue
 		}
 

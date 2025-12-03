@@ -5,8 +5,6 @@ import (
 	"os"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/core"
-	"github.com/monstercameron/SchemaFlow/ops"
 )
 
 // SupportTicket represents a customer support ticket
@@ -22,7 +20,7 @@ type SupportTicket struct {
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
-		core.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)
 	}
 
@@ -93,14 +91,14 @@ func main() {
 - Service outages or payment failures
 Exclude routine requests and feature requests.`
 
-	filterOpts := ops.NewFilterOptions().WithCriteria(criteria)
+	filterOpts := schemaflow.NewFilterOptions().WithCriteria(criteria)
 	filterOpts.OpOptions.Intelligence = schemaflow.Fast
 	filterOpts.OpOptions.Steering = "Focus on business impact and urgency"
 
 	urgentTickets, err := schemaflow.Filter(tickets, filterOpts)
 
 	if err != nil {
-		core.GetLogger().Error("Filtering failed", "error", err)
+		schemaflow.GetLogger().Error("Filtering failed", "error", err)
 		os.Exit(1)
 	}
 
