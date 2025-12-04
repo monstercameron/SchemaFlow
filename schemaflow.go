@@ -129,6 +129,50 @@ type (
 	SimilarResult              = ops.SimilarResult
 	AspectMatch                = ops.AspectMatch
 
+	// Data-centric LLM operations (v3)
+	NegotiateOptions       = ops.NegotiateOptions
+	Tradeoff               = ops.Tradeoff
+	NegotiateResult[T any] = ops.NegotiateResult[T]
+
+	ResolveOptions       = ops.ResolveOptions
+	Conflict             = ops.Conflict
+	ResolveResult[T any] = ops.ResolveResult[T]
+
+	DeriveOptions       = ops.DeriveOptions
+	Derivation          = ops.Derivation
+	DeriveResult[U any] = ops.DeriveResult[U]
+
+	ConformOptions       = ops.ConformOptions
+	Adjustment           = ops.Adjustment
+	ConformResult[T any] = ops.ConformResult[T]
+
+	InterpolateOptions       = ops.InterpolateOptions
+	FilledItem               = ops.FilledItem
+	InterpolateResult[T any] = ops.InterpolateResult[T]
+
+	ArbitrateOptions       = ops.ArbitrateOptions
+	RuleEvaluation         = ops.RuleEvaluation
+	OptionEvaluation       = ops.OptionEvaluation
+	ArbitrateResult[T any] = ops.ArbitrateResult[T]
+
+	ProjectOptions       = ops.ProjectOptions
+	FieldMapping         = ops.FieldMapping
+	ProjectResult[U any] = ops.ProjectResult[U]
+
+	AuditOptions       = ops.AuditOptions
+	AuditFinding       = ops.AuditFinding
+	AuditSummary       = ops.AuditSummary
+	AuditResult[T any] = ops.AuditResult[T]
+
+	ComposeOptions       = ops.ComposeOptions
+	ComposedField        = ops.ComposedField
+	ComposeResult[T any] = ops.ComposeResult[T]
+
+	PivotOptions       = ops.PivotOptions
+	PivotMapping       = ops.PivotMapping
+	PivotStats         = ops.PivotStats
+	PivotResult[U any] = ops.PivotResult[U]
+
 	// Text operation result types with metadata
 	SummarizeResult        = ops.SummarizeResult
 	RewriteResult          = ops.RewriteResult
@@ -780,4 +824,155 @@ func Verify(input string, opts VerifyOptions) (VerifyResult, error) {
 //	result, err := schemaflow.VerifyClaim("GDP grew 5%", schemaflow.NewVerifyOptions())
 func VerifyClaim(claim string, opts VerifyOptions) (ClaimVerification, error) {
 	return ops.VerifyClaim(claim, opts)
+}
+
+// === Data-Centric LLM Operations (v3) ===
+
+// Negotiate reconciles competing constraints to find an optimal solution.
+//
+// Type parameter T specifies the output solution type.
+//
+// Example:
+//
+//	result, err := schemaflow.Negotiate[Schedule](constraints)
+//	result, err := schemaflow.Negotiate[Schedule](constraints, schemaflow.NegotiateOptions{
+//	    Strategy: "balanced",
+//	})
+func Negotiate[T any](constraints any, opts ...NegotiateOptions) (NegotiateResult[T], error) {
+	return ops.Negotiate[T](constraints, opts...)
+}
+
+// Resolve resolves conflicts when multiple typed sources disagree.
+//
+// Type parameter T specifies the type of sources and the resolved output.
+//
+// Example:
+//
+//	result, err := schemaflow.Resolve(conflictingSources)
+//	result, err := schemaflow.Resolve(conflictingSources, schemaflow.ResolveOptions{
+//	    Strategy: "most-complete",
+//	})
+func Resolve[T any](sources []T, opts ...ResolveOptions) (ResolveResult[T], error) {
+	return ops.Resolve[T](sources, opts...)
+}
+
+// Derive infers new typed fields from existing data.
+//
+// Type parameter T specifies the input type.
+// Type parameter U specifies the output type with derived fields.
+//
+// Example:
+//
+//	result, err := schemaflow.Derive[Person, EnrichedPerson](person)
+//	result, err := schemaflow.Derive[Person, EnrichedPerson](person, schemaflow.DeriveOptions{
+//	    TargetFields: []string{"age_category", "generation"},
+//	})
+func Derive[T any, U any](input T, opts ...DeriveOptions) (DeriveResult[U], error) {
+	return ops.Derive[T, U](input, opts...)
+}
+
+// Conform transforms data to match specific standards (USPS, ISO8601, E164, etc.).
+//
+// Type parameter T specifies the data type to conform.
+//
+// Example:
+//
+//	result, err := schemaflow.Conform(address, "USPS")
+//	result, err := schemaflow.Conform(phoneData, "E164", schemaflow.ConformOptions{
+//	    Strict: true,
+//	})
+func Conform[T any](input T, standard string, opts ...ConformOptions) (ConformResult[T], error) {
+	return ops.Conform[T](input, standard, opts...)
+}
+
+// Interpolate fills gaps in typed sequences intelligently.
+//
+// Type parameter T specifies the type of sequence items.
+//
+// Example:
+//
+//	result, err := schemaflow.Interpolate(timeSeriesData)
+//	result, err := schemaflow.Interpolate(sparseRecords, schemaflow.InterpolateOptions{
+//	    Method: "contextual",
+//	})
+func Interpolate[T any](items []T, opts ...InterpolateOptions) (InterpolateResult[T], error) {
+	return ops.Interpolate[T](items, opts...)
+}
+
+// Arbitrate makes rule-based decisions with full audit trail.
+//
+// Type parameter T specifies the type of options to choose from.
+//
+// Example:
+//
+//	result, err := schemaflow.Arbitrate(candidates)
+//	result, err := schemaflow.Arbitrate(candidates, schemaflow.ArbitrateOptions{
+//	    Rules: []string{"must have 3+ years experience", "prefer local candidates"},
+//	})
+func Arbitrate[T any](options []T, opts ...ArbitrateOptions) (ArbitrateResult[T], error) {
+	return ops.Arbitrate[T](options, opts...)
+}
+
+// Project transforms structure while preserving semantics.
+//
+// Type parameter T specifies the input type.
+// Type parameter U specifies the projected output type.
+//
+// Example:
+//
+//	result, err := schemaflow.Project[Order, OrderSummary](order)
+//	result, err := schemaflow.Project[UserProfile, PublicProfile](profile, schemaflow.ProjectOptions{
+//	    Mappings: map[string]string{"full_name": "display_name"},
+//	    Exclude:  []string{"password_hash", "ssn"},
+//	})
+func Project[T any, U any](input T, opts ...ProjectOptions) (ProjectResult[U], error) {
+	return ops.Project[T, U](input, opts...)
+}
+
+// Audit performs deep inspection for issues, anomalies, and policy violations.
+//
+// Type parameter T specifies the type of data to audit.
+//
+// Example:
+//
+//	result, err := schemaflow.Audit(customerRecord)
+//	result, err := schemaflow.Audit(financialData, schemaflow.AuditOptions{
+//	    Policies:   []string{"PII must be encrypted", "Amounts must balance"},
+//	    Categories: []string{"security", "compliance"},
+//	})
+func Audit[T any](data T, opts ...AuditOptions) (AuditResult[T], error) {
+	return ops.Audit[T](data, opts...)
+}
+
+// Assemble builds a complex typed object from multiple parts.
+//
+// Type parameter T specifies the target type to compose.
+//
+// Example:
+//
+//	result, err := schemaflow.Assemble[UserProfile]([]any{basicInfo, addressData, preferences})
+//	result, err := schemaflow.Assemble[Document](parts, schemaflow.ComposeOptions{
+//	    MergeStrategy: "smart",
+//	    FillGaps:      true,
+//	})
+func Assemble[T any](parts []any, opts ...ComposeOptions) (ComposeResult[T], error) {
+	return ops.Assemble[T](parts, opts...)
+}
+
+// Pivot restructures data relationships between typed objects.
+//
+// Type parameter T specifies the input type.
+// Type parameter U specifies the pivoted output type.
+//
+// Example:
+//
+//	result, err := schemaflow.Pivot[[]SalesRow, []SalesPivot](sales, schemaflow.PivotOptions{
+//	    PivotOn:   []string{"Month"},
+//	    Aggregate: "sum",
+//	})
+//	result, err := schemaflow.Pivot[Nested, Flat](data, schemaflow.PivotOptions{
+//	    Flatten: true,
+//	})
+func Pivot[T any, U any](input T, opts ...PivotOptions) (PivotResult[U], error) {
+	return ops.Pivot[T, U](input, opts...)
 }
