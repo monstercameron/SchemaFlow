@@ -8,26 +8,71 @@ import (
 	"strings"
 
 	"github.com/monstercameron/SchemaFlow/internal/config"
+	"github.com/monstercameron/SchemaFlow/internal/logger"
 	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-// Classify categorizes text into predefined categories with specialized options.
+// ClassifyResult contains the results of classification.
+// Type parameter C specifies the category type (typically string or a custom enum type).
+type ClassifyResult[C any] struct {
+	// Category is the primary classification result
+	Category C `json:"category"`
+
+	// Confidence score for the classification (0.0-1.0)
+	Confidence float64 `json:"confidence"`
+
+	// Alternatives are other possible categories with their confidence scores
+	Alternatives []ClassifyAlternative[C] `json:"alternatives,omitempty"`
+
+	// Reasoning explains why this category was chosen
+	Reasoning string `json:"reasoning,omitempty"`
+
+	// Metadata contains additional operation information
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+// ClassifyAlternative represents an alternative classification with confidence
+type ClassifyAlternative[C any] struct {
+	Category   C       `json:"category"`
+	Confidence float64 `json:"confidence"`
+}
+
+// Classify categorizes any Go type into typed categories.
+//
+// Type parameter T specifies the input type.
+// Type parameter C specifies the category type (typically string or custom enum).
 //
 // Examples:
 //
-//	// Basic classification
-//	category, err := Classify("This product is amazing!", NewClassifyOptions().
-//	    WithCategories([]string{"positive", "negative", "neutral"}))
+//	// Classify text into string categories
+//	result, err := Classify[string, string]("This product is amazing!",
+//	    NewClassifyOptions().WithCategories([]string{"positive", "negative", "neutral"}))
+//	fmt.Printf("Category: %s (%.0f%% confidence)\n", result.Category, result.Confidence*100)
+//
+//	// Classify a struct into custom categories
+//	type Sentiment string
+//	const (
+//	    SentimentPositive Sentiment = "positive"
+//	    SentimentNegative Sentiment = "negative"
+//	)
+//	result, err := Classify[Review, Sentiment](review,
+//	    NewClassifyOptions().WithCategories([]string{"positive", "negative"}))
 //
 //	// Multi-label classification
-//	categories, err := Classify(text, NewClassifyOptions().
+//	result, err := Classify[Article, string](article, NewClassifyOptions().
 //	    WithCategories([]string{"tech", "business", "sports"}).
 //	    WithMultiLabel(true).
 //	    WithMaxCategories(2))
-func Classify(input string, opts ClassifyOptions) (string, error) {
+func Classify[T any, C any](input T, opts ClassifyOptions) (ClassifyResult[C], error) {
+	log := logger.GetLogger()
+	log.Debug("Starting classify operation")
+
+	var result ClassifyResult[C]
+	result.Metadata = make(map[string]any)
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
-		return "", fmt.Errorf("invalid options: %w", err)
+		return result, fmt.Errorf("invalid options: %w", err)
 	}
 
 	categories := opts.Categories
@@ -60,75 +105,191 @@ func Classify(input string, opts ClassifyOptions) (string, error) {
 		opt.Steering = steering
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.GetTimeout())
+	ctx := opt.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, config.GetTimeout())
 	defer cancel()
+
+	// Convert input to string representation
+	inputStr := formatInput(input)
 
 	categoriesJSON, _ := json.Marshal(categories)
 
-	systemPrompt := fmt.Sprintf(`You are a text classification expert. Classify the input into one of the provided categories.
+	systemPrompt := fmt.Sprintf(`You are a classification expert. Classify the input into the most appropriate category.
 
-Categories: %s
+Available Categories: %s
 
 Rules:
-- Choose the most appropriate category
-- Consider context and nuance
-- Return ONLY the category name, nothing else`, string(categoriesJSON))
+- Choose the most appropriate category based on semantic meaning
+- Provide a confidence score between 0.0 and 1.0
+- Include alternative classifications if relevant (sorted by confidence)
+- Provide brief reasoning for the classification
 
-	userPrompt := fmt.Sprintf("Classify this text:\n%s", input)
+Return a JSON object with these fields:
+- "category": the primary category (must be one of the available categories)
+- "confidence": number between 0 and 1
+- "alternatives": array of {category, confidence} for other relevant categories
+- "reasoning": brief explanation of the classification`, string(categoriesJSON))
+
+	userPrompt := fmt.Sprintf("Classify this input:\n%s", inputStr)
 
 	response, err := callLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
-		return "", types.ClassifyError{
-			Input:      input,
+		log.Error("Classify operation failed", "error", err)
+		return result, types.ClassifyError{
+			Input:      inputStr,
 			Categories: categories,
 			Reason:     err.Error(),
 		}
 	}
 
-	result := strings.TrimSpace(response)
-	result = strings.Trim(result, "\"'")
+	// Clean up response - handle potential markdown code blocks
+	response = strings.TrimSpace(response)
+	if strings.HasPrefix(response, "```json") {
+		response = strings.TrimPrefix(response, "```json")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	} else if strings.HasPrefix(response, "```") {
+		response = strings.TrimPrefix(response, "```")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	}
 
+	// Parse the structured response
+	var llmResult struct {
+		Category     string  `json:"category"`
+		Confidence   float64 `json:"confidence"`
+		Alternatives []struct {
+			Category   string  `json:"category"`
+			Confidence float64 `json:"confidence"`
+		} `json:"alternatives,omitempty"`
+		Reasoning string `json:"reasoning,omitempty"`
+	}
+
+	if err := json.Unmarshal([]byte(response), &llmResult); err != nil {
+		log.Error("Classify failed to parse response", "error", err, "response", response)
+		return result, fmt.Errorf("failed to parse classification response: %w", err)
+	}
+
+	// Validate the returned category
 	found := false
 	for _, cat := range categories {
-		if strings.EqualFold(result, cat) {
+		if strings.EqualFold(llmResult.Category, cat) {
 			found = true
-			result = cat
+			llmResult.Category = cat // normalize case
 			break
 		}
 	}
 
 	if !found {
-		return "", types.ClassifyError{
-			Input:      input,
+		log.Error("Classify returned invalid category", "category", llmResult.Category, "valid", categories)
+		return result, types.ClassifyError{
+			Input:      inputStr,
 			Categories: categories,
-			Reason:     fmt.Sprintf("invalid category returned: %s", result),
-			Confidence: 0.5,
+			Reason:     fmt.Sprintf("invalid category returned: %s", llmResult.Category),
+			Confidence: llmResult.Confidence,
 		}
 	}
 
+	// Convert category string to type C via JSON round-trip
+	var category C
+	catJSON, _ := json.Marshal(llmResult.Category)
+	if err := json.Unmarshal(catJSON, &category); err != nil {
+		return result, fmt.Errorf("failed to convert category to type: %w", err)
+	}
+
+	result.Category = category
+	result.Confidence = llmResult.Confidence
+	result.Reasoning = llmResult.Reasoning
+
+	// Convert alternatives
+	for _, alt := range llmResult.Alternatives {
+		var altCat C
+		altJSON, _ := json.Marshal(alt.Category)
+		if err := json.Unmarshal(altJSON, &altCat); err == nil {
+			result.Alternatives = append(result.Alternatives, ClassifyAlternative[C]{
+				Category:   altCat,
+				Confidence: alt.Confidence,
+			})
+		}
+	}
+
+	log.Debug("Classify operation completed", "category", llmResult.Category, "confidence", result.Confidence)
 	return result, nil
 }
 
-// Score rates content based on specified criteria with specialized options.
+// formatInput converts any input to a string representation for the LLM
+func formatInput(input any) string {
+	if str, ok := input.(string); ok {
+		return str
+	}
+	if bytes, err := json.Marshal(input); err == nil {
+		return string(bytes)
+	}
+	return fmt.Sprintf("%v", input)
+}
+
+// ScoreResult contains the results of scoring.
+type ScoreResult struct {
+	// Value is the overall score
+	Value float64 `json:"value"`
+
+	// NormalizedValue is the score normalized to 0.0-1.0 range
+	NormalizedValue float64 `json:"normalized_value"`
+
+	// Breakdown contains scores for individual criteria
+	Breakdown map[string]float64 `json:"breakdown,omitempty"`
+
+	// Reasoning explains the scoring rationale
+	Reasoning string `json:"reasoning,omitempty"`
+
+	// Strengths identified in the input
+	Strengths []string `json:"strengths,omitempty"`
+
+	// Weaknesses identified in the input
+	Weaknesses []string `json:"weaknesses,omitempty"`
+
+	// Metadata contains additional operation information
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+// Score rates any Go type based on specified criteria.
+//
+// Type parameter T specifies the input type.
 //
 // Examples:
 //
-//	// Basic scoring
-//	score, err := Score(essay, NewScoreOptions().
+//	// Basic scoring with typed input
+//	result, err := Score[Essay](essay, NewScoreOptions().
 //	    WithCriteria([]string{"clarity", "grammar", "relevance"}))
+//	fmt.Printf("Score: %.1f/10 (%.0f%% normalized)\n", result.Value, result.NormalizedValue*100)
 //
-//	// Custom scale and rubric
-//	score, err := Score(submission, NewScoreOptions().
+//	// Custom scale and rubric with breakdown
+//	result, err := Score[Submission](submission, NewScoreOptions().
 //	    WithScaleMin(1).
 //	    WithScaleMax(5).
 //	    WithRubric(map[string]string{
 //	        "quality": "Overall quality of work",
 //	        "effort": "Evidence of effort and care",
 //	    }))
-func Score(input any, opts ScoreOptions) (float64, error) {
+//	for criterion, score := range result.Breakdown {
+//	    fmt.Printf("  %s: %.1f\n", criterion, score)
+//	}
+func Score[T any](input T, opts ScoreOptions) (ScoreResult, error) {
+	log := logger.GetLogger()
+	log.Debug("Starting score operation")
+
+	var result ScoreResult
+	result.Breakdown = make(map[string]float64)
+	result.Metadata = make(map[string]any)
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
-		return 0, fmt.Errorf("invalid options: %w", err)
+		return result, fmt.Errorf("invalid options: %w", err)
 	}
 
 	opt := opts.toOpOptions()
@@ -155,76 +316,176 @@ func Score(input any, opts ScoreOptions) (float64, error) {
 		opt.Steering = steering
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.GetTimeout())
-	defer cancel()
-
-	inputStr := fmt.Sprintf("%v", input)
-	if str, ok := input.(string); ok {
-		inputStr = str
-	} else if bytes, err := json.Marshal(input); err == nil {
-		inputStr = string(bytes)
+	ctx := opt.Context
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	systemPrompt := fmt.Sprintf(`You are a scoring expert. Evaluate the input and assign a numeric score.
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, config.GetTimeout())
+	defer cancel()
+
+	inputStr := formatInput(input)
+
+	// Build criteria list for the prompt
+	criteriaList := opts.Criteria
+	if len(criteriaList) == 0 && len(opts.Rubric) > 0 {
+		for criterion := range opts.Rubric {
+			criteriaList = append(criteriaList, criterion)
+		}
+	}
+
+	criteriaJSON, _ := json.Marshal(criteriaList)
+
+	systemPrompt := fmt.Sprintf(`You are a scoring expert. Evaluate the input and provide a comprehensive assessment.
+
+Score Range: %.1f to %.1f
+Criteria: %s
 
 Rules:
-- Return a score between %.1f and %.1f
-- Consider all relevant factors
-- Be consistent in your scoring
-- Return ONLY the numeric value, nothing else`, opts.ScaleMin, opts.ScaleMax)
+- Assign an overall score between %.1f and %.1f
+- Provide a breakdown score for each criterion
+- Identify strengths and weaknesses
+- Explain your reasoning
+
+Return a JSON object with these fields:
+- "value": overall score (number between %.1f and %.1f)
+- "breakdown": object with criterion names as keys and scores as values
+- "reasoning": explanation of the scoring
+- "strengths": array of identified strengths
+- "weaknesses": array of identified weaknesses`,
+		opts.ScaleMin, opts.ScaleMax, string(criteriaJSON),
+		opts.ScaleMin, opts.ScaleMax,
+		opts.ScaleMin, opts.ScaleMax)
 
 	userPrompt := fmt.Sprintf("Score this input:\n%s", inputStr)
 
 	response, err := callLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
-		return 0, types.ScoreError{
+		log.Error("Score operation failed", "error", err)
+		return result, types.ScoreError{
 			Input:  input,
 			Reason: err.Error(),
 		}
 	}
 
+	// Clean up response - handle potential markdown code blocks
 	response = strings.TrimSpace(response)
-	response = strings.Trim(response, "\"'")
+	if strings.HasPrefix(response, "```json") {
+		response = strings.TrimPrefix(response, "```json")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	} else if strings.HasPrefix(response, "```") {
+		response = strings.TrimPrefix(response, "```")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	}
 
-	score, err := strconv.ParseFloat(response, 64)
-	if err != nil {
-		return 0, types.ScoreError{
-			Input:  input,
-			Reason: fmt.Sprintf("failed to parse score: %v", err),
+	// Parse the structured response
+	var llmResult struct {
+		Value      float64            `json:"value"`
+		Breakdown  map[string]float64 `json:"breakdown,omitempty"`
+		Reasoning  string             `json:"reasoning,omitempty"`
+		Strengths  []string           `json:"strengths,omitempty"`
+		Weaknesses []string           `json:"weaknesses,omitempty"`
+	}
+
+	if err := json.Unmarshal([]byte(response), &llmResult); err != nil {
+		// Fallback: try to parse as simple number for backward compatibility
+		response = strings.Trim(response, "\"'")
+		score, parseErr := strconv.ParseFloat(response, 64)
+		if parseErr != nil {
+			log.Error("Score failed to parse response", "error", err, "response", response)
+			return result, fmt.Errorf("failed to parse score response: %w", err)
 		}
+		llmResult.Value = score
 	}
 
 	// Normalize to scale
+	score := llmResult.Value
 	if score < opts.ScaleMin {
 		score = opts.ScaleMin
 	} else if score > opts.ScaleMax {
 		score = opts.ScaleMax
 	}
 
-	// Normalize if requested
-	if opts.Normalize {
-		score = (score - opts.ScaleMin) / (opts.ScaleMax - opts.ScaleMin)
-	}
+	result.Value = score
+	result.NormalizedValue = (score - opts.ScaleMin) / (opts.ScaleMax - opts.ScaleMin)
+	result.Breakdown = llmResult.Breakdown
+	result.Reasoning = llmResult.Reasoning
+	result.Strengths = llmResult.Strengths
+	result.Weaknesses = llmResult.Weaknesses
 
-	return score, nil
+	log.Debug("Score operation completed", "value", result.Value, "normalized", result.NormalizedValue)
+	return result, nil
 }
 
-// Compare analyzes similarities and differences with specialized options.
+// CompareResult contains the results of comparison.
+// Type parameter T specifies the type of items being compared.
+type CompareResult[T any] struct {
+	// ItemA is the first item that was compared
+	ItemA T `json:"item_a"`
+
+	// ItemB is the second item that was compared
+	ItemB T `json:"item_b"`
+
+	// SimilarityScore indicates overall similarity (0.0-1.0)
+	SimilarityScore float64 `json:"similarity_score"`
+
+	// Similarities are aspects where the items are alike
+	Similarities []ComparisonPoint `json:"similarities,omitempty"`
+
+	// Differences are aspects where the items differ
+	Differences []ComparisonPoint `json:"differences,omitempty"`
+
+	// Verdict is a brief summary of the comparison
+	Verdict string `json:"verdict"`
+
+	// AspectScores shows similarity score per aspect
+	AspectScores map[string]float64 `json:"aspect_scores,omitempty"`
+
+	// Metadata contains additional operation information
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+// ComparisonPoint represents a specific similarity or difference
+type ComparisonPoint struct {
+	Aspect      string `json:"aspect"`
+	Description string `json:"description"`
+	Severity    string `json:"severity,omitempty"` // for differences: minor, moderate, major
+}
+
+// Compare analyzes similarities and differences between two items of the same type.
+//
+// Type parameter T specifies the type of items being compared.
 //
 // Examples:
 //
-//	// Basic comparison
-//	comparison, err := Compare(product1, product2, NewCompareOptions())
+//	// Compare two products
+//	result, err := Compare[Product](product1, product2, NewCompareOptions())
+//	fmt.Printf("Similarity: %.0f%%\n", result.SimilarityScore*100)
+//	fmt.Printf("Verdict: %s\n", result.Verdict)
 //
 //	// Detailed comparison with specific aspects
-//	comparison, err := Compare(doc1, doc2, NewCompareOptions().
+//	result, err := Compare[Document](doc1, doc2, NewCompareOptions().
 //	    WithComparisonAspects([]string{"content", "style", "accuracy"}).
-//	    WithOutputFormat("table").
 //	    WithFocusOn("differences"))
-func Compare(itemA, itemB any, opts CompareOptions) (string, error) {
+//	for _, diff := range result.Differences {
+//	    fmt.Printf("- %s: %s\n", diff.Aspect, diff.Description)
+//	}
+func Compare[T any](itemA, itemB T, opts CompareOptions) (CompareResult[T], error) {
+	log := logger.GetLogger()
+	log.Debug("Starting compare operation")
+
+	var result CompareResult[T]
+	result.ItemA = itemA
+	result.ItemB = itemB
+	result.AspectScores = make(map[string]float64)
+	result.Metadata = make(map[string]any)
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
-		return "", fmt.Errorf("invalid options: %w", err)
+		return result, fmt.Errorf("invalid options: %w", err)
 	}
 
 	opt := opts.toOpOptions()
@@ -234,10 +495,6 @@ func Compare(itemA, itemB any, opts CompareOptions) (string, error) {
 
 	if len(opts.ComparisonAspects) > 0 {
 		instructions = append(instructions, fmt.Sprintf("Compare these aspects: %s", strings.Join(opts.ComparisonAspects, ", ")))
-	}
-
-	if opts.OutputFormat != "" {
-		instructions = append(instructions, fmt.Sprintf("Format as: %s", opts.OutputFormat))
 	}
 
 	if opts.FocusOn != "" {
@@ -254,43 +511,106 @@ func Compare(itemA, itemB any, opts CompareOptions) (string, error) {
 		opt.Steering = steering
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.GetTimeout())
+	ctx := opt.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, config.GetTimeout())
 	defer cancel()
 
-	itemAString := fmt.Sprintf("%v", itemA)
-	if s, ok := itemA.(string); ok {
-		itemAString = s
-	} else if bytes, err := json.Marshal(itemA); err == nil {
-		itemAString = string(bytes)
-	}
+	itemAString := formatInput(itemA)
+	itemBString := formatInput(itemB)
 
-	itemBString := fmt.Sprintf("%v", itemB)
-	if s, ok := itemB.(string); ok {
-		itemBString = s
-	} else if bytes, err := json.Marshal(itemB); err == nil {
-		itemBString = string(bytes)
-	}
+	aspectsJSON, _ := json.Marshal(opts.ComparisonAspects)
 
-	systemPrompt := `You are a comparison expert. Analyze and compare two items, highlighting similarities and differences.
+	systemPrompt := fmt.Sprintf(`You are a comparison expert. Analyze and compare two items, identifying similarities and differences.
+
+Comparison Aspects: %s
 
 Rules:
-- Be objective and balanced
-- Identify key similarities
-- Identify key differences
-- Provide clear, structured comparison`
+- Calculate an overall similarity score between 0.0 and 1.0
+- Identify specific similarities with descriptions
+- Identify specific differences with descriptions and severity (minor/moderate/major)
+- Provide a brief verdict summarizing the comparison
+- If aspects are specified, provide per-aspect similarity scores
+
+Return a JSON object with these fields:
+- "similarity_score": number between 0 and 1
+- "similarities": array of {aspect, description}
+- "differences": array of {aspect, description, severity}
+- "verdict": brief summary of the comparison
+- "aspect_scores": object with aspect names as keys and similarity scores as values`, string(aspectsJSON))
 
 	userPrompt := fmt.Sprintf("Compare these two items:\n\nItem A:\n%s\n\nItem B:\n%s", itemAString, itemBString)
 
 	response, err := callLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
-		return "", types.CompareError{
+		log.Error("Compare operation failed", "error", err)
+		return result, types.CompareError{
 			A:      itemA,
 			B:      itemB,
 			Reason: err.Error(),
 		}
 	}
 
-	return strings.TrimSpace(response), nil
+	// Clean up response
+	response = strings.TrimSpace(response)
+	if strings.HasPrefix(response, "```json") {
+		response = strings.TrimPrefix(response, "```json")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	} else if strings.HasPrefix(response, "```") {
+		response = strings.TrimPrefix(response, "```")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	}
+
+	// Parse the structured response
+	var llmResult struct {
+		SimilarityScore float64 `json:"similarity_score"`
+		Similarities    []struct {
+			Aspect      string `json:"aspect"`
+			Description string `json:"description"`
+		} `json:"similarities,omitempty"`
+		Differences []struct {
+			Aspect      string `json:"aspect"`
+			Description string `json:"description"`
+			Severity    string `json:"severity,omitempty"`
+		} `json:"differences,omitempty"`
+		Verdict      string             `json:"verdict"`
+		AspectScores map[string]float64 `json:"aspect_scores,omitempty"`
+	}
+
+	if err := json.Unmarshal([]byte(response), &llmResult); err != nil {
+		log.Error("Compare failed to parse response", "error", err, "response", response)
+		return result, fmt.Errorf("failed to parse comparison response: %w", err)
+	}
+
+	result.SimilarityScore = llmResult.SimilarityScore
+	result.Verdict = llmResult.Verdict
+	result.AspectScores = llmResult.AspectScores
+
+	// Convert similarities
+	for _, sim := range llmResult.Similarities {
+		result.Similarities = append(result.Similarities, ComparisonPoint{
+			Aspect:      sim.Aspect,
+			Description: sim.Description,
+		})
+	}
+
+	// Convert differences
+	for _, diff := range llmResult.Differences {
+		result.Differences = append(result.Differences, ComparisonPoint{
+			Aspect:      diff.Aspect,
+			Description: diff.Description,
+			Severity:    diff.Severity,
+		})
+	}
+
+	log.Debug("Compare operation completed", "similarity", result.SimilarityScore)
+	return result, nil
 }
 
 // SimilarOptions configures the Similar operation
@@ -331,22 +651,66 @@ func (opts SimilarOptions) WithAspects(aspects []string) SimilarOptions {
 	return opts
 }
 
-// Similar checks semantic similarity with specialized options.
+// SimilarResult contains the results of similarity analysis.
+type SimilarResult struct {
+	// IsSimilar indicates whether the items meet the similarity threshold
+	IsSimilar bool `json:"is_similar"`
+
+	// Score is the overall similarity score (0.0-1.0)
+	Score float64 `json:"score"`
+
+	// Threshold is the threshold that was used for the comparison
+	Threshold float64 `json:"threshold"`
+
+	// MatchedAspects are aspects where the items are similar
+	MatchedAspects []AspectMatch `json:"matched_aspects,omitempty"`
+
+	// DifferingAspects are aspects where the items differ
+	DifferingAspects []AspectMatch `json:"differing_aspects,omitempty"`
+
+	// Explanation describes why the items are or aren't similar
+	Explanation string `json:"explanation"`
+
+	// Metadata contains additional operation information
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+// AspectMatch represents a matched or differing aspect with its score
+type AspectMatch struct {
+	Aspect string  `json:"aspect"`
+	Score  float64 `json:"score"`
+	Reason string  `json:"reason,omitempty"`
+}
+
+// Similar checks semantic similarity between two items of the same type.
+//
+// Type parameter T specifies the type of items being compared.
 //
 // Examples:
 //
 //	// Basic similarity check
-//	similar, err := Similar("AI is great", "Artificial intelligence is wonderful",
+//	result, err := Similar[string]("AI is great", "Artificial intelligence is wonderful",
 //	    NewSimilarOptions())
+//	fmt.Printf("Similar: %v (score: %.0f%%)\n", result.IsSimilar, result.Score*100)
 //
 //	// Custom threshold and aspects
-//	similar, err := Similar(text1, text2, NewSimilarOptions().
+//	result, err := Similar[Document](doc1, doc2, NewSimilarOptions().
 //	    WithSimilarityThreshold(0.9).
-//	    WithAspects([]string{"meaning", "sentiment"}))
-func Similar(itemA, itemB any, opts SimilarOptions) (bool, error) {
+//	    WithAspects([]string{"meaning", "sentiment", "tone"}))
+//	for _, match := range result.MatchedAspects {
+//	    fmt.Printf("  %s: %.0f%% - %s\n", match.Aspect, match.Score*100, match.Reason)
+//	}
+func Similar[T any](itemA, itemB T, opts SimilarOptions) (SimilarResult, error) {
+	log := logger.GetLogger()
+	log.Debug("Starting similar operation")
+
+	var result SimilarResult
+	result.Threshold = opts.SimilarityThreshold
+	result.Metadata = make(map[string]any)
+
 	// Validate options
 	if err := opts.Validate(); err != nil {
-		return false, fmt.Errorf("invalid options: %w", err)
+		return result, fmt.Errorf("invalid options: %w", err)
 	}
 
 	opt := opts.OpOptions
@@ -367,37 +731,115 @@ func Similar(itemA, itemB any, opts SimilarOptions) (bool, error) {
 		opt.Steering = steering
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.GetTimeout())
+	ctx := opt.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, config.GetTimeout())
 	defer cancel()
 
-	itemAString := fmt.Sprintf("%v", itemA)
-	if s, ok := itemA.(string); ok {
-		itemAString = s
-	} else if bytes, err := json.Marshal(itemA); err == nil {
-		itemAString = string(bytes)
-	}
+	itemAString := formatInput(itemA)
+	itemBString := formatInput(itemB)
 
-	itemBString := fmt.Sprintf("%v", itemB)
-	if s, ok := itemB.(string); ok {
-		itemBString = s
-	} else if bytes, err := json.Marshal(itemB); err == nil {
-		itemBString = string(bytes)
-	}
+	aspectsJSON, _ := json.Marshal(opts.Aspects)
 
-	systemPrompt := fmt.Sprintf(`You are a similarity analyzer. Determine if two items are semantically similar based on the threshold %.2f.
+	systemPrompt := fmt.Sprintf(`You are a similarity analyzer. Determine if two items are semantically similar.
+
+Similarity Threshold: %.2f
+Aspects to Compare: %s
 
 Rules:
-- Return "true" if similarity >= %.2f
-- Return "false" if similarity < %.2f
-- Consider semantic meaning, not just keywords`, opts.SimilarityThreshold, opts.SimilarityThreshold, opts.SimilarityThreshold)
+- Calculate an overall similarity score between 0.0 and 1.0
+- Items are "similar" if score >= %.2f
+- Identify which aspects match and which differ
+- Provide reasoning for each aspect comparison
+- Explain the overall similarity assessment
 
-	userPrompt := fmt.Sprintf("Are these items similar?\n\nItem A:\n%s\n\nItem B:\n%s", itemAString, itemBString)
+Return a JSON object with these fields:
+- "is_similar": boolean (true if score >= threshold)
+- "score": overall similarity score (0.0-1.0)
+- "matched_aspects": array of {aspect, score, reason} for similar aspects
+- "differing_aspects": array of {aspect, score, reason} for different aspects
+- "explanation": overall explanation of similarity`,
+		opts.SimilarityThreshold, string(aspectsJSON), opts.SimilarityThreshold)
+
+	userPrompt := fmt.Sprintf("Compare these items for similarity:\n\nItem A:\n%s\n\nItem B:\n%s", itemAString, itemBString)
 
 	response, err := callLLM(ctx, systemPrompt, userPrompt, opt)
 	if err != nil {
-		return false, fmt.Errorf("similarity check failed: %w", err)
+		log.Error("Similar operation failed", "error", err)
+		return result, fmt.Errorf("similarity check failed: %w", err)
 	}
 
-	result := strings.TrimSpace(strings.ToLower(response))
-	return result == "true", nil
+	// Clean up response
+	response = strings.TrimSpace(response)
+	if strings.HasPrefix(response, "```json") {
+		response = strings.TrimPrefix(response, "```json")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	} else if strings.HasPrefix(response, "```") {
+		response = strings.TrimPrefix(response, "```")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	}
+
+	// Parse the structured response
+	var llmResult struct {
+		IsSimilar      bool    `json:"is_similar"`
+		Score          float64 `json:"score"`
+		MatchedAspects []struct {
+			Aspect string  `json:"aspect"`
+			Score  float64 `json:"score"`
+			Reason string  `json:"reason,omitempty"`
+		} `json:"matched_aspects,omitempty"`
+		DifferingAspects []struct {
+			Aspect string  `json:"aspect"`
+			Score  float64 `json:"score"`
+			Reason string  `json:"reason,omitempty"`
+		} `json:"differing_aspects,omitempty"`
+		Explanation string `json:"explanation"`
+	}
+
+	if err := json.Unmarshal([]byte(response), &llmResult); err != nil {
+		// Fallback: try to parse as simple boolean for backward compatibility
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response == "true" || response == "false" {
+			result.IsSimilar = response == "true"
+			if result.IsSimilar {
+				result.Score = opts.SimilarityThreshold + 0.1
+			} else {
+				result.Score = opts.SimilarityThreshold - 0.1
+			}
+			return result, nil
+		}
+		log.Error("Similar failed to parse response", "error", err, "response", response)
+		return result, fmt.Errorf("failed to parse similarity response: %w", err)
+	}
+
+	result.IsSimilar = llmResult.IsSimilar
+	result.Score = llmResult.Score
+	result.Explanation = llmResult.Explanation
+
+	// Convert matched aspects
+	for _, match := range llmResult.MatchedAspects {
+		result.MatchedAspects = append(result.MatchedAspects, AspectMatch{
+			Aspect: match.Aspect,
+			Score:  match.Score,
+			Reason: match.Reason,
+		})
+	}
+
+	// Convert differing aspects
+	for _, diff := range llmResult.DifferingAspects {
+		result.DifferingAspects = append(result.DifferingAspects, AspectMatch{
+			Aspect: diff.Aspect,
+			Score:  diff.Score,
+			Reason: diff.Reason,
+		})
+	}
+
+	log.Debug("Similar operation completed", "isSimilar", result.IsSimilar, "score", result.Score)
+	return result, nil
 }

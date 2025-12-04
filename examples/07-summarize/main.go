@@ -56,7 +56,10 @@ socioeconomic status.
 	fmt.Println(article)
 	fmt.Println("---")
 
-	// Summarize the article
+	// Example 1: Simple string summary (original API)
+	fmt.Println("\n🔹 Example 1: Simple Summary (string → string)")
+	fmt.Println("-" + string(make([]byte, 40)))
+
 	summaryOpts := schemaflow.NewSummarizeOptions()
 	summaryOpts.TargetLength = 3 // 3 sentences
 	summaryOpts.LengthUnit = "sentences"
@@ -64,25 +67,52 @@ socioeconomic status.
 	summaryOpts.OpOptions.Steering = "Create a concise summary capturing key points: AI in diagnostics, drug discovery, patient care, and challenges."
 
 	summary, err := schemaflow.Summarize(article, summaryOpts)
-
 	if err != nil {
 		schemaflow.GetLogger().Error("Summarization failed", "error", err)
 		os.Exit(1)
 	}
 
-	// Display summary
-	fmt.Println("\n✅ Summary (Condensed):")
+	fmt.Println("\n✅ Summary:")
 	fmt.Println("---")
 	fmt.Println(summary)
 	fmt.Println("---")
 
-	// Show compression ratio
-	compressionRatio := float64(len(summary)) / float64(len(article)) * 100
-	fmt.Printf("\n📊 Summary Statistics:\n")
-	fmt.Printf("   Original:    %d characters\n", len(article))
-	fmt.Printf("   Summary:     %d characters\n", len(summary))
-	fmt.Printf("   Compression: %.1f%% of original\n", compressionRatio)
-	fmt.Printf("   Reduction:   %.1f%% smaller\n", 100-compressionRatio)
+	// Example 2: Summary with metadata (new API)
+	fmt.Println("\n🔹 Example 2: Summary with Metadata (WithMetadata API)")
+	fmt.Println("-" + string(make([]byte, 40)))
 
-	fmt.Println("\n✨ Success! Article condensed while preserving key information")
+	metadataOpts := schemaflow.NewSummarizeOptions()
+	metadataOpts.TargetLength = 3
+	metadataOpts.LengthUnit = "sentences"
+	metadataOpts.OpOptions.Intelligence = schemaflow.Fast
+
+	result, err := schemaflow.SummarizeWithMetadata(article, metadataOpts)
+	if err != nil {
+		schemaflow.GetLogger().Error("SummarizeWithMetadata failed", "error", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("\n✅ Summary with Metadata:")
+	fmt.Println("---")
+	fmt.Println(result.Text)
+	fmt.Println("---")
+
+	fmt.Printf("\n📊 Rich Metadata:\n")
+	fmt.Printf("   Compression Ratio: %.1f%% of original\n", result.CompressionRatio*100)
+	fmt.Printf("   Confidence:        %.0f%%\n", result.Confidence*100)
+
+	if len(result.KeyPoints) > 0 {
+		fmt.Println("\n📌 Key Points Extracted:")
+		for i, point := range result.KeyPoints {
+			fmt.Printf("   %d. %s\n", i+1, point)
+		}
+	}
+
+	// Show comparison
+	fmt.Println("\n📈 Summary Statistics:")
+	fmt.Printf("   Original:    %d characters\n", len(article))
+	fmt.Printf("   Summary:     %d characters\n", len(result.Text))
+	fmt.Printf("   Reduction:   %.1f%% smaller\n", (1-result.CompressionRatio)*100)
+
+	fmt.Println("\n✨ Success! SummarizeWithMetadata provides rich insights beyond just text")
 }

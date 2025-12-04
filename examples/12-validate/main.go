@@ -73,6 +73,7 @@ func main() {
 		},
 	}
 
+	// Define validation rules
 	validationRules := `
 Validation Rules:
 1. Username: 3-20 characters, alphanumeric only
@@ -81,6 +82,12 @@ Validation Rules:
 4. Age: Must be 18 or older
 5. Country: Must be a valid country name
 `
+
+	// Create validation options with the new typed API
+	opts := schemaflow.NewValidateOptions().
+		WithRules(validationRules).
+		WithAutoCorrect(false).
+		WithIncludeExplanations(true)
 
 	for i, tc := range testCases {
 		fmt.Printf("\n%d. %s\n", i+1, tc.name)
@@ -91,8 +98,8 @@ Validation Rules:
 		fmt.Printf("   Age: %d\n", tc.data.Age)
 		fmt.Printf("   Country: %s\n", tc.data.Country)
 
-		// Validate
-		result, err := schemaflow.Validate(tc.data, validationRules)
+		// Validate using the new typed API
+		result, err := schemaflow.Validate[UserRegistration](tc.data, opts)
 		if err != nil {
 			schemaflow.GetLogger().Error("Validation error", "error", err)
 			continue
@@ -101,12 +108,32 @@ Validation Rules:
 		if result.Valid {
 			fmt.Println()
 			fmt.Println("   ✅ VALID - Registration accepted")
+			fmt.Printf("   Confidence: %.0f%%\n", result.Confidence*100)
 		} else {
 			fmt.Println()
-			fmt.Println("   ❌ INVALID - Errors found:")
-			for _, issue := range result.Issues {
-				fmt.Printf("      • %s\n", issue)
+			fmt.Println("   ❌ INVALID - Issues found:")
+
+			// Display errors (critical issues)
+			for _, issue := range result.Errors {
+				fmt.Printf("      ❌ [%s] %s\n", issue.Field, issue.Message)
+				if issue.Suggestion != "" {
+					fmt.Printf("         💡 Suggestion: %s\n", issue.Suggestion)
+				}
 			}
+
+			// Display warnings
+			for _, issue := range result.Warnings {
+				fmt.Printf("      ⚠️  [%s] %s\n", issue.Field, issue.Message)
+			}
+
+			// Display info
+			for _, issue := range result.Info {
+				fmt.Printf("      ℹ️  %s\n", issue.Message)
+			}
+		}
+
+		if result.Summary != "" {
+			fmt.Printf("\n   📝 Summary: %s\n", result.Summary)
 		}
 	}
 

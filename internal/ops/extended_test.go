@@ -17,16 +17,20 @@ func TestValidate(t *testing.T) {
 			if strings.Contains(user, "age must be 18-100") {
 				return `{
 					"valid": true,
-					"issues": [],
+					"errors": [],
+					"warnings": [],
+					"info": [],
 					"confidence": 0.95,
-					"suggestions": []
+					"summary": "All validation rules passed"
 				}`, nil
 			}
 			return `{
 				"valid": false,
-				"issues": ["Age is outside valid range"],
+				"errors": [{"field": "age", "severity": "error", "message": "Age is outside valid range", "suggestion": "Set age between 18 and 100"}],
+				"warnings": [],
+				"info": [],
 				"confidence": 0.9,
-				"suggestions": ["Set age between 18 and 100"]
+				"summary": "Age validation failed"
 			}`, nil
 		}
 		return mockLLMResponse(ctx, system, user, opts)
@@ -34,7 +38,8 @@ func TestValidate(t *testing.T) {
 
 	t.Run("ValidData", func(t *testing.T) {
 		person := Person{Name: "John", Age: 30}
-		result, err := Validate(person, "age must be 18-100, email must be valid")
+		opts := NewValidateOptions().WithRules("age must be 18-100, email must be valid")
+		result, err := Validate(person, opts)
 
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
@@ -44,8 +49,8 @@ func TestValidate(t *testing.T) {
 			t.Errorf("Expected valid=true, got false")
 		}
 
-		if len(result.Issues) > 0 {
-			t.Errorf("Expected no issues, got %v", result.Issues)
+		if len(result.Errors) > 0 {
+			t.Errorf("Expected no errors, got %v", result.Errors)
 		}
 
 		if result.Confidence < 0.9 {
@@ -55,7 +60,8 @@ func TestValidate(t *testing.T) {
 
 	t.Run("InvalidData", func(t *testing.T) {
 		person := Person{Name: "Jane", Age: 150}
-		result, err := Validate(person, "age must be reasonable")
+		opts := NewValidateOptions().WithRules("age must be reasonable")
+		result, err := Validate(person, opts)
 
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
@@ -65,12 +71,13 @@ func TestValidate(t *testing.T) {
 			t.Errorf("Expected valid=false, got true")
 		}
 
-		if len(result.Issues) == 0 {
-			t.Errorf("Expected validation issues, got none")
+		if len(result.Errors) == 0 {
+			t.Errorf("Expected validation errors, got none")
 		}
 
-		if len(result.Suggestions) == 0 {
-			t.Errorf("Expected suggestions, got none")
+		// Check that the error has a suggestion
+		if len(result.Errors) > 0 && result.Errors[0].Suggestion == "" {
+			t.Errorf("Expected error suggestion, got empty")
 		}
 	})
 }
@@ -192,10 +199,20 @@ func TestQuestion(t *testing.T) {
 	setLLMCaller(func(ctx context.Context, system, user string, opts types.OpOptions) (string, error) {
 		if strings.Contains(system, "data analysis expert") {
 			if strings.Contains(user, "What is the average age") {
-				return "The average age is 30 years.", nil
+				return `{
+					"answer": "The average age is 30 years.",
+					"confidence": 0.95,
+					"reasoning": "Calculated by adding all ages and dividing by count.",
+					"evidence": ["John is 30", "Jane is 25", "Bob is 35"]
+				}`, nil
 			}
 			if strings.Contains(user, "How many people") {
-				return "There are 3 people in the data.", nil
+				return `{
+					"answer": "There are 3 people in the data.",
+					"confidence": 0.99,
+					"reasoning": "Counted the number of records.",
+					"evidence": ["John", "Jane", "Bob"]
+				}`, nil
 			}
 		}
 		return mockLLMResponse(ctx, system, user, opts)
@@ -208,14 +225,23 @@ func TestQuestion(t *testing.T) {
 			{Name: "Bob", Age: 35},
 		}
 
-		answer, err := Question(data, "What is the average age?")
+		opts := NewQuestionOptions("What is the average age?")
+		result, err := Question[[]Person, string](data, opts)
 
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
 
-		if !strings.Contains(answer, "30") || !strings.Contains(answer, "average") {
-			t.Errorf("Expected answer about average age, got: %s", answer)
+		if !strings.Contains(result.Answer, "30") || !strings.Contains(result.Answer, "average") {
+			t.Errorf("Expected answer about average age, got: %s", result.Answer)
+		}
+
+		if result.Confidence < 0.9 {
+			t.Errorf("Expected high confidence, got: %.2f", result.Confidence)
+		}
+
+		if result.Reasoning == "" {
+			t.Errorf("Expected reasoning, got empty")
 		}
 	})
 
@@ -226,14 +252,34 @@ func TestQuestion(t *testing.T) {
 			{Name: "Bob", Age: 35},
 		}
 
-		answer, err := Question(data, "How many people are there?")
+		opts := NewQuestionOptions("How many people are there?")
+		result, err := Question[[]Person, string](data, opts)
 
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
 
-		if !strings.Contains(answer, "3") || !strings.Contains(answer, "people") {
-			t.Errorf("Expected answer about count, got: %s", answer)
+		if !strings.Contains(result.Answer, "3") || !strings.Contains(result.Answer, "people") {
+			t.Errorf("Expected answer about count, got: %s", result.Answer)
+		}
+	})
+
+	t.Run("QuestionLegacy", func(t *testing.T) {
+		data := []Person{
+			{Name: "John", Age: 30},
+			{Name: "Jane", Age: 25},
+			{Name: "Bob", Age: 35},
+		}
+
+		// Test the legacy interface still works
+		answer, err := QuestionLegacy(data, "What is the average age?")
+
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		if answer == "" {
+			t.Errorf("Expected non-empty answer")
 		}
 	})
 }

@@ -85,36 +85,36 @@ func CalculateTotal(prices []float64) float64 {
 	fmt.Println("🎯 Evaluation Criteria:", criteria)
 	fmt.Println("📏 Scale: 1-10 (10 = excellent)")
 
-	// Score each snippet
+	// Score each snippet with full results
 	type ScoredSnippet struct {
 		Snippet CodeSnippet
-		Score   float64
+		Result  schemaflow.ScoreResult
 	}
 	var scored []ScoredSnippet
 
 	for _, snippet := range snippets {
-		fmt.Printf("📝 Evaluating Submission #%d by %s\n", snippet.ID, snippet.Author)
+		fmt.Printf("\n📝 Evaluating Submission #%d by %s\n", snippet.ID, snippet.Author)
 		fmt.Println("---")
 		fmt.Println(snippet.Code)
 		fmt.Println("---")
 
-		// Score the code
+		// Score the code using the new generic signature
 		scoreOpts := schemaflow.NewScoreOptions().
 			WithScaleMin(1).
 			WithScaleMax(10).
 			WithCriteria(criteria)
 		scoreOpts.OpOptions.Intelligence = schemaflow.Smart
 
-		score, err := schemaflow.Score(snippet.Code, scoreOpts)
+		result, err := schemaflow.Score[string](snippet.Code, scoreOpts)
 		if err != nil {
 			schemaflow.GetLogger().Error("Failed to score snippet", "snippetID", snippet.ID, "error", err)
 			continue
 		}
 
-		scored = append(scored, ScoredSnippet{snippet, score})
+		scored = append(scored, ScoredSnippet{snippet, result})
 
 		// Display score with visualization
-		stars := int(score)
+		stars := int(result.Value)
 		starBar := ""
 		for i := 0; i < 10; i++ {
 			if i < stars {
@@ -124,27 +124,54 @@ func CalculateTotal(prices []float64) float64 {
 			}
 		}
 
-		fmt.Printf("\n✅ Score: %.1f/10 %s\n", score, starBar)
+		fmt.Printf("\n✅ Score: %.1f/10 %s (%.0f%% normalized)\n", result.Value, starBar, result.NormalizedValue*100)
 
-		// Provide feedback
-		if score >= 8.5 {
+		// Show breakdown if available
+		if len(result.Breakdown) > 0 {
+			fmt.Println("📋 Score Breakdown:")
+			for criterion, score := range result.Breakdown {
+				fmt.Printf("   - %s: %.1f\n", criterion, score)
+			}
+		}
+
+		// Show strengths and weaknesses
+		if len(result.Strengths) > 0 {
+			fmt.Println("💪 Strengths:")
+			for _, s := range result.Strengths {
+				fmt.Printf("   ✓ %s\n", s)
+			}
+		}
+		if len(result.Weaknesses) > 0 {
+			fmt.Println("⚠️  Areas for Improvement:")
+			for _, w := range result.Weaknesses {
+				fmt.Printf("   ✗ %s\n", w)
+			}
+		}
+
+		// Show reasoning if available
+		if result.Reasoning != "" {
+			fmt.Printf("📝 Reasoning: %s\n", result.Reasoning)
+		}
+
+		// Provide feedback based on score
+		if result.Value >= 8.5 {
 			fmt.Println("💎 Excellent! Production-ready code with best practices.")
-		} else if score >= 7.0 {
+		} else if result.Value >= 7.0 {
 			fmt.Println("👍 Good code quality. Minor improvements possible.")
-		} else if score >= 5.0 {
+		} else if result.Value >= 5.0 {
 			fmt.Println("⚠️  Acceptable but needs improvement.")
 		} else {
 			fmt.Println("❌ Needs significant refactoring.")
 		}
-		fmt.Println()
 	}
 
 	// Show ranking
 	fmt.Println("\n🏆 Final Rankings:")
 	fmt.Println("---")
+	// Sort by score descending
 	for i := len(scored) - 1; i >= 0; i-- {
 		for j := 0; j < len(scored)-i-1; j++ {
-			if scored[j].Score < scored[j+1].Score {
+			if scored[j].Result.Value < scored[j+1].Result.Value {
 				scored[j], scored[j+1] = scored[j+1], scored[j]
 			}
 		}
@@ -157,8 +184,8 @@ func CalculateTotal(prices []float64) float64 {
 		} else if i == 1 {
 			medal = "🥈"
 		}
-		fmt.Printf("%s %d. %s - Score: %.1f/10\n", medal, i+1, s.Snippet.Author, s.Score)
+		fmt.Printf("%s %d. %s - Score: %.1f/10\n", medal, i+1, s.Snippet.Author, s.Result.Value)
 	}
 
-	fmt.Println("\n✨ Success! All code submissions evaluated")
+	fmt.Println("\n✨ Success! All code submissions evaluated with detailed breakdowns")
 }

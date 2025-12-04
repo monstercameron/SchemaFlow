@@ -15,6 +15,13 @@ type Review struct {
 	Text    string
 }
 
+// ClassifiedReview extends Review with classification results
+type ClassifiedReview struct {
+	Review
+	Sentiment  string
+	Confidence float64
+}
+
 func main() {
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
@@ -64,35 +71,50 @@ func main() {
 	fmt.Println("\n📝 Customer Reviews to Classify:")
 	fmt.Println()
 
-	// Classify each review
-	results := make(map[string][]Review)
+	// Classify each review - now with confidence scores and alternatives!
+	results := make(map[string][]ClassifiedReview)
 	for _, category := range categories {
-		results[category] = []Review{}
+		results[category] = []ClassifiedReview{}
 	}
 
 	for _, review := range reviews {
 		classifyOpts := schemaflow.NewClassifyOptions().WithCategories(categories)
 		classifyOpts.OpOptions.Intelligence = schemaflow.Fast
 
-		sentiment, err := schemaflow.Classify(review.Text, classifyOpts)
+		// Use the new generic Classify with typed result
+		result, err := schemaflow.Classify[string, string](review.Text, classifyOpts)
 		if err != nil {
 			schemaflow.GetLogger().Warn("Failed to classify review", "review_id", review.ID, "error", err)
 			continue
 		}
 
-		results[sentiment] = append(results[sentiment], review)
+		classified := ClassifiedReview{
+			Review:     review,
+			Sentiment:  result.Category,
+			Confidence: result.Confidence,
+		}
+		results[result.Category] = append(results[result.Category], classified)
 
-		// Show individual classification
+		// Show individual classification with confidence
 		emoji := "😐"
-		if sentiment == "positive" {
+		if result.Category == "positive" {
 			emoji = "😊"
-		} else if sentiment == "negative" {
+		} else if result.Category == "negative" {
 			emoji = "😞"
 		}
 
 		fmt.Printf("Review #%d by %s %s\n", review.ID, review.Author, emoji)
 		fmt.Printf("  Product:    %s\n", review.Product)
-		fmt.Printf("  Sentiment:  %s\n", sentiment)
+		fmt.Printf("  Sentiment:  %s (%.0f%% confidence)\n", result.Category, result.Confidence*100)
+		if result.Reasoning != "" {
+			fmt.Printf("  Reasoning:  %s\n", result.Reasoning)
+		}
+		if len(result.Alternatives) > 0 {
+			fmt.Printf("  Alternatives:\n")
+			for _, alt := range result.Alternatives {
+				fmt.Printf("    - %s (%.0f%%)\n", alt.Category, alt.Confidence*100)
+			}
+		}
 		fmt.Printf("  Review:     \"%s\"\n\n", review.Text)
 	}
 
@@ -101,17 +123,17 @@ func main() {
 	fmt.Println("---")
 	fmt.Printf("😊 Positive Reviews: %d\n", len(results["positive"]))
 	for _, r := range results["positive"] {
-		fmt.Printf("   - Review #%d: %s ⭐⭐⭐⭐⭐\n", r.ID, r.Product)
+		fmt.Printf("   - Review #%d: %s ⭐⭐⭐⭐⭐ (%.0f%% confident)\n", r.ID, r.Product, r.Confidence*100)
 	}
 
 	fmt.Printf("\n😞 Negative Reviews: %d\n", len(results["negative"]))
 	for _, r := range results["negative"] {
-		fmt.Printf("   - Review #%d: %s ⭐\n", r.ID, r.Product)
+		fmt.Printf("   - Review #%d: %s ⭐ (%.0f%% confident)\n", r.ID, r.Product, r.Confidence*100)
 	}
 
 	fmt.Printf("\n😐 Neutral Reviews: %d\n", len(results["neutral"]))
 	for _, r := range results["neutral"] {
-		fmt.Printf("   - Review #%d: %s ⭐⭐⭐\n", r.ID, r.Product)
+		fmt.Printf("   - Review #%d: %s ⭐⭐⭐ (%.0f%% confident)\n", r.ID, r.Product, r.Confidence*100)
 	}
 
 	// Calculate sentiment distribution
@@ -125,5 +147,5 @@ func main() {
 	fmt.Printf("   Negative: %.0f%%\n", negativePercent)
 	fmt.Printf("   Neutral:  %.0f%%\n", neutralPercent)
 
-	fmt.Println("\n✨ Success! All reviews classified by sentiment")
+	fmt.Println("\n✨ Success! All reviews classified with confidence scores")
 }

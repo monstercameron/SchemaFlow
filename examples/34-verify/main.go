@@ -2,16 +2,15 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os"
 
-	"github.com/monstercameron/SchemaFlow/internal/ops"
+	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
 func main() {
-	// Ensure environment is configured
-	if os.Getenv("SCHEMAFLOW_API_KEY") == "" {
-		log.Fatal("SCHEMAFLOW_API_KEY environment variable not set")
+	// Initialize SchemaFlow
+	if err := schemaflow.InitWithEnv(); err != nil {
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		return
 	}
 
 	fmt.Println("=== Verify Example ===")
@@ -26,15 +25,16 @@ func main() {
 	5. The speed of light is about 300,000 km/s.
 	`
 
-	opts := ops.NewVerifyOptions().
+	opts := schemaflow.NewVerifyOptions().
 		WithCheckFacts(true).
 		WithIncludeEvidence(true).
 		WithExplainReasoning(true).
 		WithStrictness("moderate")
 
-	result, err := ops.Verify(claims, opts)
+	result, err := schemaflow.Verify(claims, opts)
 	if err != nil {
-		log.Fatalf("Verification failed: %v", err)
+		schemaflow.GetLogger().Error("Verification failed", "error", err)
+		return
 	}
 
 	fmt.Printf("Overall Verdict: %s (Trust Score: %.2f)\n\n", result.OverallVerdict, result.TrustScore)
@@ -74,14 +74,15 @@ func main() {
 	This means we can use penguins as aerial messengers.
 	`
 
-	logicOpts := ops.NewVerifyOptions().
+	logicOpts := schemaflow.NewVerifyOptions().
 		WithCheckLogic(true).
 		WithCheckFacts(true).
 		WithExplainReasoning(true)
 
-	logicResult, err := ops.Verify(argument, logicOpts)
+	logicResult, err := schemaflow.Verify(argument, logicOpts)
 	if err != nil {
-		log.Fatalf("Logic verification failed: %v", err)
+		schemaflow.GetLogger().Error("Logic verification failed", "error", err)
+		return
 	}
 
 	fmt.Printf("Argument Validity: %s\n", logicResult.OverallVerdict)
@@ -112,14 +113,15 @@ func main() {
 		},
 	}
 
-	sourceOpts := ops.NewVerifyOptions().
+	sourceOpts := schemaflow.NewVerifyOptions().
 		WithSources(sources).
 		WithStrictness("strict").
 		WithIncludeEvidence(true)
 
-	sourceResult, err := ops.Verify(articleClaim, sourceOpts)
+	sourceResult, err := schemaflow.Verify(articleClaim, sourceOpts)
 	if err != nil {
-		log.Fatalf("Source verification failed: %v", err)
+		schemaflow.GetLogger().Error("Source verification failed", "error", err)
+		return
 	}
 
 	fmt.Printf("Claim: %s\n", articleClaim)
@@ -148,13 +150,14 @@ func main() {
 	The total budget is listed as $2.5 million.
 	`
 
-	consistencyOpts := ops.NewVerifyOptions().
+	consistencyOpts := schemaflow.NewVerifyOptions().
 		WithCheckConsistency(true).
 		WithCheckLogic(true)
 
-	consistencyResult, err := ops.Verify(document, consistencyOpts)
+	consistencyResult, err := schemaflow.Verify(document, consistencyOpts)
 	if err != nil {
-		log.Fatalf("Consistency check failed: %v", err)
+		schemaflow.GetLogger().Error("Consistency check failed", "error", err)
+		return
 	}
 
 	fmt.Printf("Document Consistency: %s\n", consistencyResult.OverallVerdict)
@@ -177,9 +180,10 @@ func main() {
 	fmt.Println("--- Example 5: Single Claim ---")
 	singleClaim := "The Great Wall of China is visible from space with the naked eye."
 
-	claimResult, err := ops.VerifyClaim(singleClaim, ops.NewVerifyOptions().WithExplainReasoning(true))
+	claimResult, err := schemaflow.VerifyClaim(singleClaim, schemaflow.NewVerifyOptions().WithExplainReasoning(true))
 	if err != nil {
-		log.Fatalf("Claim verification failed: %v", err)
+		schemaflow.GetLogger().Error("Claim verification failed", "error", err)
+		return
 	}
 
 	fmt.Printf("Claim: %s\n", singleClaim)

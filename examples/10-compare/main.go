@@ -69,47 +69,79 @@ func main() {
 	fmt.Printf("   Name:  %s ($%.2f)\n", productB.Name, productB.Price)
 	fmt.Println("   Features:", productB.Features)
 
-	// Compare the products
+	// Compare the products using the new typed Compare
 	compareOpts := schemaflow.NewCompareOptions().
 		WithComparisonAspects([]string{"camera", "battery", "display", "performance", "value"}).
-		WithOutputFormat("structured")
+		WithFocusOn("both")
 	compareOpts.Depth = 7
 	compareOpts.OpOptions.Intelligence = schemaflow.Smart
 
-	comparison, err := schemaflow.Compare(productA, productB, compareOpts)
+	result, err := schemaflow.Compare[Product](productA, productB, compareOpts)
 	if err != nil {
 		schemaflow.GetLogger().Error("Comparison failed", "error", err)
 		return
 	}
 
-	// Display comparison
-	fmt.Println("\n✅ Detailed Comparison:")
+	// Display structured comparison results
+	fmt.Println("\n✅ Comparison Results:")
 	fmt.Println("---")
-	fmt.Println(comparison)
-	fmt.Println("---")
+	fmt.Printf("📊 Overall Similarity: %.0f%%\n", result.SimilarityScore*100)
+	fmt.Printf("📝 Verdict: %s\n", result.Verdict)
 
-	fmt.Println("\n📊 Quick Summary:")
-	fmt.Println("   UltraPhone Pro Max:")
-	fmt.Println("   ✓ Better camera (108MP vs 64MP)")
-	fmt.Println("   ✓ Larger battery (5000mAh vs 4500mAh)")
-	fmt.Println("   ✓ More RAM (12GB vs 8GB)")
-	fmt.Println("   ✓ More storage (256GB vs 128GB)")
-	fmt.Println()
-	fmt.Println("   SmartPhone Elite:")
-	fmt.Println("   ✓ Lower price ($1099 vs $1299)")
-	fmt.Println("   ✓ Premium iOS ecosystem")
-	fmt.Println("   ✓ Optimized hardware/software integration")
+	// Show aspect scores if available
+	if len(result.AspectScores) > 0 {
+		fmt.Println("\n📈 Similarity by Aspect:")
+		for aspect, score := range result.AspectScores {
+			bar := ""
+			filled := int(score * 10)
+			for i := 0; i < 10; i++ {
+				if i < filled {
+					bar += "█"
+				} else {
+					bar += "░"
+				}
+			}
+			fmt.Printf("   %s: %s %.0f%%\n", aspect, bar, score*100)
+		}
+	}
 
-	fmt.Println("\n🎯 Recommendation:")
-	fmt.Println("   Choose UltraPhone Pro Max for:")
+	// Show similarities
+	if len(result.Similarities) > 0 {
+		fmt.Println("\n✅ Similarities:")
+		for _, sim := range result.Similarities {
+			fmt.Printf("   • [%s] %s\n", sim.Aspect, sim.Description)
+		}
+	}
+
+	// Show differences
+	if len(result.Differences) > 0 {
+		fmt.Println("\n❌ Differences:")
+		for _, diff := range result.Differences {
+			severity := ""
+			switch diff.Severity {
+			case "major":
+				severity = "🔴"
+			case "moderate":
+				severity = "🟡"
+			case "minor":
+				severity = "🟢"
+			default:
+				severity = "⚪"
+			}
+			fmt.Printf("   %s [%s] %s\n", severity, diff.Aspect, diff.Description)
+		}
+	}
+
+	fmt.Println("\n🎯 Recommendation based on comparison:")
+	fmt.Printf("   Choose %s for:\n", productA.Name)
 	fmt.Println("   • Photography enthusiasts")
 	fmt.Println("   • Heavy multitasking")
 	fmt.Println("   • Android ecosystem preference")
 	fmt.Println()
-	fmt.Println("   Choose SmartPhone Elite for:")
+	fmt.Printf("   Choose %s for:\n", productB.Name)
 	fmt.Println("   • Apple ecosystem users")
 	fmt.Println("   • Better value for money")
 	fmt.Println("   • Premium build quality")
 
-	fmt.Println("\n✨ Success! Comprehensive product comparison complete")
+	fmt.Println("\n✨ Success! Typed product comparison with detailed analysis")
 }

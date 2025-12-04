@@ -66,7 +66,12 @@ type (
 	RedactStrategy     = ops.RedactStrategy
 	JumbleMode         = ops.JumbleMode
 	// Extended operations types
-	ValidationResult = ops.ValidationResult
+	ValidationResult      = ops.ValidationResult
+	ValidateOptions       = ops.ValidateOptions
+	ValidateResult[T any] = ops.ValidateResult[T]
+	ValidationIssue       = ops.ValidationIssue
+	QuestionOptions       = ops.QuestionOptions
+	QuestionResult[A any] = ops.QuestionResult[A]
 	// Procedural operations types
 	Decision[T any] = ops.Decision[T]
 	DecisionResult  = ops.DecisionResult
@@ -114,6 +119,27 @@ type (
 	LogicIssue                = ops.LogicIssue
 	ConsistencyIssue          = ops.ConsistencyIssue
 	VerifyResult              = ops.VerifyResult
+
+	// Analysis operation result types (refactored for Go-native generics)
+	ClassifyResult[C any]      = ops.ClassifyResult[C]
+	ClassifyAlternative[C any] = ops.ClassifyAlternative[C]
+	ScoreResult                = ops.ScoreResult
+	CompareResult[T any]       = ops.CompareResult[T]
+	ComparisonPoint            = ops.ComparisonPoint
+	SimilarResult              = ops.SimilarResult
+	AspectMatch                = ops.AspectMatch
+
+	// Text operation result types with metadata
+	SummarizeResult        = ops.SummarizeResult
+	RewriteResult          = ops.RewriteResult
+	TranslateResult        = ops.TranslateResult
+	TranslationAlternative = ops.TranslationAlternative
+	ExpandResult           = ops.ExpandResult
+
+	// Extended operation result types with metadata
+	FormatResult       = ops.FormatResult
+	MergeResult[T any] = ops.MergeResult[T]
+	MergeConflict      = ops.MergeConflict
 )
 
 // Mode constants
@@ -200,6 +226,8 @@ var (
 	NewSynthesizeOptions = ops.NewSynthesizeOptions
 	NewPredictOptions    = ops.NewPredictOptions
 	NewVerifyOptions     = ops.NewVerifyOptions
+	NewValidateOptions   = ops.NewValidateOptions
+	NewQuestionOptions   = ops.NewQuestionOptions
 )
 
 // Core operations - re-export from internal/ops
@@ -262,39 +290,55 @@ func Sort[T any](items []T, opts SortOptions) ([]T, error) {
 	return ops.Sort(items, opts)
 }
 
-// Classify categorizes text into predefined categories.
+// Classify categorizes any Go type into typed categories.
+//
+// Type parameter T specifies the input type.
+// Type parameter C specifies the category type (typically string or custom enum).
 //
 // Example:
 //
-//	category, err := schemaflow.Classify("Great product!", schemaflow.NewClassifyOptions().WithCategories([]string{"positive", "negative", "neutral"}))
-func Classify(input string, opts ClassifyOptions) (string, error) {
-	return ops.Classify(input, opts)
+//	result, err := schemaflow.Classify[string, string]("Great product!",
+//	    schemaflow.NewClassifyOptions().WithCategories([]string{"positive", "negative", "neutral"}))
+//	fmt.Printf("Category: %s (%.0f%% confidence)\n", result.Category, result.Confidence*100)
+func Classify[T any, C any](input T, opts ClassifyOptions) (ClassifyResult[C], error) {
+	return ops.Classify[T, C](input, opts)
 }
 
-// Score rates content based on specified criteria.
+// Score rates any Go type based on specified criteria.
+//
+// Type parameter T specifies the input type.
 //
 // Example:
 //
-//	score, err := schemaflow.Score(essay, schemaflow.NewScoreOptions().WithCriteria([]string{"clarity", "grammar"}))
-func Score(input any, opts ScoreOptions) (float64, error) {
+//	result, err := schemaflow.Score[Essay](essay,
+//	    schemaflow.NewScoreOptions().WithCriteria([]string{"clarity", "grammar"}))
+//	fmt.Printf("Score: %.1f/10\n", result.Value)
+func Score[T any](input T, opts ScoreOptions) (ScoreResult, error) {
 	return ops.Score(input, opts)
 }
 
-// Compare analyzes similarities and differences between two items.
+// Compare analyzes similarities and differences between two items of the same type.
+//
+// Type parameter T specifies the type of items being compared.
 //
 // Example:
 //
-//	comparison, err := schemaflow.Compare(product1, product2, schemaflow.NewCompareOptions())
-func Compare(itemA, itemB any, opts CompareOptions) (string, error) {
+//	result, err := schemaflow.Compare[Product](product1, product2, schemaflow.NewCompareOptions())
+//	fmt.Printf("Similarity: %.0f%%\n", result.SimilarityScore*100)
+func Compare[T any](itemA, itemB T, opts CompareOptions) (CompareResult[T], error) {
 	return ops.Compare(itemA, itemB, opts)
 }
 
-// Similar checks semantic similarity between two items.
+// Similar checks semantic similarity between two items of the same type.
+//
+// Type parameter T specifies the type of items being compared.
 //
 // Example:
 //
-//	similar, err := schemaflow.Similar("AI is great", "Artificial intelligence is wonderful", schemaflow.NewSimilarOptions())
-func Similar(itemA, itemB any, opts SimilarOptions) (bool, error) {
+//	result, err := schemaflow.Similar[string]("AI is great", "Artificial intelligence is wonderful",
+//	    schemaflow.NewSimilarOptions())
+//	fmt.Printf("Similar: %v (score: %.0f%%)\n", result.IsSimilar, result.Score*100)
+func Similar[T any](itemA, itemB T, opts SimilarOptions) (SimilarResult, error) {
 	return ops.Similar(itemA, itemB, opts)
 }
 
@@ -343,6 +387,18 @@ func Summarize(input string, opts SummarizeOptions) (string, error) {
 	return ops.Summarize(input, opts)
 }
 
+// SummarizeWithMetadata summarizes text and returns rich metadata including
+// compression ratio, key points, and confidence score.
+//
+// Example:
+//
+//	result, err := schemaflow.SummarizeWithMetadata(longText, schemaflow.NewSummarizeOptions())
+//	fmt.Printf("Summary: %s\nKey points: %v\nCompression: %.0f%%\n",
+//	    result.Text, result.KeyPoints, result.CompressionRatio*100)
+func SummarizeWithMetadata(input string, opts SummarizeOptions) (SummarizeResult, error) {
+	return ops.SummarizeWithMetadata(input, opts)
+}
+
 // Rewrite rewrites text according to specified instructions.
 //
 // Example:
@@ -350,6 +406,18 @@ func Summarize(input string, opts SummarizeOptions) (string, error) {
 //	rewritten, err := schemaflow.Rewrite(text, schemaflow.NewRewriteOptions().WithStyle("formal"))
 func Rewrite(input string, opts RewriteOptions) (string, error) {
 	return ops.Rewrite(input, opts)
+}
+
+// RewriteWithMetadata rewrites text and returns metadata including
+// what changes were made, tone achieved, and confidence score.
+//
+// Example:
+//
+//	result, err := schemaflow.RewriteWithMetadata(text, schemaflow.NewRewriteOptions().WithTargetTone("professional"))
+//	fmt.Printf("Rewritten: %s\nChanges: %v\nTone: %s\n",
+//	    result.Text, result.ChangesMade, result.ToneAchieved)
+func RewriteWithMetadata(input string, opts RewriteOptions) (RewriteResult, error) {
+	return ops.RewriteWithMetadata(input, opts)
 }
 
 // Translate translates text to a target language.
@@ -361,6 +429,18 @@ func Translate(input string, opts TranslateOptions) (string, error) {
 	return ops.Translate(input, opts)
 }
 
+// TranslateWithMetadata translates text and returns metadata including
+// detected source language, confidence, and alternative translations.
+//
+// Example:
+//
+//	result, err := schemaflow.TranslateWithMetadata(text, schemaflow.NewTranslateOptions().WithTargetLanguage("French"))
+//	fmt.Printf("Translation: %s\nDetected language: %s\nConfidence: %.0f%%\n",
+//	    result.Text, result.SourceLanguageDetected, result.Confidence*100)
+func TranslateWithMetadata(input string, opts TranslateOptions) (TranslateResult, error) {
+	return ops.TranslateWithMetadata(input, opts)
+}
+
 // Expand expands brief text into more detailed content.
 //
 // Example:
@@ -368,6 +448,18 @@ func Translate(input string, opts TranslateOptions) (string, error) {
 //	expanded, err := schemaflow.Expand(briefText, schemaflow.NewExpandOptions().WithTargetLength(500))
 func Expand(input string, opts ExpandOptions) (string, error) {
 	return ops.Expand(input, opts)
+}
+
+// ExpandWithMetadata expands text and returns metadata including
+// expansion ratio, what content was added, and confidence score.
+//
+// Example:
+//
+//	result, err := schemaflow.ExpandWithMetadata(briefText, schemaflow.NewExpandOptions())
+//	fmt.Printf("Expanded: %s\nExpansion ratio: %.1fx\nAdded: %v\n",
+//	    result.Text, result.ExpansionRatio, result.AddedContent)
+func ExpandWithMetadata(input string, opts ExpandOptions) (ExpandResult, error) {
+	return ops.ExpandWithMetadata(input, opts)
 }
 
 // Suggest generates context-aware suggestions.
@@ -414,13 +506,47 @@ func Complete(partialText string, opts CompleteOptions) (CompleteResult, error) 
 	}, nil
 }
 
-// Validate checks if data meets specified validation rules.
+// Validate checks if data meets specified validation rules with rich result.
 //
 // Example:
 //
-//	result, err := schemaflow.Validate(person, "age must be 18-100")
-func Validate[T any](data T, rules string, opts ...OpOptions) (ValidationResult, error) {
-	return ops.Validate(data, rules, opts...)
+//	result, err := schemaflow.Validate[Person](person, schemaflow.NewValidateOptions().
+//	    WithRules("age must be 18-100, email must be valid"))
+//	if !result.Valid {
+//	    for _, err := range result.Errors {
+//	        fmt.Printf("Error: %s\n", err.Message)
+//	    }
+//	}
+func Validate[T any](data T, opts ValidateOptions) (ValidateResult[T], error) {
+	return ops.Validate(data, opts)
+}
+
+// ValidateLegacy is the legacy validation function for backward compatibility.
+//
+// Example:
+//
+//	result, err := schemaflow.ValidateLegacy(person, "age must be 18-100")
+func ValidateLegacy[T any](data T, rules string, opts ...OpOptions) (ValidationResult, error) {
+	return ops.ValidateLegacy(data, rules, opts...)
+}
+
+// Question answers questions about data and returns a typed answer.
+//
+// Example:
+//
+//	result, err := schemaflow.Question[Report, string](report, schemaflow.NewQuestionOptions("What is the main finding?"))
+//	fmt.Println(result.Answer, "confidence:", result.Confidence)
+func Question[T any, A any](data T, opts QuestionOptions) (QuestionResult[A], error) {
+	return ops.Question[T, A](data, opts)
+}
+
+// QuestionLegacy answers questions about data using the legacy string interface.
+//
+// Example:
+//
+//	answer, err := schemaflow.QuestionLegacy(report, "What are the top 3 risks?")
+func QuestionLegacy(data any, question string, opts ...OpOptions) (string, error) {
+	return ops.QuestionLegacy(data, question, opts...)
 }
 
 // Merge combines multiple data sources using a specified strategy.
@@ -430,6 +556,38 @@ func Validate[T any](data T, rules string, opts ...OpOptions) (ValidationResult,
 //	merged, err := schemaflow.Merge(sources, "first-wins")
 func Merge[T any](sources []T, strategy string, opts ...OpOptions) (T, error) {
 	return ops.Merge(sources, strategy, opts...)
+}
+
+// MergeWithMetadata combines data sources and returns metadata including
+// which sources were used, any conflicts, and how they were resolved.
+//
+// Example:
+//
+//	result, err := schemaflow.MergeWithMetadata(sources, "prefer-newest")
+//	fmt.Printf("Merged: %+v\nConflicts: %d\nConfidence: %.0f%%\n",
+//	    result.Merged, len(result.Conflicts), result.Confidence*100)
+func MergeWithMetadata[T any](sources []T, strategy string, opts ...OpOptions) (MergeResult[T], error) {
+	return ops.MergeWithMetadata(sources, strategy, opts...)
+}
+
+// Format converts data to a specific output format.
+//
+// Example:
+//
+//	formatted, err := schemaflow.Format(data, "markdown table")
+func Format(data any, template string, opts ...OpOptions) (string, error) {
+	return ops.Format(data, template, opts...)
+}
+
+// FormatWithMetadata formats data and returns metadata including
+// what format was applied, transformation notes, and confidence score.
+//
+// Example:
+//
+//	result, err := schemaflow.FormatWithMetadata(data, "professional bio in third person")
+//	fmt.Printf("Formatted: %s\nFormat applied: %s\n", result.Text, result.FormatApplied)
+func FormatWithMetadata(data any, template string, opts ...OpOptions) (FormatResult, error) {
+	return ops.FormatWithMetadata(data, template, opts...)
 }
 
 // Decide makes a decision based on conditions and context.

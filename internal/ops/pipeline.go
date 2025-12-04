@@ -360,12 +360,16 @@ func ExtractAndValidatePipeline[T any](rules string) *Pipeline {
 		}).
 		Add("Validate", func(ctx context.Context, input any) (any, error) {
 			if data, ok := input.(T); ok {
-				result, err := Validate(data, rules)
+				result, err := Validate(data, NewValidateOptions().WithRules(rules))
 				if err != nil {
 					return nil, err
 				}
 				if !result.Valid {
-					return nil, fmt.Errorf("validation failed: %v", result.Issues)
+					var issues []string
+					for _, e := range result.Errors {
+						issues = append(issues, e.Message)
+					}
+					return nil, fmt.Errorf("validation failed: %v", issues)
 				}
 				return data, nil
 			}
