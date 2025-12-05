@@ -13,6 +13,8 @@
 package schemaflow
 
 import (
+	"context"
+
 	"github.com/monstercameron/SchemaFlow/internal/ops"
 	"github.com/monstercameron/SchemaFlow/internal/types"
 )
@@ -524,6 +526,33 @@ func Redact[T any](input T, opts RedactOptions) (T, error) {
 	return ops.Redact(input, opts)
 }
 
+// Re-export LLM-powered Redact types and functions
+type (
+	RedactLLMOptions = ops.RedactLLMOptions
+	RedactLLMResult  = ops.RedactLLMResult
+	RedactSpan       = ops.RedactSpan
+)
+
+var NewRedactLLMOptions = ops.NewRedactLLMOptions
+
+// RedactLLM uses LLM to intelligently identify and mask sensitive data at character level.
+// Unlike the regex-based Redact, this uses AI to understand context and detect sensitive
+// information that patterns might miss.
+//
+// Example:
+//
+//	result, err := schemaflow.RedactLLM("Contact john@email.com for support",
+//	    schemaflow.NewRedactLLMOptions().
+//	        WithCategories([]string{"email", "phone"}).
+//	        WithMaskChar('*').
+//	        WithShowFirst(2).
+//	        WithShowLast(2))
+//	// result.Text = "Contact jo**********om for support"
+//	// result.Spans = [{Start: 8, End: 22, Category: "email", Original: "john@email.com"}]
+func RedactLLM(text string, opts RedactLLMOptions) (RedactLLMResult, error) {
+	return ops.RedactLLM(context.Background(), text, opts)
+}
+
 // Re-export Complete types and functions
 type (
 	CompleteOptions = ops.CompleteOptions
@@ -532,6 +561,15 @@ type (
 
 var NewCompleteOptions = ops.NewCompleteOptions
 
+// NewCompleteFieldOptions creates options for completing a specific field in a struct.
+var NewCompleteFieldOptions = ops.NewCompleteFieldOptions
+
+// CompleteFieldResult is the result of completing a field in a struct.
+type CompleteFieldResult[T any] = ops.CompleteFieldResult[T]
+
+// CompleteFieldOptions configures the CompleteField operation.
+type CompleteFieldOptions = ops.CompleteFieldOptions
+
 // Complete intelligently completes partial text using LLM intelligence.
 // Note: This is a simplified wrapper that uses the default provider.
 //
@@ -539,15 +577,23 @@ var NewCompleteOptions = ops.NewCompleteOptions
 //
 //	result, err := schemaflow.Complete(partialText, schemaflow.NewCompleteOptions())
 func Complete(partialText string, opts CompleteOptions) (CompleteResult, error) {
-	// For now, return a mock result - Complete requires context and provider
-	// which isn't available in the simple API
-	return CompleteResult{
-		Text:       partialText + "...",
-		Original:   partialText,
-		Length:     3,
-		Confidence: 0.0,
-		Metadata:   map[string]any{"note": "Complete requires full client setup"},
-	}, nil
+	return ops.Complete(context.Background(), nil, partialText, opts)
+}
+
+// CompleteField completes a specific string field in a struct and returns a new copy
+// with the completed field. The struct's other fields provide context for completion.
+//
+// Example:
+//
+//	type BlogPost struct {
+//	    Title string `json:"title"`
+//	    Body  string `json:"body"`
+//	}
+//	post := BlogPost{Title: "AI in Healthcare", Body: "Artificial intelligence is transforming"}
+//	result, err := schemaflow.CompleteField[BlogPost](post, schemaflow.NewCompleteFieldOptions("Body"))
+//	// result.Data.Body now contains the completed text
+func CompleteField[T any](data T, opts CompleteFieldOptions) (CompleteFieldResult[T], error) {
+	return ops.CompleteField[T](context.Background(), nil, data, opts)
 }
 
 // Validate checks if data meets specified validation rules with rich result.
@@ -840,6 +886,48 @@ func VerifyClaim(claim string, opts VerifyOptions) (ClaimVerification, error) {
 //	})
 func Negotiate[T any](constraints any, opts ...NegotiateOptions) (NegotiateResult[T], error) {
 	return ops.Negotiate[T](constraints, opts...)
+}
+
+// AdversarialPosition represents one party's position in a negotiation.
+type AdversarialPosition[T any] = ops.AdversarialPosition[T]
+
+// AdversarialContext provides the negotiation dynamics between two parties.
+type AdversarialContext[T any] = ops.AdversarialContext[T]
+
+// TermMovement tracks how a specific term moved during negotiation.
+type TermMovement = ops.TermMovement
+
+// AdversarialResult contains the outcome of an adversarial negotiation.
+type AdversarialResult[T any] = ops.AdversarialResult[T]
+
+// AdversarialOptions configures the adversarial negotiation.
+type AdversarialOptions = ops.AdversarialOptions
+
+// NegotiateAdversarial conducts a two-party adversarial negotiation.
+//
+// This models real-world negotiations where two parties with opposing interests
+// must find common ground. The leverage parameter determines who has more power
+// and thus who should concede more.
+//
+// Type parameter T specifies the structure of positions and the final deal.
+//
+// Example:
+//
+//	type SalaryTerms struct {
+//	    BaseSalary int `json:"base_salary"`
+//	    RemoteDays int `json:"remote_days"`
+//	}
+//	ctx := schemaflow.AdversarialContext[SalaryTerms]{
+//	    Ours:        schemaflow.AdversarialPosition[SalaryTerms]{Position: SalaryTerms{BaseSalary: 160000, RemoteDays: 5}},
+//	    Theirs:      schemaflow.AdversarialPosition[SalaryTerms]{Position: SalaryTerms{BaseSalary: 130000, RemoteDays: 2}},
+//	    OurLeverage: "strong",
+//	}
+//	result, err := schemaflow.NegotiateAdversarial[SalaryTerms](ctx)
+//	// result.Deal has the final terms
+//	// result.TermMovements shows who moved on each term
+//	// result.WhoConcededMore indicates "they" since we had strong leverage
+func NegotiateAdversarial[T any](context AdversarialContext[T], opts ...AdversarialOptions) (AdversarialResult[T], error) {
+	return ops.NegotiateAdversarial[T](context, opts...)
 }
 
 // Resolve resolves conflicts when multiple typed sources disagree.

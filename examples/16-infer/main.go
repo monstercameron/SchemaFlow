@@ -1,12 +1,45 @@
+// 16-infer: Infer missing information from partial data using LLM
+// Intelligence: Fast (Cerebras gpt-oss-120b)
+// Expectations:
+// - Person: Name="John", Age=30 → infers Email and City based on context
+// - Product: Name="iPhone 15" → infers Price, Category, Brand
+
 package main
 
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
+
+// loadEnv loads environment variables from .env file
+func loadEnv() {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			if err := godotenv.Load(envPath); err != nil {
+				log.Fatal("Error loading .env file")
+			}
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	log.Fatal(".env file not found")
+}
 
 // Person represents a person with some fields that might be missing
 type Person struct {
@@ -25,9 +58,11 @@ type Product struct {
 }
 
 func main() {
-	// Initialize SchemaFlow
+	loadEnv()
+
+	// Initialize SchemaFlow with Fast intelligence (Cerebras)
 	fmt.Println("🔧 Initializing SchemaFlow...")
-	if err := schemaflow.InitWithEnv(".env"); err != nil {
+	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}

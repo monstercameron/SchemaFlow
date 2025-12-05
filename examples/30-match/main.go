@@ -4,168 +4,132 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
+	"github.com/monstercameron/SchemaFlow"
 	"github.com/monstercameron/SchemaFlow/internal/ops"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-func main() {
-	// Ensure environment is configured
-	if os.Getenv("SCHEMAFLOW_API_KEY") == "" {
-		log.Fatal("SCHEMAFLOW_API_KEY environment variable not set")
+func loadEnv() {
+	dir, _ := os.Getwd()
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".env")); err == nil {
+			godotenv.Load(filepath.Join(dir, ".env"))
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
 	}
+}
+
+func main() {
+	loadEnv()
+	schemaflow.InitWithEnv()
 
 	fmt.Println("=== SemanticMatch Example ===")
+	fmt.Println("Finds semantic matches between two sets of data")
+	fmt.Println()
 
-	// Example 1: Match queries to products
-	fmt.Println("--- Example 1: Product Matching ---")
+	// Business Use Case: Match customer search queries to products
+	fmt.Println("--- Business Use Case: E-commerce Search Matching ---")
+
 	type Product struct {
-		ID          int      `json:"id"`
-		Name        string   `json:"name"`
-		Description string   `json:"description"`
-		Category    string   `json:"category"`
-		Tags        []string `json:"tags"`
-	}
-
-	type Query struct {
-		SearchTerm string `json:"search_term"`
+		ID          int    `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
 	}
 
 	products := []Product{
-		{ID: 1, Name: "Wireless Bluetooth Headphones", Description: "Over-ear noise cancelling headphones", Category: "Audio", Tags: []string{"wireless", "bluetooth", "audio"}},
-		{ID: 2, Name: "USB-C Charging Cable", Description: "Fast charging cable for phones and laptops", Category: "Accessories", Tags: []string{"cable", "charging", "usb-c"}},
-		{ID: 3, Name: "Mechanical Gaming Keyboard", Description: "RGB keyboard with Cherry MX switches", Category: "Peripherals", Tags: []string{"keyboard", "gaming", "mechanical"}},
-		{ID: 4, Name: "Wireless Mouse", Description: "Ergonomic mouse with adjustable DPI", Category: "Peripherals", Tags: []string{"mouse", "wireless", "ergonomic"}},
-		{ID: 5, Name: "Portable Power Bank", Description: "20000mAh battery pack with fast charging", Category: "Accessories", Tags: []string{"battery", "charging", "portable"}},
+		{ID: 1, Name: "Wireless Bluetooth Headphones", Description: "Over-ear noise cancelling"},
+		{ID: 2, Name: "USB-C Charging Cable", Description: "Fast charging for phones"},
+		{ID: 3, Name: "Mechanical Gaming Keyboard", Description: "RGB with Cherry MX switches"},
 	}
 
-	queries := []Query{
-		{SearchTerm: "bluetooth audio device"},
-		{SearchTerm: "charging accessories"},
-		{SearchTerm: "gaming equipment"},
+	query := "bluetooth audio device"
+
+	fmt.Println("INPUT:")
+	fmt.Printf("  Query: %q\n", query)
+	fmt.Println("  Products: []Product")
+	for _, p := range products {
+		fmt.Printf("    - ID:%d %q\n", p.ID, p.Name)
 	}
+	fmt.Println()
 
 	opts := ops.NewMatchOptions().
 		WithStrategy("best-fit").
-		WithThreshold(0.5).
-		WithMatchFields([]string{"name", "description", "tags"})
+		WithThreshold(0.3).
+		WithIntelligence(types.Smart)
 
-	result, err := ops.SemanticMatch(queries, products, opts)
+	result, err := ops.SemanticMatch([]string{query}, products, opts)
 	if err != nil {
 		log.Fatalf("Matching failed: %v", err)
 	}
 
-	fmt.Println("Match results:")
+	fmt.Println("OUTPUT: MatchResult")
+	fmt.Printf("  TotalMatches: %d\n", len(result.Matches))
 	for _, match := range result.Matches {
-		fmt.Printf("\n  Query: '%s'\n", queries[match.SourceIndex].SearchTerm)
-		fmt.Printf("  Match: %s (Score: %.2f)\n", products[match.TargetIndex].Name, match.Score)
-		if match.Explanation != "" {
-			fmt.Printf("  Why: %s\n", match.Explanation)
-		}
+		fmt.Printf("  Match:\n")
+		fmt.Printf("    Product:     %q\n", products[match.TargetIndex].Name)
+		fmt.Printf("    Score:       %.2f\n", match.Score)
+		fmt.Printf("    Explanation: %q\n", match.Explanation)
 	}
 	fmt.Println()
 
-	// Example 2: Match candidates to job requirements
-	fmt.Println("--- Example 2: Candidate-Job Matching ---")
+	// Business Use Case: Match candidates to job requirements
+	fmt.Println("--- Business Use Case: Recruiting - Candidate Matching ---")
+
 	type JobReq struct {
-		Title      string   `json:"title"`
-		Skills     []string `json:"skills"`
-		Experience int      `json:"experience_years"`
+		Title  string   `json:"title"`
+		Skills []string `json:"skills"`
 	}
 
 	type Candidate struct {
-		Name       string   `json:"name"`
-		Skills     []string `json:"skills"`
-		Experience int      `json:"experience"`
+		Name   string   `json:"name"`
+		Skills []string `json:"skills"`
 	}
 
-	jobs := []JobReq{
-		{Title: "Senior Go Developer", Skills: []string{"Go", "Kubernetes", "gRPC"}, Experience: 5},
-		{Title: "Frontend Engineer", Skills: []string{"React", "TypeScript", "CSS"}, Experience: 3},
+	job := JobReq{
+		Title:  "Senior Go Developer",
+		Skills: []string{"Go", "Kubernetes", "gRPC"},
 	}
 
 	candidates := []Candidate{
-		{Name: "Alice", Skills: []string{"Go", "Docker", "Kubernetes"}, Experience: 6},
-		{Name: "Bob", Skills: []string{"JavaScript", "React", "Node.js"}, Experience: 4},
-		{Name: "Charlie", Skills: []string{"Python", "Django", "PostgreSQL"}, Experience: 5},
-		{Name: "Diana", Skills: []string{"Go", "gRPC", "Microservices"}, Experience: 4},
+		{Name: "Alice", Skills: []string{"Go", "Docker", "Kubernetes"}},
+		{Name: "Bob", Skills: []string{"JavaScript", "React", "Node.js"}},
+		{Name: "Diana", Skills: []string{"Go", "gRPC", "Microservices"}},
 	}
 
-	jobOpts := ops.NewMatchOptions().
-		WithStrategy("one-to-one").
-		WithThreshold(0.4).
-		WithFieldWeights(map[string]float64{
-			"skills":     2.0,
-			"experience": 1.0,
-		})
+	fmt.Println("INPUT:")
+	fmt.Printf("  Job: %q with skills %v\n", job.Title, job.Skills)
+	fmt.Println("  Candidates:")
+	for _, c := range candidates {
+		fmt.Printf("    - %s: %v\n", c.Name, c.Skills)
+	}
+	fmt.Println()
 
-	jobResult, err := ops.SemanticMatch(jobs, candidates, jobOpts)
+	jobOpts := ops.NewMatchOptions().
+		WithStrategy("best-fit").
+		WithThreshold(0.3).
+		WithIntelligence(types.Smart)
+
+	jobResult, err := ops.SemanticMatch([]JobReq{job}, candidates, jobOpts)
 	if err != nil {
 		log.Fatalf("Job matching failed: %v", err)
 	}
 
-	fmt.Println("Job-Candidate matches:")
+	fmt.Println("OUTPUT: MatchResult")
+	fmt.Printf("  TotalMatches: %d\n", len(jobResult.Matches))
 	for _, match := range jobResult.Matches {
-		fmt.Printf("\n  %s -> %s (Score: %.2f)\n", jobs[match.SourceIndex].Title, candidates[match.TargetIndex].Name, match.Score)
-	}
-
-	fmt.Printf("\nUnmatched candidates: %d\n", len(jobResult.UnmatchedTargets))
-	fmt.Println()
-
-	// Example 3: Match a single query using MatchOne
-	fmt.Println("--- Example 3: Single Item Matching ---")
-	type SearchQuery struct {
-		Term string `json:"term"`
-	}
-	singleQuery := SearchQuery{Term: "noise cancelling earbuds for travel"}
-
-	matches, err := ops.MatchOne(singleQuery, products, ops.NewMatchOptions().WithStrategy("best-fit"))
-	if err != nil {
-		log.Fatalf("Single matching failed: %v", err)
-	}
-
-	fmt.Printf("Query: '%s'\n", singleQuery.Term)
-	if len(matches) > 0 {
-		fmt.Printf("Best match: %s (Score: %.2f)\n", matches[0].Target.Name, matches[0].Score)
-	}
-	fmt.Println()
-
-	// Example 4: Entity resolution matching
-	fmt.Println("--- Example 4: Entity Resolution ---")
-	type Record struct {
-		Name    string `json:"name"`
-		Company string `json:"company"`
-		Email   string `json:"email"`
-	}
-
-	sourceRecords := []Record{
-		{Name: "John Smith", Company: "Acme Corp", Email: "john.s@acme.com"},
-		{Name: "Jane Doe", Company: "Tech Inc", Email: "jdoe@tech.io"},
-	}
-
-	targetRecords := []Record{
-		{Name: "J. Smith", Company: "Acme Corporation", Email: "john.smith@acme.com"},
-		{Name: "Jane D.", Company: "Tech Incorporated", Email: "jane.doe@tech.io"},
-		{Name: "Bob Wilson", Company: "Other LLC", Email: "bob@other.com"},
-	}
-
-	entityOpts := ops.NewMatchOptions().
-		WithStrategy("all-matches").
-		WithThreshold(0.6).
-		WithAllowPartial(true)
-
-	entityResult, err := ops.SemanticMatch(sourceRecords, targetRecords, entityOpts)
-	if err != nil {
-		log.Fatalf("Entity matching failed: %v", err)
-	}
-
-	fmt.Println("Entity resolution matches:")
-	for _, match := range entityResult.Matches {
-		source := sourceRecords[match.SourceIndex]
-		target := targetRecords[match.TargetIndex]
-		fmt.Printf("  %s (%s) <-> %s (%s) [%.2f]\n",
-			source.Name, source.Company,
-			target.Name, target.Company,
-			match.Score)
+		fmt.Printf("  Match:\n")
+		fmt.Printf("    Candidate:   %q\n", candidates[match.TargetIndex].Name)
+		fmt.Printf("    Skills:      %v\n", candidates[match.TargetIndex].Skills)
+		fmt.Printf("    Score:       %.2f\n", match.Score)
+		fmt.Printf("    Explanation: %q\n", match.Explanation)
 	}
 
 	fmt.Println("\n=== SemanticMatch Example Complete ===")

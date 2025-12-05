@@ -1,180 +1,203 @@
+// 21-redact: LLM-powered sensitive data detection and character-level masking
+// Intelligence: Fast (Cerebras gpt-oss-120b)
+// Expectations:
+// - LLM identifies sensitive data (emails, phones, SSNs, names, etc.)
+// - Returns exact character positions (spans) for each detection
+// - Masks at character level with configurable mask char
+// - Supports partial reveal (show first N, last N characters)
+
 package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
+// loadEnv loads environment variables from .env file
+func loadEnv() {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			if err := godotenv.Load(envPath); err != nil {
+				log.Fatal("Error loading .env file")
+			}
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	log.Fatal(".env file not found")
+}
+
 func main() {
-	fmt.Println("=== SchemaFlow Redact Operation Examples ===")
+	loadEnv()
 
-	// Example 1: Basic text redaction
-	fmt.Println("1. Basic Text Redaction:")
-	text1 := "Contact john@example.com or call 555-123-4567 for support."
-	fmt.Printf("   Original: %q\n", text1)
+	fmt.Println("🔒 RedactLLM Example - AI-Powered Sensitive Data Masking")
+	fmt.Println("=" + string(make([]byte, 60)))
 
-	result1, _ := schemaflow.Redact(text1, schemaflow.NewRedactOptions().WithCategories([]string{"PII"}))
-	fmt.Printf("   Redacted: %q\n", result1)
-
-	// Example 2: Different redaction strategies
-	fmt.Println("\n2. Redaction Strategies:")
-	email := "user@company.com"
-
-	strategies := []struct {
-		name string
-		opts schemaflow.RedactOptions
-	}{
-		{"Mask", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(schemaflow.RedactMask)},
-		{"Nil", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(schemaflow.RedactNil)},
-		{"Jumble", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(schemaflow.RedactJumble).WithJumbleSeed(42)},
+	// Initialize SchemaFlow
+	if err := schemaflow.InitWithEnv(); err != nil {
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		return
 	}
 
-	for _, strategy := range strategies {
-		result, _ := schemaflow.Redact(email, strategy.opts)
-		fmt.Printf("   %s: %q → %q\n", strategy.name, email, result)
-	}
+	// Example 1: Basic sensitive data detection
+	fmt.Println("\n1️⃣  Basic PII Detection")
+	fmt.Println("─" + string(make([]byte, 60)))
 
-	// Example 3: Struct redaction
-	fmt.Println("\n3. Struct Field Redaction:")
-	type User struct {
-		Name     string `redact:"PII"`
-		Email    string
-		Password string
-		Age      int
-	}
+	text1 := "Contact John Smith at john.smith@company.com or call 555-123-4567 for support."
+	fmt.Printf("   Input:  %q\n", text1)
 
-	user := User{
-		Name:     "John Smith",
-		Email:    "john.smith@company.com",
-		Password: "secret123",
-		Age:      30,
-	}
+	result1, err := schemaflow.RedactLLM(text1,
+		schemaflow.NewRedactLLMOptions().
+			WithCategories([]string{"all"}).
+			WithMaskChar('*').
+			WithIntelligence(schemaflow.Fast))
 
-	fmt.Printf("   Original: %+v\n", user)
-	redactedUser, _ := schemaflow.Redact(user, schemaflow.NewRedactOptions().WithCategories([]string{"PII"}))
-	fmt.Printf("   Redacted: %+v\n", redactedUser)
-
-	// Example 4: Struct field name detection
-	fmt.Println("\n4. Field Name-Based Detection:")
-	type Config struct {
-		DatabasePassword string
-		APIToken         string
-		NormalField      string
-	}
-
-	config := Config{
-		DatabasePassword: "dbpass123",
-		APIToken:         "token456",
-		NormalField:      "normal",
-	}
-
-	fmt.Printf("   Original: %+v\n", config)
-	redactedConfig, _ := schemaflow.Redact(config, schemaflow.NewRedactOptions().WithCategories([]string{"secrets"}))
-	fmt.Printf("   Redacted: %+v\n", redactedConfig)
-
-	// Example 5: Map redaction
-	fmt.Println("\n5. Map Value Redaction:")
-	data := map[string]string{
-		"email":       "contact@business.com",
-		"password":    "password: mysecret",
-		"full_name":   "Jane Doe",
-		"description": "Regular text here",
-	}
-
-	fmt.Printf("   Original: %+v\n", data)
-	redactedData, _ := schemaflow.Redact(data, schemaflow.NewRedactOptions().WithCategories([]string{"PII", "secrets"}))
-	fmt.Printf("   Redacted: %+v\n", redactedData)
-
-	// Example 6: Slice redaction
-	fmt.Println("\n6. Slice Element Redaction:")
-	emails := []string{
-		"valid@email.com",
-		"another@domain.org",
-		"not an email",
-	}
-
-	fmt.Printf("   Original: %v\n", emails)
-	redactedEmails, _ := schemaflow.Redact(emails, schemaflow.NewRedactOptions().WithCategories([]string{"PII"}))
-	fmt.Printf("   Redacted: %v\n", redactedEmails)
-
-	// Example 7: Jumble variations
-	fmt.Println("\n7. Jumble Strategy Variations:")
-	phone := "555-123-4567"
-	name := "Alice Johnson"
-
-	jumbleOpts := []struct {
-		desc string
-		opts schemaflow.RedactOptions
-	}{
-		{"Basic Jumble", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(schemaflow.RedactJumble).WithJumbleMode(schemaflow.JumbleBasic).WithJumbleSeed(123)},
-		{"Type-Aware Jumble", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithStrategy(schemaflow.RedactJumble).WithJumbleMode(schemaflow.JumbleTypeAware).WithJumbleSeed(123)},
-	}
-
-	for _, item := range []string{phone, name} {
-		fmt.Printf("   Item: %q\n", item)
-		for _, jumbleOpt := range jumbleOpts {
-			result, _ := schemaflow.Redact(item, jumbleOpt.opts)
-			fmt.Printf("     %s: %q\n", jumbleOpt.desc, result)
+	if err != nil {
+		fmt.Printf("   ❌ Error: %v\n", err)
+	} else {
+		fmt.Printf("   Output: %q\n", result1.Text)
+		fmt.Println("   Spans detected:")
+		for _, span := range result1.Spans {
+			fmt.Printf("      [%d:%d] %s → %q\n", span.Start, span.End, span.Category, span.Original)
 		}
 	}
 
-	// Example 8: Multiple categories
-	fmt.Println("\n8. Multiple Categories:")
-	mixedText := "User john@example.com has SSN 123-45-6789 and password: secret123"
-	fmt.Printf("   Original: %q\n", mixedText)
+	// Example 2: Partial reveal (show first/last characters)
+	fmt.Println("\n2️⃣  Partial Reveal - Show First 2 and Last 2 Characters")
+	fmt.Println("─" + string(make([]byte, 60)))
 
-	result8, _ := schemaflow.Redact(mixedText, schemaflow.NewRedactOptions().WithCategories([]string{"PII", "secrets"}))
-	fmt.Printf("   Redacted: %q\n", result8)
+	text2 := "My email is alice.johnson@example.org and SSN is 123-45-6789."
+	fmt.Printf("   Input:  %q\n", text2)
 
-	// Example 9: Custom patterns
-	fmt.Println("\n9. Custom Patterns:")
-	customText := "API key: sk-1234567890abcdef, DB: mysql://user:pass@host/db"
-	fmt.Printf("   Original: %q\n", customText)
+	result2, err := schemaflow.RedactLLM(text2,
+		schemaflow.NewRedactLLMOptions().
+			WithCategories([]string{"email", "ssn"}).
+			WithMaskChar('*').
+			WithShowFirst(2).
+			WithShowLast(2).
+			WithIntelligence(schemaflow.Fast))
 
-	result9, _ := schemaflow.Redact(customText, schemaflow.NewRedactOptions().
-		WithCategories([]string{"secrets"}).
-		WithCustomPatterns([]string{`sk-\w{20}`, `mysql://\S+`}))
-	fmt.Printf("   Redacted: %q\n", result9)
-
-	// Example 11: Custom mask configuration
-	fmt.Println("\n11. Custom Mask Configuration:")
-	sampleEmail := "user@company.com"
-
-	masks := []struct {
-		desc string
-		opts schemaflow.RedactOptions
-	}{
-		{"Default mask", schemaflow.NewRedactOptions().WithCategories([]string{"PII"})},
-		{"Custom text", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskText("[PRIVATE]")},
-		{"Hash symbols", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskChar('#').WithMaskLength(5)},
-		{"At symbols", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskChar('@').WithMaskLength(8)},
-		{"Original length X", schemaflow.NewRedactOptions().WithCategories([]string{"PII"}).WithMaskChar('X').WithMaskLength(-1)},
+	if err != nil {
+		fmt.Printf("   ❌ Error: %v\n", err)
+	} else {
+		fmt.Printf("   Output: %q\n", result2.Text)
+		fmt.Println("   Spans detected:")
+		for _, span := range result2.Spans {
+			fmt.Printf("      [%d:%d] %s → %q\n", span.Start, span.End, span.Category, span.Original)
+		}
 	}
 
-	for _, mask := range masks {
-		result, _ := schemaflow.Redact(sampleEmail, mask.opts)
-		fmt.Printf("   %s: %q → %q\n", mask.desc, sampleEmail, result)
+	// Example 3: Custom mask character
+	fmt.Println("\n3️⃣  Custom Mask Character (█)")
+	fmt.Println("─" + string(make([]byte, 60)))
+
+	text3 := "Credit card: 4532-1234-5678-9012, expires 12/25."
+	fmt.Printf("   Input:  %q\n", text3)
+
+	result3, err := schemaflow.RedactLLM(text3,
+		schemaflow.NewRedactLLMOptions().
+			WithCategories([]string{"credit_card"}).
+			WithMaskChar('█').
+			WithIntelligence(schemaflow.Fast))
+
+	if err != nil {
+		fmt.Printf("   ❌ Error: %v\n", err)
+	} else {
+		fmt.Printf("   Output: %q\n", result3.Text)
+		fmt.Println("   Spans detected:")
+		for _, span := range result3.Spans {
+			fmt.Printf("      [%d:%d] %s → %q\n", span.Start, span.End, span.Category, span.Original)
+		}
 	}
 
-	// Example 12: Error handling
-	fmt.Println("\n12. Error Handling:")
-	fmt.Println("   Testing various error conditions...")
+	// Example 4: Detect secrets and API keys
+	fmt.Println("\n4️⃣  Detect Secrets and API Keys")
+	fmt.Println("─" + string(make([]byte, 60)))
 
-	// Test empty categories
-	_, err1 := schemaflow.Redact("test", schemaflow.NewRedactOptions().WithCategories([]string{}))
-	if err1 != nil {
-		fmt.Printf("   ✓ Empty categories rejected: %v\n", err1)
+	text4 := "Set API_KEY=sk-abc123xyz789secret and DB_PASSWORD=MyS3cretP@ss!"
+	fmt.Printf("   Input:  %q\n", text4)
+
+	result4, err := schemaflow.RedactLLM(text4,
+		schemaflow.NewRedactLLMOptions().
+			WithCategories([]string{"api_key", "password"}).
+			WithMaskChar('#').
+			WithShowFirst(3). // Show "sk-" prefix
+			WithIntelligence(schemaflow.Fast))
+
+	if err != nil {
+		fmt.Printf("   ❌ Error: %v\n", err)
+	} else {
+		fmt.Printf("   Output: %q\n", result4.Text)
+		fmt.Println("   Spans detected:")
+		for _, span := range result4.Spans {
+			fmt.Printf("      [%d:%d] %s → %q\n", span.Start, span.End, span.Category, span.Original)
+		}
 	}
 
-	// Test invalid strategy
-	_, err2 := schemaflow.Redact("test", schemaflow.RedactOptions{Categories: []string{"PII"}, Strategy: "invalid"})
-	if err2 != nil {
-		fmt.Printf("   ✓ Invalid strategy rejected: %v\n", err2)
+	// Example 5: Mixed content with multiple categories
+	fmt.Println("\n5️⃣  Complex Text with Multiple PII Types")
+	fmt.Println("─" + string(make([]byte, 60)))
+
+	text5 := `Customer: Bob Wilson
+Email: bob.wilson@gmail.com
+Phone: (555) 987-6543
+Address: 123 Main Street, New York, NY 10001
+DOB: 03/15/1985
+SSN: 987-65-4321`
+
+	fmt.Printf("   Input:\n%s\n\n", text5)
+
+	result5, err := schemaflow.RedactLLM(text5,
+		schemaflow.NewRedactLLMOptions().
+			WithCategories([]string{"all"}).
+			WithMaskChar('X').
+			WithIntelligence(schemaflow.Fast))
+
+	if err != nil {
+		fmt.Printf("   ❌ Error: %v\n", err)
+	} else {
+		fmt.Printf("   Output:\n%s\n", result5.Text)
+		fmt.Printf("\n   Categories found: %v\n", result5.Categories)
+		fmt.Printf("   Total spans: %d\n", len(result5.Spans))
 	}
 
-	fmt.Println("\n=== Redact Operation Examples Complete ===")
-	fmt.Println("\nNote: The Redact operation creates new objects with sensitive data")
-	fmt.Println("masked, scrambled, or removed according to the specified strategy.")
-	fmt.Println("The original data remains unchanged.")
+	// Example 6: Specific category only
+	fmt.Println("\n6️⃣  Detect Only Email Addresses")
+	fmt.Println("─" + string(make([]byte, 60)))
+
+	text6 := "Contacts: admin@company.com, support@help.org, John Smith (555-1234)"
+	fmt.Printf("   Input:  %q\n", text6)
+
+	result6, err := schemaflow.RedactLLM(text6,
+		schemaflow.NewRedactLLMOptions().
+			WithCategories([]string{"email"}). // Only emails, ignore phone
+			WithMaskChar('*').
+			WithIntelligence(schemaflow.Fast))
+
+	if err != nil {
+		fmt.Printf("   ❌ Error: %v\n", err)
+	} else {
+		fmt.Printf("   Output: %q\n", result6.Text)
+		fmt.Println("   Spans detected:")
+		for _, span := range result6.Spans {
+			fmt.Printf("      [%d:%d] %s → %q\n", span.Start, span.End, span.Category, span.Original)
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("✨ Success! Sensitive data detected and masked with LLM intelligence")
 }

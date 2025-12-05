@@ -1,7 +1,34 @@
+// Example: 12-validate
+//
+// Operation: Validate[T] - Validate data against semantic rules
+//
+// Input: 4 UserRegistration structs with various issues
+//   - Valid: johndoe123 (all rules pass)
+//   - Invalid Email: "not-an-email" (bad format)
+//   - Weak Password: "12345" (too short, missing requirements)
+//   - Underage: age 15 (must be 18+)
+//
+// Validation Rules:
+//   - Username: 3-20 chars, alphanumeric
+//   - Email: valid format
+//   - Password: 8+ chars, uppercase, lowercase, number, special char
+//   - Age: 18+
+//   - Country: valid name
+//
+// Expected Output:
+//   - Valid: ✅ accepted
+//   - Invalid Email: ❌ email format error
+//   - Weak Password: ❌ password requirements
+//   - Underage: ❌ age < 18
+//
+// Provider: Cerebras (gpt-oss-120b via Fast intelligence)
+// Expected Duration: ~500ms per validation
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strings"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
@@ -16,7 +43,34 @@ type UserRegistration struct {
 	Country  string `json:"country"`
 }
 
+// loadEnv loads environment variables from a .env file
+func loadEnv(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			os.Setenv(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
+	}
+	return scanner.Err()
+}
+
 func main() {
+	// Load .env file from project root
+	if err := loadEnv("../../.env"); err != nil {
+		fmt.Printf("Warning: Could not load .env file: %v\n", err)
+	}
+
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)

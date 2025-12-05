@@ -2,158 +2,242 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-// BasicPerson is the input type with minimal information
-type BasicPerson struct {
-	Name      string `json:"name"`
-	BirthYear int    `json:"birth_year"`
-	City      string `json:"city"`
-	JobTitle  string `json:"job_title"`
+// loadEnv loads environment variables from .env files
+func loadEnv() {
+	if err := godotenv.Load(); err == nil {
+		return
+	}
+	dir, _ := os.Getwd()
+	for i := 0; i < 3; i++ {
+		envPath := filepath.Join(dir, ".env")
+		if err := godotenv.Load(envPath); err == nil {
+			return
+		}
+		dir = filepath.Dir(dir)
+	}
 }
 
-// EnrichedPerson has derived fields
-type EnrichedPerson struct {
-	// Original fields
-	Name      string `json:"name"`
-	BirthYear int    `json:"birth_year"`
-	City      string `json:"city"`
-	JobTitle  string `json:"job_title"`
+// ============================================================
+// USE CASE 1: Customer Lifetime Value Features
+// ============================================================
 
-	// Derived fields
-	Age            int    `json:"age"`
-	AgeCategory    string `json:"age_category"`    // "youth", "adult", "senior"
-	Generation     string `json:"generation"`      // "GenZ", "Millennial", etc.
-	Region         string `json:"region"`          // Derived from city
-	Timezone       string `json:"timezone"`        // Derived from city
-	JobCategory    string `json:"job_category"`    // e.g., "tech", "healthcare"
-	SeniorityLevel string `json:"seniority_level"` // "entry", "mid", "senior", "executive"
+// CustomerActivity - basic activity data
+type CustomerActivity struct {
+	CustomerID     string  `json:"customer_id"`
+	SignupDate     string  `json:"signup_date"`
+	TotalOrders    int     `json:"total_orders"`
+	TotalSpend     float64 `json:"total_spend"`
+	LastOrderDate  string  `json:"last_order_date"`
+	ReturnCount    int     `json:"return_count"`
+	SupportTickets int     `json:"support_tickets"`
+}
+
+// CustomerLTVFeatures - derived ML features
+type CustomerLTVFeatures struct {
+	CustomerID      string  `json:"customer_id"`
+	TenureDays      int     `json:"tenure_days"`
+	OrderFrequency  float64 `json:"order_frequency"`
+	AvgOrderValue   float64 `json:"avg_order_value"`
+	DaysSinceOrder  int     `json:"days_since_order"`
+	ReturnRate      float64 `json:"return_rate"`
+	ChurnRisk       string  `json:"churn_risk"`
+	CustomerSegment string  `json:"customer_segment"`
+}
+
+// ============================================================
+// USE CASE 2: Real Estate Property Features
+// ============================================================
+
+// PropertyListing - basic listing data
+type PropertyListing struct {
+	Address    string  `json:"address"`
+	City       string  `json:"city"`
+	ZipCode    string  `json:"zip_code"`
+	SqFt       int     `json:"sq_ft"`
+	Bedrooms   int     `json:"bedrooms"`
+	Bathrooms  float64 `json:"bathrooms"`
+	YearBuilt  int     `json:"year_built"`
+	ListPrice  int     `json:"list_price"`
+	LotAcres   float64 `json:"lot_acres"`
+	HasGarage  bool    `json:"has_garage"`
+	HasPool    bool    `json:"has_pool"`
+}
+
+// PropertyFeatures - derived features for pricing model
+type PropertyFeatures struct {
+	Address         string  `json:"address"`
+	PricePerSqFt    float64 `json:"price_per_sq_ft"`
+	PropertyAge     int     `json:"property_age"`
+	BedroomRatio    float64 `json:"bedroom_ratio"`
+	PropertyClass   string  `json:"property_class"`
+	PriceTier       string  `json:"price_tier"`
+	InvestmentScore float64 `json:"investment_score"`
+}
+
+// ============================================================
+// USE CASE 3: Resume Skill Extraction
+// ============================================================
+
+// ResumeBasic - parsed resume text
+type ResumeBasic struct {
+	Name        string `json:"name"`
+	Title       string `json:"current_title"`
+	Experience  string `json:"experience_summary"`
+	Education   string `json:"education"`
+	YearsExp    int    `json:"years_experience"`
+	Industry    string `json:"industry"`
+}
+
+// CandidateProfile - derived hiring features
+type CandidateProfile struct {
+	Name            string   `json:"name"`
+	SeniorityLevel  string   `json:"seniority_level"`
+	SkillCategories []string `json:"skill_categories"`
+	LeadershipScore float64  `json:"leadership_score"`
+	TechnicalDepth  string   `json:"technical_depth"`
+	SalaryRange     string   `json:"expected_salary_range"`
+	FitScore        float64  `json:"fit_score"`
 }
 
 func main() {
-	// Initialize SchemaFlow
+	loadEnv()
+
 	if err := schemaflow.InitWithEnv(); err != nil {
-		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		fmt.Printf("Init failed: %v\n", err)
 		return
 	}
 
 	fmt.Println("=== Derive Example ===")
+	fmt.Println("Inferring new structured data from existing data")
 
-	// Example 1: Derive enriched person data
-	fmt.Println("\n--- Example 1: Person Enrichment ---")
+	// ============================================================
+	// USE CASE 1: Customer Lifetime Value Features
+	// Scenario: Derive ML features for churn prediction model
+	// ============================================================
+	fmt.Println("\n--- Use Case 1: Customer LTV Features ---")
 
-	person := BasicPerson{
-		Name:      "Sarah Chen",
-		BirthYear: 1992,
-		City:      "San Francisco",
-		JobTitle:  "Senior Software Engineer",
+	customer := CustomerActivity{
+		CustomerID:     "CUST-8847",
+		SignupDate:     "2021-03-15",
+		TotalOrders:    47,
+		TotalSpend:     8542.50,
+		LastOrderDate:  "2024-11-28",
+		ReturnCount:    3,
+		SupportTickets: 2,
 	}
 
-	result, err := schemaflow.Derive[BasicPerson, EnrichedPerson](person, schemaflow.DeriveOptions{
-		Fields:   []string{"age", "age_category", "generation", "region", "timezone", "job_category", "seniority_level"},
-		Steering: "Use current year 2024 for age calculation",
+	custResult, err := schemaflow.Derive[CustomerActivity, CustomerLTVFeatures](customer, schemaflow.DeriveOptions{
+		Intelligence: types.Smart,
+		Steering:     "Use today's date as 2024-12-05. Churn risk: low/medium/high based on days since order and frequency. Segments: VIP (>$5k spend), Regular, At-Risk.",
 	})
-
 	if err != nil {
-		schemaflow.GetLogger().Error("Derivation failed", "error", err)
-		return
+		fmt.Printf("Customer derivation failed: %v\n", err)
+	} else {
+		fmt.Printf("Input: CustomerID=%s, Orders=%d, Spend=$%.2f\n",
+			customer.CustomerID, customer.TotalOrders, customer.TotalSpend)
+		fmt.Printf("\nDerived LTV Features:\n")
+		fmt.Printf("  Tenure Days: %d\n", custResult.Derived.TenureDays)
+		fmt.Printf("  Order Frequency: %.2f orders/month\n", custResult.Derived.OrderFrequency)
+		fmt.Printf("  Avg Order Value: $%.2f\n", custResult.Derived.AvgOrderValue)
+		fmt.Printf("  Days Since Order: %d\n", custResult.Derived.DaysSinceOrder)
+		fmt.Printf("  Return Rate: %.1f%%\n", custResult.Derived.ReturnRate*100)
+		fmt.Printf("  Churn Risk: %s\n", custResult.Derived.ChurnRisk)
+		fmt.Printf("  Customer Segment: %s\n", custResult.Derived.CustomerSegment)
+		fmt.Printf("\nOverall Confidence: %.0f%%\n", custResult.OverallConfidence*100)
 	}
 
-	fmt.Printf("Original Data:\n")
-	fmt.Printf("  Name: %s\n", person.Name)
-	fmt.Printf("  Birth Year: %d\n", person.BirthYear)
-	fmt.Printf("  City: %s\n", person.City)
-	fmt.Printf("  Job Title: %s\n", person.JobTitle)
+	// ============================================================
+	// USE CASE 2: Real Estate Property Features
+	// Scenario: Derive pricing model features from listing
+	// ============================================================
+	fmt.Println("\n--- Use Case 2: Real Estate Property Features ---")
 
-	fmt.Printf("\nDerived Data:\n")
-	fmt.Printf("  Age: %d\n", result.Derived.Age)
-	fmt.Printf("  Age Category: %s\n", result.Derived.AgeCategory)
-	fmt.Printf("  Generation: %s\n", result.Derived.Generation)
-	fmt.Printf("  Region: %s\n", result.Derived.Region)
-	fmt.Printf("  Timezone: %s\n", result.Derived.Timezone)
-	fmt.Printf("  Job Category: %s\n", result.Derived.JobCategory)
-	fmt.Printf("  Seniority Level: %s\n", result.Derived.SeniorityLevel)
+	property := PropertyListing{
+		Address:   "1842 Maple Drive",
+		City:      "Austin",
+		ZipCode:   "78704",
+		SqFt:      2850,
+		Bedrooms:  4,
+		Bathrooms: 3.5,
+		YearBuilt: 2018,
+		ListPrice: 875000,
+		LotAcres:  0.25,
+		HasGarage: true,
+		HasPool:   true,
+	}
 
-	fmt.Printf("\nDerivation Details:\n")
-	for _, d := range result.Derivations {
-		fmt.Printf("  %s: %s (confidence: %.0f%%)\n", d.Field, d.Method, d.Confidence*100)
-		if d.Reasoning != "" {
-			fmt.Printf("    Reasoning: %s\n", d.Reasoning)
+	propResult, err := schemaflow.Derive[PropertyListing, PropertyFeatures](property, schemaflow.DeriveOptions{
+		Intelligence: types.Smart,
+		Steering:     "Property class: Starter/Mid-Range/Luxury. Price tier: Budget/Moderate/Premium/Ultra-Premium. Investment score 0-1 based on price/sqft ratio, age, and amenities.",
+	})
+	if err != nil {
+		fmt.Printf("Property derivation failed: %v\n", err)
+	} else {
+		fmt.Printf("Input: %s, %d sqft, $%d\n",
+			property.Address, property.SqFt, property.ListPrice)
+		fmt.Printf("\nDerived Property Features:\n")
+		fmt.Printf("  Price Per SqFt: $%.2f\n", propResult.Derived.PricePerSqFt)
+		fmt.Printf("  Property Age: %d years\n", propResult.Derived.PropertyAge)
+		fmt.Printf("  Bedroom Ratio: %.2f beds/1000sqft\n", propResult.Derived.BedroomRatio)
+		fmt.Printf("  Property Class: %s\n", propResult.Derived.PropertyClass)
+		fmt.Printf("  Price Tier: %s\n", propResult.Derived.PriceTier)
+		fmt.Printf("  Investment Score: %.2f\n", propResult.Derived.InvestmentScore)
+		fmt.Printf("\nDerivation Methods:\n")
+		for _, d := range propResult.Derivations {
+			if d.Field == "investment_score" || d.Field == "property_class" {
+				fmt.Printf("  %s: %s\n", d.Field, d.Method)
+			}
 		}
+		fmt.Printf("Confidence: %.0f%%\n", propResult.OverallConfidence*100)
 	}
 
-	// Example 2: Derive transaction risk features
-	fmt.Println("\n--- Example 2: Transaction Risk Features ---")
+	// ============================================================
+	// USE CASE 3: Resume Skill Extraction
+	// Scenario: Derive hiring features from resume data
+	// ============================================================
+	fmt.Println("\n--- Use Case 3: Resume Skill Extraction ---")
 
-	type RawTransaction struct {
-		ID        string  `json:"id"`
-		Amount    float64 `json:"amount"`
-		Merchant  string  `json:"merchant"`
-		Category  string  `json:"category"`
-		Timestamp string  `json:"timestamp"`
-		CardLast4 string  `json:"card_last4"`
-		Location  string  `json:"location"`
-		IsOnline  bool    `json:"is_online"`
+	resume := ResumeBasic{
+		Name:       "Alex Rivera",
+		Title:      "Engineering Manager",
+		Experience: "Led team of 12 engineers building distributed systems. Previously Staff Engineer at FAANG. Built ML pipelines processing 10M events/day.",
+		Education:  "MS Computer Science, Stanford",
+		YearsExp:   11,
+		Industry:   "Technology",
 	}
 
-	type RiskEnrichedTransaction struct {
-		// Original
-		ID        string  `json:"id"`
-		Amount    float64 `json:"amount"`
-		Merchant  string  `json:"merchant"`
-		Category  string  `json:"category"`
-		Timestamp string  `json:"timestamp"`
-		CardLast4 string  `json:"card_last4"`
-		Location  string  `json:"location"`
-		IsOnline  bool    `json:"is_online"`
-
-		// Derived risk features
-		AmountCategory string   `json:"amount_category"` // "low", "medium", "high", "very_high"
-		TimeOfDay      string   `json:"time_of_day"`     // "morning", "afternoon", "evening", "night"
-		IsWeekend      bool     `json:"is_weekend"`
-		MerchantType   string   `json:"merchant_type"` // "known_retailer", "small_business", "unknown"
-		RiskScore      float64  `json:"risk_score"`    // 0.0-1.0
-		RiskFactors    []string `json:"risk_factors"`
-	}
-
-	transaction := RawTransaction{
-		ID:        "TXN-123456",
-		Amount:    2499.99,
-		Merchant:  "ELECTROZONE ONLINE",
-		Category:  "Electronics",
-		Timestamp: "2024-01-15T02:30:00Z",
-		CardLast4: "4532",
-		Location:  "Lagos, Nigeria",
-		IsOnline:  true,
-	}
-
-	txnResult, err := schemaflow.Derive[RawTransaction, RiskEnrichedTransaction](transaction, schemaflow.DeriveOptions{
-		Steering: "Consider typical fraud patterns when deriving risk score and factors",
+	resumeResult, err := schemaflow.Derive[ResumeBasic, CandidateProfile](resume, schemaflow.DeriveOptions{
+		Intelligence: types.Smart,
+		Steering:     "Seniority: Junior/Mid/Senior/Staff/Principal/Director. Technical depth: Generalist/Specialist/Deep-Specialist. Salary range should reflect Bay Area tech market for role level.",
 	})
-
 	if err != nil {
-		schemaflow.GetLogger().Error("Transaction derivation failed", "error", err)
-		return
+		fmt.Printf("Resume derivation failed: %v\n", err)
+	} else {
+		fmt.Printf("Input: %s - %s (%d years)\n",
+			resume.Name, resume.Title, resume.YearsExp)
+		fmt.Printf("\nDerived Candidate Profile:\n")
+		fmt.Printf("  Seniority Level: %s\n", resumeResult.Derived.SeniorityLevel)
+		fmt.Printf("  Skill Categories: %v\n", resumeResult.Derived.SkillCategories)
+		fmt.Printf("  Leadership Score: %.2f\n", resumeResult.Derived.LeadershipScore)
+		fmt.Printf("  Technical Depth: %s\n", resumeResult.Derived.TechnicalDepth)
+		fmt.Printf("  Expected Salary: %s\n", resumeResult.Derived.SalaryRange)
+		fmt.Printf("  Fit Score: %.2f\n", resumeResult.Derived.FitScore)
+		fmt.Printf("\nKey Derivations:\n")
+		for _, d := range resumeResult.Derivations {
+			if d.Reasoning != "" {
+				fmt.Printf("  %s: %s\n", d.Field, d.Reasoning)
+			}
+		}
+		fmt.Printf("Confidence: %.0f%%\n", resumeResult.OverallConfidence*100)
 	}
-
-	fmt.Printf("Transaction: %s\n", transaction.ID)
-	fmt.Printf("  Amount: $%.2f\n", transaction.Amount)
-	fmt.Printf("  Merchant: %s\n", transaction.Merchant)
-
-	fmt.Printf("\nDerived Risk Features:\n")
-	fmt.Printf("  Amount Category: %s\n", txnResult.Derived.AmountCategory)
-	fmt.Printf("  Time of Day: %s\n", txnResult.Derived.TimeOfDay)
-	fmt.Printf("  Is Weekend: %v\n", txnResult.Derived.IsWeekend)
-	fmt.Printf("  Merchant Type: %s\n", txnResult.Derived.MerchantType)
-	fmt.Printf("  Risk Score: %.2f\n", txnResult.Derived.RiskScore)
-	fmt.Printf("  Risk Factors:\n")
-	for _, factor := range txnResult.Derived.RiskFactors {
-		fmt.Printf("    - %s\n", factor)
-	}
-
-	fmt.Printf("\nOverall Confidence: %.0f%%\n", txnResult.OverallConfidence*100)
 
 	fmt.Println("\n=== Derive Example Complete ===")
 }

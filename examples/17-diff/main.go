@@ -1,18 +1,54 @@
+// 17-diff: Find semantic differences between two versions of data
+// Intelligence: Fast (Cerebras gpt-oss-120b)
+// Expectations:
+// - Customer: Detects name, email, status changes + phone added
+// - Product: Detects name, price, category, description, stock changes + tags added
+// - Config: Detects version, port, debug changes (ignoring LastUpdated)
+
 package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
+// loadEnv loads environment variables from .env file
+func loadEnv() {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			if err := godotenv.Load(envPath); err != nil {
+				log.Fatal("Error loading .env file")
+			}
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	log.Fatal(".env file not found")
+}
+
 func main() {
+	loadEnv()
+
 	fmt.Println("🔍 Intelligent Difference Detection Example")
 	fmt.Println("=")
 
-	// Initialize SchemaFlow
+	// Initialize SchemaFlow with Fast intelligence (Cerebras)
 	fmt.Println("🔧 Initializing SchemaFlow...")
-	if err := schemaflow.InitWithEnv(".env"); err != nil {
+	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}

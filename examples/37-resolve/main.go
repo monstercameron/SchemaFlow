@@ -2,173 +2,261 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-// CustomerRecord represents a customer from different sources
+// loadEnv loads environment variables from .env files
+func loadEnv() {
+	// Try to load from current directory first
+	if err := godotenv.Load(); err == nil {
+		return
+	}
+	// Try parent directories
+	dir, _ := os.Getwd()
+	for i := 0; i < 3; i++ {
+		envPath := filepath.Join(dir, ".env")
+		if err := godotenv.Load(envPath); err == nil {
+			return
+		}
+		dir = filepath.Dir(dir)
+	}
+}
+
+// ============================================================
+// USE CASE 1: Customer Record Deduplication (CRM Merge)
+// ============================================================
+
+// CustomerRecord from different source systems
 type CustomerRecord struct {
-	ID          string `json:"id"`
+	CustomerID  string `json:"customer_id"`
 	Name        string `json:"name"`
 	Email       string `json:"email"`
 	Phone       string `json:"phone"`
 	Address     string `json:"address"`
 	LastContact string `json:"last_contact"`
 	Status      string `json:"status"`
-	Source      string `json:"source"` // Track where this came from
+}
+
+// ============================================================
+// USE CASE 2: Product Catalog Consolidation (Multi-Vendor)
+// ============================================================
+
+// ProductData from multiple vendors/warehouses
+type ProductData struct {
+	SKU         string  `json:"sku"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Price       float64 `json:"price"`
+	Stock       int     `json:"stock"`
+	Weight      float64 `json:"weight_kg"`
+}
+
+// ============================================================
+// USE CASE 3: Employee Record Reconciliation (HR Systems)
+// ============================================================
+
+// EmployeeRecord from HRIS, Payroll, Directory
+type EmployeeRecord struct {
+	EmployeeID string `json:"employee_id"`
+	FullName   string `json:"full_name"`
+	Email      string `json:"email"`
+	Department string `json:"department"`
+	Title      string `json:"title"`
+	Manager    string `json:"manager"`
 }
 
 func main() {
-	// Initialize SchemaFlow
+	loadEnv()
+
 	if err := schemaflow.InitWithEnv(); err != nil {
-		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		fmt.Printf("Init failed: %v\n", err)
 		return
 	}
 
 	fmt.Println("=== Resolve Example ===")
+	fmt.Println("Reconciling conflicting data from multiple sources")
 
-	// Example 1: Resolve conflicting customer records from multiple sources
-	fmt.Println("\n--- Example 1: Customer Record Deduplication ---")
+	// ============================================================
+	// USE CASE 1: Customer Record Deduplication
+	// Scenario: Same customer in CRM, Sales DB, and Marketing with conflicts
+	// ============================================================
+	fmt.Println("\n--- Use Case 1: Customer Record Deduplication ---")
 
-	// Same customer from different systems with conflicting data
-	sources := []CustomerRecord{
+	customerSources := []CustomerRecord{
 		{
-			ID:          "CUST-001",
+			CustomerID:  "CUST-5521",
 			Name:        "John Smith",
 			Email:       "john.smith@email.com",
 			Phone:       "555-123-4567",
 			Address:     "123 Main St, Boston, MA",
 			LastContact: "2024-01-15",
 			Status:      "active",
-			Source:      "CRM",
 		},
 		{
-			ID:          "CUST-001",
+			CustomerID:  "CUST-5521",
 			Name:        "John A. Smith",
-			Email:       "jsmith@work.com",
-			Phone:       "(555) 123-4567",
-			Address:     "123 Main Street, Boston, MA 02101",
-			LastContact: "2024-01-20",
+			Email:       "jsmith@work.com", // Work email - conflict!
+			Phone:       "(555) 123-4567",  // Same number, different format
+			Address:     "123 Main Street, Boston, MA 02101", // More complete
+			LastContact: "2024-01-20", // More recent
 			Status:      "active",
-			Source:      "Sales DB",
 		},
 		{
-			ID:          "CUST-001",
+			CustomerID:  "CUST-5521",
 			Name:        "John Smith",
 			Email:       "john.smith@email.com",
-			Phone:       "",
-			Address:     "456 Oak Ave, Boston, MA",
-			LastContact: "2023-12-01",
-			Status:      "inactive",
-			Source:      "Marketing",
+			Phone:       "",               // Missing phone
+			Address:     "456 Oak Ave, Boston, MA", // OLD address!
+			LastContact: "2023-12-01",     // Old contact date
+			Status:      "inactive",       // Status conflict!
 		},
 	}
 
-	result, err := schemaflow.Resolve[CustomerRecord](sources, schemaflow.ResolveOptions{
-		Strategy: "most-complete",
-		Steering: "Prefer more recent data for contact info, most complete for address",
+	custResult, err := schemaflow.Resolve[CustomerRecord](customerSources, schemaflow.ResolveOptions{
+		Strategy:     "most-complete",
+		Intelligence: types.Smart,
+		Steering:     "Prefer more recent LastContact dates. Ignore Marketing source (source 2) for address since it's outdated. Active status trumps inactive.",
 	})
-
 	if err != nil {
-		schemaflow.GetLogger().Error("Resolution failed", "error", err)
-		return
+		fmt.Printf("Customer resolution failed: %v\n", err)
+	} else {
+		fmt.Printf("Sources: CRM (0), Sales DB (1), Marketing (2)\n")
+		fmt.Printf("\nResolved Customer:\n")
+		fmt.Printf("  ID: %s\n", custResult.Resolved.CustomerID)
+		fmt.Printf("  Name: %s\n", custResult.Resolved.Name)
+		fmt.Printf("  Email: %s\n", custResult.Resolved.Email)
+		fmt.Printf("  Phone: %s\n", custResult.Resolved.Phone)
+		fmt.Printf("  Address: %s\n", custResult.Resolved.Address)
+		fmt.Printf("  LastContact: %s\n", custResult.Resolved.LastContact)
+		fmt.Printf("  Status: %s\n", custResult.Resolved.Status)
+		fmt.Printf("\nConflicts Resolved: %d\n", len(custResult.Conflicts))
+		for _, c := range custResult.Conflicts {
+			fmt.Printf("  - %s: chose source %d (%s)\n", c.Field, c.ChosenSource, c.Resolution)
+		}
+		fmt.Printf("Confidence: %.0f%%\n", custResult.Confidence*100)
 	}
 
-	fmt.Printf("Resolved Record:\n")
-	fmt.Printf("  ID: %s\n", result.Resolved.ID)
-	fmt.Printf("  Name: %s\n", result.Resolved.Name)
-	fmt.Printf("  Email: %s\n", result.Resolved.Email)
-	fmt.Printf("  Phone: %s\n", result.Resolved.Phone)
-	fmt.Printf("  Address: %s\n", result.Resolved.Address)
-	fmt.Printf("  Last Contact: %s\n", result.Resolved.LastContact)
-	fmt.Printf("  Status: %s\n", result.Resolved.Status)
+	// ============================================================
+	// USE CASE 2: Product Catalog Consolidation
+	// Scenario: Same SKU from 3 warehouses with different data quality
+	// ============================================================
+	fmt.Println("\n--- Use Case 2: Product Catalog Consolidation ---")
 
-	fmt.Printf("\nConflicts Resolved (%d):\n", len(result.Conflicts))
-	for _, conflict := range result.Conflicts {
-		fmt.Printf("  Field: %s\n", conflict.Field)
-		fmt.Printf("    Values: %v\n", conflict.Values)
-		fmt.Printf("    Resolution: %s\n", conflict.Resolution)
-		fmt.Printf("    Chosen (source %d): %v\n", conflict.ChosenSource, conflict.ChosenValue)
-	}
-
-	fmt.Printf("\nSource Contributions:\n")
-	for source, fields := range result.SourceContributions {
-		fmt.Printf("  Source %d: %v\n", source, fields)
-	}
-
-	fmt.Printf("\nConfidence: %.0f%%\n", result.Confidence*100)
-
-	// Example 2: Resolve product information from multiple vendors
-	fmt.Println("\n--- Example 2: Product Information ---")
-
-	type ProductInfo struct {
-		SKU          string   `json:"sku"`
-		Name         string   `json:"name"`
-		Description  string   `json:"description"`
-		Price        float64  `json:"price"`
-		Stock        int      `json:"stock"`
-		Manufacturer string   `json:"manufacturer"`
-		Categories   []string `json:"categories"`
-		Source       string   `json:"source"`
-	}
-
-	productSources := []ProductInfo{
+	productSources := []ProductData{
 		{
-			SKU:          "PROD-789",
-			Name:         "Wireless Bluetooth Headphones",
-			Description:  "High-quality wireless headphones",
-			Price:        79.99,
-			Stock:        150,
-			Manufacturer: "AudioTech",
-			Categories:   []string{"electronics", "audio"},
-			Source:       "Warehouse A",
+			SKU:         "PROD-7890",
+			Name:        "Wireless Headphones",
+			Description: "High-quality wireless headphones",
+			Price:       79.99,
+			Stock:       150,
+			Weight:      0.25,
 		},
 		{
-			SKU:          "PROD-789",
-			Name:         "Wireless Bluetooth Headphones Pro",
-			Description:  "Premium wireless headphones with noise cancellation and 30-hour battery",
-			Price:        89.99,
-			Stock:        75,
-			Manufacturer: "AudioTech Inc.",
-			Categories:   []string{"electronics", "audio", "wireless"},
-			Source:       "Warehouse B",
+			SKU:         "PROD-7890",
+			Name:        "Wireless Bluetooth Headphones Pro",
+			Description: "Premium wireless headphones with noise cancellation, 30-hour battery, foldable design",
+			Price:       89.99, // Higher price - conflict!
+			Stock:       75,
+			Weight:      0.28, // Slightly different weight
 		},
 		{
-			SKU:          "PROD-789",
-			Name:         "BT Headphones",
-			Description:  "",
-			Price:        79.99,
-			Stock:        200,
-			Manufacturer: "AudioTech",
-			Categories:   []string{"audio"},
-			Source:       "Vendor Feed",
+			SKU:         "PROD-7890",
+			Name:        "BT Headphones",
+			Description: "", // Missing description!
+			Price:       79.99,
+			Stock:       200, // Highest stock
+			Weight:      0.0, // Missing weight!
 		},
 	}
 
-	productResult, err := schemaflow.Resolve[ProductInfo](productSources, schemaflow.ResolveOptions{
-		Strategy: "most-complete",
+	prodResult, err := schemaflow.Resolve[ProductData](productSources, schemaflow.ResolveOptions{
+		Strategy:     "most-complete",
+		Intelligence: types.Smart,
 		FieldPriorities: map[string]int{
-			"price": 0, // Prefer Warehouse A for price
+			"price": 0, // Trust Warehouse A for pricing
+			"stock": 2, // Trust Vendor Feed for real-time stock
 		},
+		Steering: "Source 1 has the best product description. For stock, use the actual count not aggregated.",
 	})
-
 	if err != nil {
-		schemaflow.GetLogger().Error("Product resolution failed", "error", err)
-		return
+		fmt.Printf("Product resolution failed: %v\n", err)
+	} else {
+		fmt.Printf("Sources: Warehouse A (0), Warehouse B (1), Vendor Feed (2)\n")
+		fmt.Printf("\nResolved Product:\n")
+		fmt.Printf("  SKU: %s\n", prodResult.Resolved.SKU)
+		fmt.Printf("  Name: %s\n", prodResult.Resolved.Name)
+		fmt.Printf("  Description: %s\n", prodResult.Resolved.Description)
+		fmt.Printf("  Price: $%.2f\n", prodResult.Resolved.Price)
+		fmt.Printf("  Stock: %d units\n", prodResult.Resolved.Stock)
+		fmt.Printf("  Weight: %.2f kg\n", prodResult.Resolved.Weight)
+		fmt.Printf("\nConflicts Resolved: %d\n", len(prodResult.Conflicts))
+		for _, c := range prodResult.Conflicts {
+			fmt.Printf("  - %s: chose source %d (%s)\n", c.Field, c.ChosenSource, c.Resolution)
+		}
+		fmt.Printf("Confidence: %.0f%%\n", prodResult.Confidence*100)
 	}
 
-	fmt.Printf("Resolved Product:\n")
-	fmt.Printf("  SKU: %s\n", productResult.Resolved.SKU)
-	fmt.Printf("  Name: %s\n", productResult.Resolved.Name)
-	fmt.Printf("  Description: %s\n", productResult.Resolved.Description)
-	fmt.Printf("  Price: $%.2f\n", productResult.Resolved.Price)
-	fmt.Printf("  Stock: %d\n", productResult.Resolved.Stock)
-	fmt.Printf("  Manufacturer: %s\n", productResult.Resolved.Manufacturer)
-	fmt.Printf("  Categories: %v\n", productResult.Resolved.Categories)
+	// ============================================================
+	// USE CASE 3: Employee Record Reconciliation
+	// Scenario: HRIS, Payroll, and Directory have different employee info
+	// ============================================================
+	fmt.Println("\n--- Use Case 3: Employee Record Reconciliation ---")
 
-	fmt.Printf("\nConflicts: %d resolved\n", len(productResult.Conflicts))
-	for _, c := range productResult.Conflicts {
-		fmt.Printf("  - %s: %s\n", c.Field, c.Resolution)
+	employeeSources := []EmployeeRecord{
+		{
+			EmployeeID: "EMP-1234",
+			FullName:   "Sarah Johnson",
+			Email:      "sarah.johnson@company.com",
+			Department: "Engineering",
+			Title:      "Senior Software Engineer",
+			Manager:    "Mike Chen",
+		},
+		{
+			EmployeeID: "EMP-1234",
+			FullName:   "Sarah M. Johnson",
+			Email:      "s.johnson@company.com", // Short email variant
+			Department: "Platform Engineering", // Reorg! More specific dept
+			Title:      "Staff Engineer", // Promotion!
+			Manager:    "Michael Chen", // Same manager, full name
+		},
+		{
+			EmployeeID: "EMP-1234",
+			FullName:   "Sarah Johnson",
+			Email:      "sarah.johnson@company.com",
+			Department: "Engineering",
+			Title:      "Software Engineer", // OLD title
+			Manager:    "", // Missing manager
+		},
+	}
+
+	empResult, err := schemaflow.Resolve[EmployeeRecord](employeeSources, schemaflow.ResolveOptions{
+		Strategy:            "authoritative",
+		AuthoritativeSource: 1, // Payroll is most up-to-date
+		Intelligence:        types.Smart,
+		Steering:            "Payroll (source 1) has the most current title and department due to recent reorg. HRIS may be stale.",
+	})
+	if err != nil {
+		fmt.Printf("Employee resolution failed: %v\n", err)
+	} else {
+		fmt.Printf("Sources: HRIS (0), Payroll (1), Directory (2)\n")
+		fmt.Printf("\nResolved Employee:\n")
+		fmt.Printf("  ID: %s\n", empResult.Resolved.EmployeeID)
+		fmt.Printf("  Name: %s\n", empResult.Resolved.FullName)
+		fmt.Printf("  Email: %s\n", empResult.Resolved.Email)
+		fmt.Printf("  Department: %s\n", empResult.Resolved.Department)
+		fmt.Printf("  Title: %s\n", empResult.Resolved.Title)
+		fmt.Printf("  Manager: %s\n", empResult.Resolved.Manager)
+		fmt.Printf("\nConflicts Resolved: %d\n", len(empResult.Conflicts))
+		for _, c := range empResult.Conflicts {
+			fmt.Printf("  - %s: chose source %d (%s)\n", c.Field, c.ChosenSource, c.Resolution)
+		}
+		fmt.Printf("Strategy: %s (source %d authoritative)\n", empResult.Strategy, 1)
+		fmt.Printf("Confidence: %.0f%%\n", empResult.Confidence*100)
 	}
 
 	fmt.Println("\n=== Resolve Example Complete ===")

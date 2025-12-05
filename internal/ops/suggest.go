@@ -226,10 +226,11 @@ Rules:
 - Analyze the input data and current context
 - Generate practical, actionable suggestions
 - Consider the specified constraints and domain
-- Return suggestions as a JSON array
+- Return a JSON array of strings like: ["suggestion 1", "suggestion 2", ...]
+- If returning structured data, use fields: name, description, priority, category
 - Each suggestion should be relevant and helpful
 - If ranking is requested, order by relevance (most relevant first)
-- Include scores and reasons only if specifically requested`
+- Return ONLY valid JSON, no explanations or markdown`
 
 	userPrompt := fmt.Sprintf("Generate suggestions based on this input:\n%s", string(inputJSON))
 
@@ -239,28 +240,66 @@ Rules:
 		return nil, fmt.Errorf("LLM call failed: %w", err)
 	}
 
-	// Parse the response
+	// Clean up markdown code blocks from response
+	response = strings.TrimSpace(response)
+	response = strings.TrimPrefix(response, "```json")
+	response = strings.TrimPrefix(response, "```")
+	response = strings.TrimSuffix(response, "```")
+	response = strings.TrimSpace(response)
+
+	// Parse the response - try direct array first
 	var suggestions []T
-	if err := json.Unmarshal([]byte(response), &suggestions); err != nil {
-		// Try to extract from a structured response
-		var result struct {
-			Suggestions []T `json:"suggestions"`
+	if err := json.Unmarshal([]byte(response), &suggestions); err == nil {
+		// Successfully parsed as array
+		if len(suggestions) > opts.TopN {
+			suggestions = suggestions[:opts.TopN]
 		}
-		if err := json.Unmarshal([]byte(response), &result); err != nil {
-			log.Error("Suggest operation parse failed", "requestID", opts.CommonOptions.RequestID, "error", err)
-			return nil, fmt.Errorf("failed to parse suggestions: %w", err)
-		}
+		log.Debug("Suggest operation succeeded", "requestID", opts.CommonOptions.RequestID, "suggestionsCount", len(suggestions))
+		return suggestions, nil
+	}
+
+	// Try to extract from a structured response with "suggestions" key
+	var result struct {
+		Suggestions []T `json:"suggestions"`
+	}
+	if err := json.Unmarshal([]byte(response), &result); err == nil && len(result.Suggestions) > 0 {
 		suggestions = result.Suggestions
+		if len(suggestions) > opts.TopN {
+			suggestions = suggestions[:opts.TopN]
+		}
+		log.Debug("Suggest operation succeeded", "requestID", opts.CommonOptions.RequestID, "suggestionsCount", len(suggestions))
+		return suggestions, nil
 	}
 
-	// Limit to TopN
-	if len(suggestions) > opts.TopN {
-		suggestions = suggestions[:opts.TopN]
+	// If T is string, try to extract strings from array of objects
+	var rawArray []map[string]any
+	if err := json.Unmarshal([]byte(response), &rawArray); err == nil {
+		for _, item := range rawArray {
+			// Try common field names for suggestions
+			for _, key := range []string{"suggestion", "text", "content", "name", "value", "description"} {
+				if val, ok := item[key]; ok {
+					if str, ok := val.(string); ok {
+						var t T
+						// Check if T is string
+						if _, ok := any(t).(string); ok {
+							suggestions = append(suggestions, any(str).(T))
+							break
+						}
+					}
+				}
+			}
+		}
+		if len(suggestions) > 0 {
+			if len(suggestions) > opts.TopN {
+				suggestions = suggestions[:opts.TopN]
+			}
+			log.Debug("Suggest operation succeeded (extracted)", "requestID", opts.CommonOptions.RequestID, "suggestionsCount", len(suggestions))
+			return suggestions, nil
+		}
 	}
 
-	log.Debug("Suggest operation succeeded", "requestID", opts.CommonOptions.RequestID, "suggestionsCount", len(suggestions))
-
-	return suggestions, nil
+	log.Error("Suggest operation parse failed", "requestID", opts.CommonOptions.RequestID, "response", response[:min(200, len(response))])
+	return nil, fmt.Errorf("failed to parse suggestions from response")
 }
 
 // SuggestWithResult provides detailed suggestion results with scores and reasons

@@ -1,23 +1,72 @@
+// Example: 05-filter
+//
+// Operation: Filter[T] - Semantically filter items based on criteria
+//
+// Input: []SupportTicket (6 tickets with various urgency levels)
+//   Tickets:
+//   - #1: "Website is completely down" (urgent - service outage)
+//   - #2: "How to change password?" (routine request)
+//   - #3: "Payment processing failure" (urgent - blocking transactions)
+//   - #4: "Feature request: dark mode" (low priority)
+//   - #5: "Data breach suspected" (urgent - security issue)
+//   - #6: "Invoice copy request" (routine request)
+//
+// Expected Output: 3 urgent tickets (IDs: 1, 3, 5)
+//   - #1: Website outage (affects business)
+//   - #3: Payment failure (blocking transactions)
+//   - #5: Data breach (security critical)
+//
+// Provider: Cerebras (gpt-oss-120b via Fast intelligence)
+// Expected Duration: ~500-1000ms
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
 // SupportTicket represents a customer support ticket
 type SupportTicket struct {
-	ID          int    `json:"id"`
-	Customer    string `json:"customer"`
-	Subject     string `json:"subject"`
-	Description string `json:"description"`
-	Priority    string `json:"priority"`
-	Status      string `json:"status"`
+	ID          int    `json:"id"`          // Expected: Ticket identifier
+	Customer    string `json:"customer"`    // Expected: Customer name
+	Subject     string `json:"subject"`     // Expected: Brief issue summary
+	Description string `json:"description"` // Expected: Detailed issue description
+	Priority    string `json:"priority"`    // Expected: Priority level
+	Status      string `json:"status"`      // Expected: Ticket status
+}
+
+// loadEnv loads environment variables from a .env file
+func loadEnv(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			os.Setenv(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
+	}
+	return scanner.Err()
 }
 
 func main() {
+	// Load .env file from project root
+	if err := loadEnv("../../.env"); err != nil {
+		fmt.Printf("Warning: Could not load .env file: %v\n", err)
+	}
+
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)

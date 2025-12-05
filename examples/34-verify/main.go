@@ -2,193 +2,250 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/joho/godotenv"
+	"github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/internal/ops"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-func main() {
-	// Initialize SchemaFlow
-	if err := schemaflow.InitWithEnv(); err != nil {
-		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
-		return
+func loadEnv() {
+	dir, _ := os.Getwd()
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".env")); err == nil {
+			godotenv.Load(filepath.Join(dir, ".env"))
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
 	}
+}
+
+func main() {
+	loadEnv()
+	schemaflow.InitWithEnv()
 
 	fmt.Println("=== Verify Example ===")
-
-	// Example 1: Fact-check claims
-	fmt.Println("--- Example 1: Fact Checking ---")
-	claims := `
-	1. The Earth is approximately 4.5 billion years old.
-	2. Water boils at 100 degrees Celsius at sea level.
-	3. The capital of Australia is Sydney.
-	4. Humans have 206 bones in their body.
-	5. The speed of light is about 300,000 km/s.
-	`
-
-	opts := schemaflow.NewVerifyOptions().
-		WithCheckFacts(true).
-		WithIncludeEvidence(true).
-		WithExplainReasoning(true).
-		WithStrictness("moderate")
-
-	result, err := schemaflow.Verify(claims, opts)
-	if err != nil {
-		schemaflow.GetLogger().Error("Verification failed", "error", err)
-		return
-	}
-
-	fmt.Printf("Overall Verdict: %s (Trust Score: %.2f)\n\n", result.OverallVerdict, result.TrustScore)
-
-	fmt.Println("Individual Claims:")
-	for _, claim := range result.Claims {
-		verdict := claim.Verdict
-		switch verdict {
-		case "verified":
-			verdict = "✓ " + verdict
-		case "false":
-			verdict = "✗ " + verdict
-		case "partially_true":
-			verdict = "◐ " + verdict
-		default:
-			verdict = "? " + verdict
-		}
-
-		fmt.Printf("\n  %s (%.0f%% confidence)\n", verdict, claim.Confidence*100)
-		fmt.Printf("  Claim: %s\n", claim.Claim)
-		if claim.Reasoning != "" {
-			fmt.Printf("  Reasoning: %s\n", claim.Reasoning)
-		}
-		if claim.Corrections != "" {
-			fmt.Printf("  Correction: %s\n", claim.Corrections)
-		}
-	}
+	fmt.Println("Verifies claims against facts, checks logic consistency, and validates sources")
 	fmt.Println()
 
-	// Example 2: Check logical consistency
-	fmt.Println("--- Example 2: Logic Checking ---")
-	argument := `
-	Premise 1: All birds can fly.
-	Premise 2: Penguins are birds.
-	Conclusion: Therefore, penguins can fly.
-	
-	This means we can use penguins as aerial messengers.
-	`
+	// ==================== USE CASE 1: Contract Compliance Audit ====================
+	fmt.Println("--- Use Case 1: Contract Compliance Audit ---")
 
-	logicOpts := schemaflow.NewVerifyOptions().
-		WithCheckLogic(true).
-		WithCheckFacts(true).
-		WithExplainReasoning(true)
-
-	logicResult, err := schemaflow.Verify(argument, logicOpts)
-	if err != nil {
-		schemaflow.GetLogger().Error("Logic verification failed", "error", err)
-		return
+	type ContractClaim struct {
+		ClaimID   string `json:"claim_id"`
+		Statement string `json:"statement"`
+		Source    string `json:"source"`
 	}
 
-	fmt.Printf("Argument Validity: %s\n", logicResult.OverallVerdict)
-	fmt.Printf("Trust Score: %.2f\n", logicResult.TrustScore)
-
-	if len(logicResult.LogicIssues) > 0 {
-		fmt.Println("\nLogic Issues:")
-		for _, issue := range logicResult.LogicIssues {
-			fmt.Printf("  [%s] %s: %s\n", issue.Severity, issue.Type, issue.Description)
-		}
+	type ContractAuditInput struct {
+		ContractName string          `json:"contract_name"`
+		Claims       []ContractClaim `json:"claims_to_verify"`
+		Reference    map[string]any  `json:"reference_data"`
 	}
 
-	fmt.Printf("\nSummary: %s\n\n", logicResult.Summary)
-
-	// Example 3: Verify against sources
-	fmt.Println("--- Example 3: Source-Based Verification ---")
-	articleClaim := "The company reported $5 billion in Q3 revenue, a 20% increase from last year."
-
-	sources := []any{
-		map[string]any{
-			"type":       "earnings_report",
-			"q3_revenue": 4800000000, // Actual: $4.8B
-			"yoy_growth": 0.18,       // Actual: 18%
+	input1 := ContractAuditInput{
+		ContractName: "Enterprise SLA Agreement #2024-1147",
+		Claims: []ContractClaim{
+			{ClaimID: "SLA-001", Statement: "Vendor guarantees 99.9% uptime", Source: "Contract Section 3.2"},
+			{ClaimID: "SLA-002", Statement: "Vendor met all uptime requirements for Q4 2024", Source: "Vendor Report"},
+			{ClaimID: "SLA-003", Statement: "No security incidents occurred in Q4", Source: "Vendor Report"},
 		},
-		map[string]any{
-			"type":  "press_release",
-			"quote": "We achieved strong growth this quarter with revenue approaching $5 billion.",
+		Reference: map[string]any{
+			"actual_uptime_q4_2024":        99.7,
+			"contracted_uptime_guarantee":  99.9,
+			"security_incidents_q4_2024":   2,
 		},
 	}
 
-	sourceOpts := schemaflow.NewVerifyOptions().
-		WithSources(sources).
-		WithStrictness("strict").
-		WithIncludeEvidence(true)
-
-	sourceResult, err := schemaflow.Verify(articleClaim, sourceOpts)
-	if err != nil {
-		schemaflow.GetLogger().Error("Source verification failed", "error", err)
-		return
+	fmt.Println("INPUT: ContractAuditInput{")
+	fmt.Printf("  ContractName: %q,\n", input1.ContractName)
+	fmt.Println("  Claims: []ContractClaim{")
+	for _, c := range input1.Claims {
+		fmt.Printf("    {ClaimID: %q, Statement: %q},\n", c.ClaimID, c.Statement)
 	}
-
-	fmt.Printf("Claim: %s\n", articleClaim)
-	fmt.Printf("Verdict: %s\n", sourceResult.OverallVerdict)
-
-	for _, claim := range sourceResult.Claims {
-		if len(claim.Evidence) > 0 {
-			fmt.Println("Evidence:")
-			for _, e := range claim.Evidence {
-				fmt.Printf("  - %s\n", e)
-			}
-		}
-		if claim.Corrections != "" {
-			fmt.Printf("Correction: %s\n", claim.Corrections)
-		}
-	}
+	fmt.Println("  },")
+	fmt.Println("  Reference: map[string]any{")
+	fmt.Printf("    \"actual_uptime_q4_2024\": %.1f,\n", input1.Reference["actual_uptime_q4_2024"])
+	fmt.Printf("    \"contracted_uptime_guarantee\": %.1f,\n", input1.Reference["contracted_uptime_guarantee"])
+	fmt.Printf("    \"security_incidents_q4_2024\": %d,\n", input1.Reference["security_incidents_q4_2024"])
+	fmt.Println("  },")
+	fmt.Println("}")
 	fmt.Println()
 
-	// Example 4: Check internal consistency
-	fmt.Println("--- Example 4: Consistency Checking ---")
-	document := `
-	In the introduction, we state that the project started in 2020.
-	The methodology section mentions data collection began in 2018.
-	Results show analysis of 5 years of data from 2019-2023.
-	The budget shows $1 million in Year 1 and $2 million in Year 2.
-	The total budget is listed as $2.5 million.
-	`
-
-	consistencyOpts := schemaflow.NewVerifyOptions().
+	opts := ops.NewVerifyOptions().
+		WithSources([]any{input1.Reference}).
+		WithCheckFacts(true).
 		WithCheckConsistency(true).
-		WithCheckLogic(true)
+		WithStrictness("strict").
+		WithIntelligence(types.Smart)
 
-	consistencyResult, err := schemaflow.Verify(document, consistencyOpts)
+	result1, err := ops.Verify(input1, opts)
 	if err != nil {
-		schemaflow.GetLogger().Error("Consistency check failed", "error", err)
-		return
+		log.Fatalf("Verification failed: %v", err)
 	}
 
-	fmt.Printf("Document Consistency: %s\n", consistencyResult.OverallVerdict)
-
-	if len(consistencyResult.ConsistencyIssues) > 0 {
-		fmt.Println("\nInconsistencies Found:")
-		for _, issue := range consistencyResult.ConsistencyIssues {
-			fmt.Printf("  [%s] %s\n", issue.Type, issue.Description)
-			if len(issue.Items) > 0 {
-				fmt.Printf("    Conflicting items: %v\n", issue.Items)
-			}
-			if issue.Suggestion != "" {
-				fmt.Printf("    Suggestion: %s\n", issue.Suggestion)
-			}
+	fmt.Println("OUTPUT: VerifyResult{")
+	fmt.Printf("  OverallVerdict:    %q,\n", result1.OverallVerdict)
+	fmt.Printf("  OverallConfidence: %.2f,\n", result1.OverallConfidence)
+	fmt.Printf("  TrustScore:        %.2f,\n", result1.TrustScore)
+	fmt.Printf("  Summary:           %q,\n", truncate(result1.Summary, 100))
+	fmt.Println("  Claims: []ClaimVerification{")
+	for _, c := range result1.Claims {
+		fmt.Printf("    {Claim: %q, Verdict: %q, Confidence: %.2f, Corrections: %q},\n",
+			truncate(c.Claim, 40), c.Verdict, c.Confidence, truncate(c.Corrections, 50))
+	}
+	fmt.Println("  },")
+	if len(result1.ConsistencyIssues) > 0 {
+		fmt.Println("  ConsistencyIssues: []ConsistencyIssue{")
+		for _, i := range result1.ConsistencyIssues {
+			fmt.Printf("    {Type: %q, Description: %q},\n", i.Type, truncate(i.Description, 60))
 		}
+		fmt.Println("  },")
 	}
+	fmt.Println("}")
 	fmt.Println()
 
-	// Example 5: Single claim verification
-	fmt.Println("--- Example 5: Single Claim ---")
-	singleClaim := "The Great Wall of China is visible from space with the naked eye."
+	// ==================== USE CASE 2: Resume Verification ====================
+	fmt.Println("--- Use Case 2: Resume Verification ---")
 
-	claimResult, err := schemaflow.VerifyClaim(singleClaim, schemaflow.NewVerifyOptions().WithExplainReasoning(true))
-	if err != nil {
-		schemaflow.GetLogger().Error("Claim verification failed", "error", err)
-		return
+	type ResumeInput struct {
+		CandidateName   string         `json:"candidate_name"`
+		Claims          []string       `json:"resume_claims"`
+		BackgroundCheck map[string]any `json:"background_check_data"`
 	}
 
-	fmt.Printf("Claim: %s\n", singleClaim)
-	fmt.Printf("Verdict: %s (%.0f%% confidence)\n", claimResult.Verdict, claimResult.Confidence*100)
-	fmt.Printf("Reasoning: %s\n", claimResult.Reasoning)
+	input2 := ResumeInput{
+		CandidateName: "John Smith",
+		Claims: []string{
+			"BS in Computer Science from MIT, graduated 2018",
+			"5 years experience as Software Engineer at Google",
+			"Led team of 12 engineers on search infrastructure",
+		},
+		BackgroundCheck: map[string]any{
+			"education_school":     "MIT",
+			"education_degree":     "BS Computer Science",
+			"graduation_year":      2019,
+			"employer":             "Google",
+			"title":                "Software Engineer",
+			"employment_years":     5,
+			"team_size_managed":    4,
+		},
+	}
+
+	fmt.Println("INPUT: ResumeInput{")
+	fmt.Printf("  CandidateName: %q,\n", input2.CandidateName)
+	fmt.Println("  Claims: []string{")
+	for _, c := range input2.Claims {
+		fmt.Printf("    %q,\n", c)
+	}
+	fmt.Println("  },")
+	fmt.Println("  BackgroundCheck: map[string]any{")
+	fmt.Printf("    \"graduation_year\": %d,\n", input2.BackgroundCheck["graduation_year"])
+	fmt.Printf("    \"employment_years\": %d,\n", input2.BackgroundCheck["employment_years"])
+	fmt.Printf("    \"team_size_managed\": %d,\n", input2.BackgroundCheck["team_size_managed"])
+	fmt.Println("  },")
+	fmt.Println("}")
+	fmt.Println()
+
+	opts2 := ops.NewVerifyOptions().
+		WithSources([]any{input2.BackgroundCheck}).
+		WithCheckFacts(true).
+		WithStrictness("strict").
+		WithIntelligence(types.Smart)
+
+	result2, err := ops.Verify(input2, opts2)
+	if err != nil {
+		log.Fatalf("Resume verification failed: %v", err)
+	}
+
+	fmt.Println("OUTPUT: VerifyResult{")
+	fmt.Printf("  OverallVerdict:    %q,\n", result2.OverallVerdict)
+	fmt.Printf("  OverallConfidence: %.2f,\n", result2.OverallConfidence)
+	fmt.Printf("  TrustScore:        %.2f,\n", result2.TrustScore)
+	fmt.Println("  Claims: []ClaimVerification{")
+	for _, c := range result2.Claims {
+		fmt.Printf("    {Claim: %q, Verdict: %q, Confidence: %.2f, Corrections: %q},\n",
+			truncate(c.Claim, 50), c.Verdict, c.Confidence, truncate(c.Corrections, 40))
+	}
+	fmt.Println("  },")
+	fmt.Println("}")
+	fmt.Println()
+
+	// ==================== USE CASE 3: Marketing Claims Compliance ====================
+	fmt.Println("--- Use Case 3: Marketing Claims Compliance ---")
+
+	type MarketingInput struct {
+		ProductName string         `json:"product_name"`
+		AdClaims    []string       `json:"advertising_claims"`
+		TestData    map[string]any `json:"clinical_test_data"`
+	}
+
+	input3 := MarketingInput{
+		ProductName: "SuperVitamin Plus",
+		AdClaims: []string{
+			"Clinically proven to boost energy by 50%",
+			"100% natural ingredients",
+			"Recommended by 9 out of 10 doctors",
+		},
+		TestData: map[string]any{
+			"energy_improvement_percent": 28,
+			"natural_ingredient_percent": 85,
+			"doctor_recommendation_rate": 0.42,
+			"sample_size":                120,
+		},
+	}
+
+	fmt.Println("INPUT: MarketingInput{")
+	fmt.Printf("  ProductName: %q,\n", input3.ProductName)
+	fmt.Println("  AdClaims: []string{")
+	for _, c := range input3.AdClaims {
+		fmt.Printf("    %q,\n", c)
+	}
+	fmt.Println("  },")
+	fmt.Println("  TestData: map[string]any{")
+	fmt.Printf("    \"energy_improvement_percent\": %d,\n", input3.TestData["energy_improvement_percent"])
+	fmt.Printf("    \"natural_ingredient_percent\": %d,\n", input3.TestData["natural_ingredient_percent"])
+	fmt.Printf("    \"doctor_recommendation_rate\": %.2f,\n", input3.TestData["doctor_recommendation_rate"])
+	fmt.Println("  },")
+	fmt.Println("}")
+	fmt.Println()
+
+	opts3 := ops.NewVerifyOptions().
+		WithSources([]any{input3.TestData}).
+		WithCheckFacts(true).
+		WithStrictness("strict").
+		WithIntelligence(types.Smart)
+
+	result3, err := ops.Verify(input3, opts3)
+	if err != nil {
+		log.Fatalf("Marketing verification failed: %v", err)
+	}
+
+	fmt.Println("OUTPUT: VerifyResult{")
+	fmt.Printf("  OverallVerdict:    %q,\n", result3.OverallVerdict)
+	fmt.Printf("  OverallConfidence: %.2f,\n", result3.OverallConfidence)
+	fmt.Printf("  TrustScore:        %.2f,\n", result3.TrustScore)
+	fmt.Println("  Claims: []ClaimVerification{")
+	for _, c := range result3.Claims {
+		fmt.Printf("    {Claim: %q, Verdict: %q, Confidence: %.2f, Corrections: %q},\n",
+			truncate(c.Claim, 45), c.Verdict, c.Confidence, truncate(c.Corrections, 40))
+	}
+	fmt.Println("  },")
+	fmt.Println("}")
 
 	fmt.Println("\n=== Verify Example Complete ===")
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
 }

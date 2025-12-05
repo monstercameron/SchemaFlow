@@ -2,78 +2,71 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/joho/godotenv"
+	"github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/internal/ops"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-// SalesReport represents a quarterly sales report
-type SalesReport struct {
-	Quarter     string        `json:"quarter"`
-	Year        int           `json:"year"`
-	TotalSales  float64       `json:"total_sales"`
-	UnitsSold   int           `json:"units_sold"`
-	TopProducts []ProductSale `json:"top_products"`
-	Regions     []RegionSale  `json:"regions"`
-}
-
-// ProductSale represents product sales data
-type ProductSale struct {
-	Name      string  `json:"name"`
-	Revenue   float64 `json:"revenue"`
-	UnitsSold int     `json:"units_sold"`
-	Category  string  `json:"category"`
-}
-
-// RegionSale represents sales by region
-type RegionSale struct {
-	Region  string  `json:"region"`
-	Revenue float64 `json:"revenue"`
-	Growth  float64 `json:"growth"` // percentage
-}
-
-// KeyFindings represents typed findings from the report
-type KeyFindings struct {
-	TopPerformer      string `json:"top_performer"`
-	BestRegion        string `json:"best_region"`
-	GrowthTrend       string `json:"growth_trend"`
-	OverallHealth     string `json:"overall_health"`
-	RecommendedAction string `json:"recommended_action"`
-}
-
-// RiskAssessment represents typed risk analysis
-type RiskAssessment struct {
-	Risks []struct {
-		Name       string  `json:"name"`
-		Severity   string  `json:"severity"`
-		Likelihood float64 `json:"likelihood"`
-		Impact     string  `json:"impact"`
-		Mitigation string  `json:"mitigation"`
-	} `json:"risks"`
-	OverallRiskLevel string `json:"overall_risk_level"`
+func loadEnv() {
+	dir, _ := os.Getwd()
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".env")); err == nil {
+			godotenv.Load(filepath.Join(dir, ".env"))
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
 }
 
 func main() {
-	// Initialize SchemaFlow
-	if err := schemaflow.InitWithEnv(); err != nil {
-		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
-		return
+	loadEnv()
+	schemaflow.InitWithEnv()
+
+	fmt.Println("=== Question Example ===")
+	fmt.Println("Answers questions about data with typed responses")
+	fmt.Println()
+
+	// ==================== USE CASE 1: Sales Report Q&A ====================
+	fmt.Println("--- Use Case 1: Sales Report Analysis ---")
+
+	type ProductSale struct {
+		Name     string  `json:"name"`
+		Revenue  float64 `json:"revenue"`
+		Units    int     `json:"units_sold"`
+		Category string  `json:"category"`
 	}
 
-	fmt.Println("❓ Question Example - Ask Questions About Data with Typed Answers")
-	fmt.Println("=" + string(make([]byte, 65)))
+	type RegionSale struct {
+		Region  string  `json:"region"`
+		Revenue float64 `json:"revenue"`
+		Growth  float64 `json:"growth_percent"`
+	}
 
-	// Sample sales report
-	report := SalesReport{
+	type SalesReport struct {
+		Quarter     string        `json:"quarter"`
+		Year        int           `json:"year"`
+		TotalSales  float64       `json:"total_sales"`
+		TopProducts []ProductSale `json:"top_products"`
+		Regions     []RegionSale  `json:"regions"`
+	}
+
+	input1 := SalesReport{
 		Quarter:    "Q3",
 		Year:       2024,
 		TotalSales: 4850000,
-		UnitsSold:  125000,
 		TopProducts: []ProductSale{
-			{Name: "Premium Widget", Revenue: 1200000, UnitsSold: 15000, Category: "Hardware"},
-			{Name: "Smart Gadget", Revenue: 950000, UnitsSold: 12000, Category: "Electronics"},
-			{Name: "Pro Service Plan", Revenue: 800000, UnitsSold: 8000, Category: "Services"},
-			{Name: "Basic Widget", Revenue: 650000, UnitsSold: 45000, Category: "Hardware"},
-			{Name: "Accessory Pack", Revenue: 450000, UnitsSold: 35000, Category: "Accessories"},
+			{Name: "Premium Widget", Revenue: 1200000, Units: 15000, Category: "Hardware"},
+			{Name: "Smart Gadget", Revenue: 950000, Units: 12000, Category: "Electronics"},
+			{Name: "Pro Service Plan", Revenue: 800000, Units: 8000, Category: "Services"},
 		},
 		Regions: []RegionSale{
 			{Region: "North America", Revenue: 2100000, Growth: 15.5},
@@ -83,121 +76,167 @@ func main() {
 		},
 	}
 
-	fmt.Printf("\n📊 Sales Report: %s %d\n", report.Quarter, report.Year)
-	fmt.Printf("   Total Sales: $%.2fM\n", report.TotalSales/1000000)
-	fmt.Printf("   Units Sold: %d\n", report.UnitsSold)
-	fmt.Println()
-
-	// Example 1: Simple string answer
-	fmt.Println("--- Example 1: Simple String Answer ---")
-	simpleOpts := schemaflow.NewQuestionOptions("What is the best performing product by revenue?")
-	simpleResult, err := schemaflow.Question[SalesReport, string](report, simpleOpts)
-	if err != nil {
-		schemaflow.GetLogger().Error("Question failed", "error", err)
-	} else {
-		fmt.Printf("Q: What is the best performing product by revenue?\n")
-		fmt.Printf("A: %s\n", simpleResult.Answer)
-		fmt.Printf("   Confidence: %.0f%%\n", simpleResult.Confidence*100)
-		if simpleResult.Reasoning != "" {
-			fmt.Printf("   Reasoning: %s\n", simpleResult.Reasoning)
-		}
+	fmt.Println("INPUT: SalesReport{")
+	fmt.Printf("  Quarter: %q, Year: %d,\n", input1.Quarter, input1.Year)
+	fmt.Printf("  TotalSales: $%.0f,\n", input1.TotalSales)
+	fmt.Println("  TopProducts: []ProductSale{")
+	for _, p := range input1.TopProducts {
+		fmt.Printf("    {Name: %q, Revenue: $%.0f, Units: %d},\n", p.Name, p.Revenue, p.Units)
 	}
+	fmt.Println("  },")
+	fmt.Println("  Regions: []RegionSale{")
+	for _, r := range input1.Regions {
+		fmt.Printf("    {Region: %q, Revenue: $%.0f, Growth: %.1f%%},\n", r.Region, r.Revenue, r.Growth)
+	}
+	fmt.Println("  },")
+	fmt.Println("}")
 	fmt.Println()
 
-	// Example 2: Boolean answer
-	fmt.Println("--- Example 2: Boolean Answer ---")
-	boolOpts := schemaflow.NewQuestionOptions("Are all regions showing positive growth?")
-	boolResult, err := schemaflow.Question[SalesReport, bool](report, boolOpts)
+	// Answer type: simple string
+	opts1 := ops.NewQuestionOptions("What is the best performing product by revenue and why?").
+		WithIntelligence(types.Smart)
+
+	result1, err := ops.Question[SalesReport, string](input1, opts1)
 	if err != nil {
-		schemaflow.GetLogger().Error("Question failed", "error", err)
-	} else {
-		fmt.Printf("Q: Are all regions showing positive growth?\n")
-		if boolResult.Answer {
-			fmt.Println("A: ✅ Yes")
-		} else {
-			fmt.Println("A: ❌ No")
-		}
-		fmt.Printf("   Confidence: %.0f%%\n", boolResult.Confidence*100)
-		if len(boolResult.Evidence) > 0 {
-			fmt.Println("   Evidence:")
-			for _, e := range boolResult.Evidence {
-				fmt.Printf("   - %s\n", e)
+		log.Fatalf("Question failed: %v", err)
+	}
+
+	fmt.Println("OUTPUT: QuestionResult[string]{")
+	fmt.Printf("  Answer:     %q,\n", truncate(result1.Answer, 80))
+	fmt.Printf("  Confidence: %.2f,\n", result1.Confidence)
+	fmt.Printf("  Reasoning:  %q,\n", truncate(result1.Reasoning, 60))
+	fmt.Println("}")
+	fmt.Println()
+
+	// ==================== USE CASE 2: Boolean Question ====================
+	fmt.Println("--- Use Case 2: Risk Assessment (Boolean Answer) ---")
+
+	type FinancialMetrics struct {
+		DebtToEquity   float64 `json:"debt_to_equity_ratio"`
+		CurrentRatio   float64 `json:"current_ratio"`
+		QuickRatio     float64 `json:"quick_ratio"`
+		InterestCover  float64 `json:"interest_coverage"`
+		ProfitMargin   float64 `json:"profit_margin_percent"`
+		RevenueGrowth  float64 `json:"revenue_growth_percent"`
+	}
+
+	input2 := FinancialMetrics{
+		DebtToEquity:  2.8,   // High leverage
+		CurrentRatio:  0.9,   // Below 1 = liquidity concern
+		QuickRatio:    0.6,   // Low quick ratio
+		InterestCover: 1.2,   // Barely covering interest
+		ProfitMargin:  3.5,
+		RevenueGrowth: -2.0,  // Declining revenue
+	}
+
+	fmt.Println("INPUT: FinancialMetrics{")
+	fmt.Printf("  DebtToEquity:  %.1f,\n", input2.DebtToEquity)
+	fmt.Printf("  CurrentRatio:  %.1f,\n", input2.CurrentRatio)
+	fmt.Printf("  QuickRatio:    %.1f,\n", input2.QuickRatio)
+	fmt.Printf("  InterestCover: %.1f,\n", input2.InterestCover)
+	fmt.Printf("  ProfitMargin:  %.1f%%,\n", input2.ProfitMargin)
+	fmt.Printf("  RevenueGrowth: %.1f%%,\n", input2.RevenueGrowth)
+	fmt.Println("}")
+	fmt.Println()
+
+	opts2 := ops.NewQuestionOptions("Is this company at risk of financial distress based on these metrics?").
+		WithIntelligence(types.Smart)
+
+	result2, err := ops.Question[FinancialMetrics, bool](input2, opts2)
+	if err != nil {
+		log.Fatalf("Question failed: %v", err)
+	}
+
+	fmt.Println("OUTPUT: QuestionResult[bool]{")
+	fmt.Printf("  Answer:     %v,\n", result2.Answer)
+	fmt.Printf("  Confidence: %.2f,\n", result2.Confidence)
+	if len(result2.Evidence) > 0 {
+		fmt.Println("  Evidence: []string{")
+		for i, e := range result2.Evidence {
+			if i >= 3 {
+				fmt.Printf("    ... and %d more,\n", len(result2.Evidence)-3)
+				break
 			}
+			fmt.Printf("    %q,\n", truncate(e, 60))
 		}
+		fmt.Println("  },")
 	}
+	fmt.Println("}")
 	fmt.Println()
 
-	// Example 3: Typed struct answer - Key Findings
-	fmt.Println("--- Example 3: Typed Struct Answer (Key Findings) ---")
-	findingsOpts := schemaflow.NewQuestionOptions("Summarize the key findings from this sales report including top performer, best region, growth trend, overall health assessment, and a recommended action")
-	findingsResult, err := schemaflow.Question[SalesReport, KeyFindings](report, findingsOpts)
-	if err != nil {
-		schemaflow.GetLogger().Error("Question failed", "error", err)
-	} else {
-		fmt.Println("Q: What are the key findings?")
-		fmt.Println("A:")
-		fmt.Printf("   🏆 Top Performer: %s\n", findingsResult.Answer.TopPerformer)
-		fmt.Printf("   🌍 Best Region: %s\n", findingsResult.Answer.BestRegion)
-		fmt.Printf("   📈 Growth Trend: %s\n", findingsResult.Answer.GrowthTrend)
-		fmt.Printf("   ❤️ Overall Health: %s\n", findingsResult.Answer.OverallHealth)
-		fmt.Printf("   💡 Recommended Action: %s\n", findingsResult.Answer.RecommendedAction)
-		fmt.Printf("   Confidence: %.0f%%\n", findingsResult.Confidence*100)
+	// ==================== USE CASE 3: Structured Answer ====================
+	fmt.Println("--- Use Case 3: Incident Triage (Structured Answer) ---")
+
+	type IncidentReport struct {
+		IncidentID   string   `json:"incident_id"`
+		Description  string   `json:"description"`
+		AffectedSvcs []string `json:"affected_services"`
+		ErrorRate    float64  `json:"error_rate_percent"`
+		Latency      int      `json:"p99_latency_ms"`
+		UserReports  int      `json:"user_reports"`
+		StartTime    string   `json:"start_time"`
 	}
+
+	type TriageResult struct {
+		Severity       string   `json:"severity"`
+		Priority       int      `json:"priority"`
+		RootCauseGuess string   `json:"likely_root_cause"`
+		NextSteps      []string `json:"recommended_next_steps"`
+	}
+
+	input3 := IncidentReport{
+		IncidentID:   "INC-2024-1847",
+		Description:  "Payment processing failures, customers unable to complete checkout",
+		AffectedSvcs: []string{"payment-gateway", "checkout-service", "order-service"},
+		ErrorRate:    45.2,
+		Latency:      8500,
+		UserReports:  342,
+		StartTime:    "2024-12-05T14:23:00Z",
+	}
+
+	fmt.Println("INPUT: IncidentReport{")
+	fmt.Printf("  IncidentID:   %q,\n", input3.IncidentID)
+	fmt.Printf("  Description:  %q,\n", input3.Description)
+	fmt.Printf("  AffectedSvcs: %v,\n", input3.AffectedSvcs)
+	fmt.Printf("  ErrorRate:    %.1f%%,\n", input3.ErrorRate)
+	fmt.Printf("  Latency:      %dms,\n", input3.Latency)
+	fmt.Printf("  UserReports:  %d,\n", input3.UserReports)
+	fmt.Println("}")
 	fmt.Println()
 
-	// Example 4: Typed struct answer - Risk Assessment
-	fmt.Println("--- Example 4: Typed Struct Answer (Risk Assessment) ---")
-	riskOpts := schemaflow.NewQuestionOptions("What are the business risks based on this sales data? Identify potential risks with their severity, likelihood, impact, and mitigation strategies.")
-	riskResult, err := schemaflow.Question[SalesReport, RiskAssessment](report, riskOpts)
+	opts3 := ops.NewQuestionOptions("Triage this incident: determine severity, priority, likely root cause, and next steps").
+		WithSteering("Always respond in English").
+		WithIntelligence(types.Smart)
+
+	result3, err := ops.Question[IncidentReport, TriageResult](input3, opts3)
 	if err != nil {
-		schemaflow.GetLogger().Error("Question failed", "error", err)
-	} else {
-		fmt.Println("Q: What are the business risks?")
-		fmt.Printf("A: Overall Risk Level: %s\n", riskResult.Answer.OverallRiskLevel)
-		fmt.Println("   Identified Risks:")
-		for i, risk := range riskResult.Answer.Risks {
-			fmt.Printf("\n   %d. %s\n", i+1, risk.Name)
-			fmt.Printf("      Severity: %s, Likelihood: %.0f%%\n", risk.Severity, risk.Likelihood*100)
-			fmt.Printf("      Impact: %s\n", risk.Impact)
-			fmt.Printf("      Mitigation: %s\n", risk.Mitigation)
+		log.Fatalf("Question failed: %v", err)
+	}
+
+	fmt.Println("OUTPUT: QuestionResult[TriageResult]{")
+	fmt.Println("  Answer: TriageResult{")
+	fmt.Printf("    Severity:       %q,\n", result3.Answer.Severity)
+	fmt.Printf("    Priority:       %d,\n", result3.Answer.Priority)
+	fmt.Printf("    RootCauseGuess: %q,\n", truncate(result3.Answer.RootCauseGuess, 50))
+	fmt.Println("    NextSteps: []string{")
+	for i, step := range result3.Answer.NextSteps {
+		if i >= 3 {
+			fmt.Printf("      ... and %d more,\n", len(result3.Answer.NextSteps)-3)
+			break
 		}
-		fmt.Printf("\n   Confidence: %.0f%%\n", riskResult.Confidence*100)
+		fmt.Printf("      %q,\n", truncate(step, 50))
 	}
-	fmt.Println()
+	fmt.Println("    },")
+	fmt.Println("  },")
+	fmt.Printf("  Confidence: %.2f,\n", result3.Confidence)
+	fmt.Println("}")
 
-	// Example 5: Numeric answer
-	fmt.Println("--- Example 5: Numeric Answer ---")
-	numOpts := schemaflow.NewQuestionOptions("What is the average revenue per unit across all products?")
-	numResult, err := schemaflow.Question[SalesReport, float64](report, numOpts)
-	if err != nil {
-		schemaflow.GetLogger().Error("Question failed", "error", err)
-	} else {
-		fmt.Printf("Q: What is the average revenue per unit?\n")
-		fmt.Printf("A: $%.2f per unit\n", numResult.Answer)
-		fmt.Printf("   Confidence: %.0f%%\n", numResult.Confidence*100)
-		if numResult.Reasoning != "" {
-			fmt.Printf("   Reasoning: %s\n", numResult.Reasoning)
-		}
+	fmt.Println("\n=== Question Example Complete ===")
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
 	}
-	fmt.Println()
-
-	// Example 6: Using legacy interface for quick string answers
-	fmt.Println("--- Example 6: Legacy String Interface ---")
-	legacyAnswer, err := schemaflow.QuestionLegacy(report, "Which region should be prioritized for investment?")
-	if err != nil {
-		schemaflow.GetLogger().Error("Question failed", "error", err)
-	} else {
-		fmt.Printf("Q: Which region should be prioritized for investment?\n")
-		fmt.Printf("A: %s\n", legacyAnswer)
-	}
-
-	fmt.Println()
-	fmt.Println("✨ Success! Question examples complete")
-	fmt.Println()
-	fmt.Println("📝 Key Features Demonstrated:")
-	fmt.Println("   - String answers with confidence and reasoning")
-	fmt.Println("   - Boolean answers with evidence")
-	fmt.Println("   - Typed struct answers for structured extraction")
-	fmt.Println("   - Numeric answers with explanation")
-	fmt.Println("   - Legacy interface for quick string questions")
+	return s[:max] + "..."
 }

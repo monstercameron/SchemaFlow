@@ -1,25 +1,81 @@
+// Example: 01-extract
+//
+// Operation: Extract[T] - Converts unstructured data into strongly-typed Go structs
+//
+// Input: Raw email text (unstructured string)
+//   From: john.smith@example.com
+//   To: sarah.jones@company.com
+//   Subject: Project Update - Q4 Results
+//   ...body text...
+//   Sent: December 15, 2024
+//
+// Expected Output:
+//   Email{
+//       From:    "john.smith@example.com",
+//       To:      "sarah.jones@company.com",
+//       Subject: "Project Update - Q4 Results",
+//       Date:    2024-12-15T00:00:00Z,
+//       Tags:    ["Project", "Update", "Q4", "Results", "productivity", ...],
+//       Body:    "Hi Sarah, I wanted to share the Q4 results...",
+//   }
+//
+// Provider: Cerebras (gpt-oss-120b via Fast intelligence)
+// Expected Duration: ~500-800ms
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
-// Email represents a structured email
+// Email represents a structured email extracted from unstructured text
 type Email struct {
-	From    string    `json:"from"`
-	To      string    `json:"to"`
-	Subject string    `json:"subject"`
-	Date    time.Time `json:"date"`
-	Body    string    `json:"body"`
-	Tags    []string  `json:"tags"`
+	From    string    `json:"from"`    // Expected: "john.smith@example.com"
+	To      string    `json:"to"`      // Expected: "sarah.jones@company.com"
+	Subject string    `json:"subject"` // Expected: "Project Update - Q4 Results"
+	Date    time.Time `json:"date"`    // Expected: 2024-12-15
+	Body    string    `json:"body"`    // Expected: Email body text
+	Tags    []string  `json:"tags"`    // Expected: LLM-inferred tags like ["Project", "Update", "Q4"]
+}
+
+// loadEnv loads environment variables from a .env file
+func loadEnv(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		// Parse KEY=VALUE
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			os.Setenv(key, value)
+		}
+	}
+	return scanner.Err()
 }
 
 func main() {
-	// Initialize SchemaFlow
+	// Load .env file from project root
+	if err := loadEnv("../../.env"); err != nil {
+		fmt.Printf("Warning: Could not load .env file: %v\n", err)
+	}
+
+	// Initialize SchemaFlow (reads from environment variables)
 	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)

@@ -2,7 +2,9 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -154,9 +156,15 @@ func completeImpl(ctx context.Context, provider llm.Provider, partialText string
 	systemPrompt := buildCompleteSystemPrompt(opts)
 	userPrompt := buildCompleteUserPrompt(partialText, opts)
 
-	// Call LLM
+	// Call LLM - use default provider if none provided
 	opOpts := opts.toOpOptions()
-	response, err := CallLLM(ctx, provider, systemPrompt, userPrompt, opOpts)
+	var response string
+	var err error
+	if provider != nil {
+		response, err = CallLLM(ctx, provider, systemPrompt, userPrompt, opOpts)
+	} else {
+		response, err = callLLM(ctx, systemPrompt, userPrompt, opOpts)
+	}
 	if err != nil {
 		logger.Error("Complete operation LLM call failed", "requestID", opts.RequestID, "error", err)
 		return result, fmt.Errorf("completion failed: %w", err)
@@ -300,4 +308,254 @@ func estimateCompletionConfidence(completed, original string) float64 {
 	}
 
 	return confidence
+}
+
+// CompleteFieldResult contains the result of completing a field in a struct
+type CompleteFieldResult[T any] struct {
+	Data          T              `json:"data"`           // The struct with the completed field
+	Field         string         `json:"field"`          // The field that was completed
+	Original      string         `json:"original"`       // Original field value
+	Completed     string         `json:"completed"`      // Completed field value
+	Length        int            `json:"length"`         // Characters added
+	Confidence    float64        `json:"confidence"`     // Confidence score (0.0-1.0)
+	Metadata      map[string]any `json:"metadata"`       // Additional metadata
+}
+
+// CompleteFieldOptions extends CompleteOptions with field-specific settings
+type CompleteFieldOptions struct {
+	CompleteOptions
+	FieldName string // The field to complete (must be a string field)
+}
+
+// NewCompleteFieldOptions creates CompleteFieldOptions with defaults
+func NewCompleteFieldOptions(fieldName string) CompleteFieldOptions {
+	return CompleteFieldOptions{
+		CompleteOptions: NewCompleteOptions(),
+		FieldName:       fieldName,
+	}
+}
+
+// WithFieldName sets the field to complete
+func (opts CompleteFieldOptions) WithFieldName(fieldName string) CompleteFieldOptions {
+	opts.FieldName = fieldName
+	return opts
+}
+
+// WithContext provides previous messages/text for context
+func (opts CompleteFieldOptions) WithContext(context []string) CompleteFieldOptions {
+	opts.CompleteOptions = opts.CompleteOptions.WithContext(context)
+	return opts
+}
+
+// WithMaxLength sets the maximum completion length
+func (opts CompleteFieldOptions) WithMaxLength(maxLength int) CompleteFieldOptions {
+	opts.CompleteOptions = opts.CompleteOptions.WithMaxLength(maxLength)
+	return opts
+}
+
+// WithTemperature sets the creativity level
+func (opts CompleteFieldOptions) WithTemperature(temperature float32) CompleteFieldOptions {
+	opts.CompleteOptions = opts.CompleteOptions.WithTemperature(temperature)
+	return opts
+}
+
+// WithIntelligence sets the intelligence level
+func (opts CompleteFieldOptions) WithIntelligence(intelligence types.Speed) CompleteFieldOptions {
+	opts.CompleteOptions = opts.CompleteOptions.WithIntelligence(intelligence)
+	return opts
+}
+
+// WithMode sets the reasoning mode
+func (opts CompleteFieldOptions) WithMode(mode types.Mode) CompleteFieldOptions {
+	opts.CompleteOptions = opts.CompleteOptions.WithMode(mode)
+	return opts
+}
+
+// CompleteField completes a specific string field in a struct and returns a new copy
+// with the completed field. The struct context is used to inform the completion.
+//
+// Example:
+//
+//	type BlogPost struct {
+//	    Title string `json:"title"`
+//	    Body  string `json:"body"`
+//	}
+//	post := BlogPost{Title: "AI in Healthcare", Body: "Artificial intelligence is transforming"}
+//	result, err := CompleteField[BlogPost](post, NewCompleteFieldOptions("Body"))
+//	// result.Data.Body now contains the completed text
+func CompleteField[T any](ctx context.Context, provider llm.Provider, data T, opts CompleteFieldOptions) (CompleteFieldResult[T], error) {
+	logger := telemetry.GetLogger()
+	logger.Debug("Starting complete field operation", "requestID", opts.RequestID, "field", opts.FieldName)
+
+	result := CompleteFieldResult[T]{
+		Data:     data,
+		Field:    opts.FieldName,
+		Metadata: make(map[string]any),
+	}
+
+	// Validate field name
+	if opts.FieldName == "" {
+		return result, fmt.Errorf("field name is required")
+	}
+
+	// Get the value using reflection
+	val := reflect.ValueOf(data)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		return result, fmt.Errorf("data must be a struct, got %T", data)
+	}
+
+	// Find the field
+	field := val.FieldByName(opts.FieldName)
+	if !field.IsValid() {
+		return result, fmt.Errorf("field %q not found in struct", opts.FieldName)
+	}
+	if field.Kind() != reflect.String {
+		return result, fmt.Errorf("field %q must be a string, got %s", opts.FieldName, field.Kind())
+	}
+
+	originalValue := field.String()
+	result.Original = originalValue
+
+	if strings.TrimSpace(originalValue) == "" {
+		return result, fmt.Errorf("field %q is empty, nothing to complete", opts.FieldName)
+	}
+
+	// Build context from other fields in the struct
+	structContext := buildStructContext(val, opts.FieldName)
+	if len(structContext) > 0 {
+		// Prepend struct context to user-provided context
+		opts.CompleteOptions.Context = append(structContext, opts.CompleteOptions.Context...)
+	}
+
+	// Complete the field value
+	completeResult, err := completeImpl(ctx, provider, originalValue, opts.CompleteOptions)
+	if err != nil {
+		logger.Error("Complete field operation failed", "requestID", opts.RequestID, "error", err)
+		return result, fmt.Errorf("failed to complete field: %w", err)
+	}
+
+	result.Completed = completeResult.Text
+	result.Length = completeResult.Length
+	result.Confidence = completeResult.Confidence
+	result.Metadata = completeResult.Metadata
+	result.Metadata["field"] = opts.FieldName
+
+	// Create a new copy of the struct with the completed field
+	newData, err := copyWithUpdatedField(data, opts.FieldName, completeResult.Text)
+	if err != nil {
+		logger.Error("Failed to update struct field", "requestID", opts.RequestID, "error", err)
+		return result, fmt.Errorf("failed to update field: %w", err)
+	}
+	result.Data = newData
+
+	logger.Debug("Complete field operation succeeded", "requestID", opts.RequestID, "field", opts.FieldName, "length", result.Length)
+
+	return result, nil
+}
+
+// buildStructContext extracts context from other fields in the struct
+func buildStructContext(val reflect.Value, excludeField string) []string {
+	var context []string
+
+	typ := val.Type()
+	for i := 0; i < val.NumField(); i++ {
+		field := typ.Field(i)
+		if field.Name == excludeField {
+			continue
+		}
+
+		fieldVal := val.Field(i)
+		
+		// Only include exported string fields with content
+		if !field.IsExported() {
+			continue
+		}
+
+		var fieldStr string
+		switch fieldVal.Kind() {
+		case reflect.String:
+			fieldStr = fieldVal.String()
+		case reflect.Slice:
+			if fieldVal.Len() > 0 {
+				// For slices, try to get a summary
+				items := make([]string, 0, fieldVal.Len())
+				for j := 0; j < fieldVal.Len() && j < 5; j++ {
+					items = append(items, fmt.Sprintf("%v", fieldVal.Index(j).Interface()))
+				}
+				fieldStr = strings.Join(items, ", ")
+				if fieldVal.Len() > 5 {
+					fieldStr += fmt.Sprintf(" (and %d more)", fieldVal.Len()-5)
+				}
+			}
+		default:
+			fieldStr = fmt.Sprintf("%v", fieldVal.Interface())
+		}
+
+		if strings.TrimSpace(fieldStr) != "" && fieldStr != "0" && fieldStr != "false" {
+			// Use json tag if available for cleaner context
+			jsonTag := field.Tag.Get("json")
+			if jsonTag != "" {
+				jsonTag = strings.Split(jsonTag, ",")[0]
+			} else {
+				jsonTag = field.Name
+			}
+			context = append(context, fmt.Sprintf("%s: %s", jsonTag, fieldStr))
+		}
+	}
+
+	return context
+}
+
+// copyWithUpdatedField creates a copy of the struct with the specified field updated
+func copyWithUpdatedField[T any](data T, fieldName, newValue string) (T, error) {
+	var result T
+
+	// Marshal to JSON
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		return result, fmt.Errorf("failed to marshal struct: %w", err)
+	}
+
+	// Unmarshal to map for modification
+	var dataMap map[string]any
+	if err := json.Unmarshal(jsonBytes, &dataMap); err != nil {
+		return result, fmt.Errorf("failed to unmarshal to map: %w", err)
+	}
+
+	// Find the JSON key for the field
+	val := reflect.ValueOf(data)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	typ := val.Type()
+
+	jsonKey := fieldName
+	for i := 0; i < typ.NumField(); i++ {
+		if typ.Field(i).Name == fieldName {
+			tag := typ.Field(i).Tag.Get("json")
+			if tag != "" {
+				jsonKey = strings.Split(tag, ",")[0]
+			}
+			break
+		}
+	}
+
+	// Update the field
+	dataMap[jsonKey] = newValue
+
+	// Marshal back
+	updatedBytes, err := json.Marshal(dataMap)
+	if err != nil {
+		return result, fmt.Errorf("failed to marshal updated map: %w", err)
+	}
+
+	// Unmarshal to result
+	if err := json.Unmarshal(updatedBytes, &result); err != nil {
+		return result, fmt.Errorf("failed to unmarshal to struct: %w", err)
+	}
+
+	return result, nil
 }

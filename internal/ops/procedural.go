@@ -92,6 +92,18 @@ Choose the best option based on the context.`, ctx, strings.Join(options, "\n"))
 		return decisions[0].Value, result, nil
 	}
 
+	// Clean up response - remove markdown code blocks if present
+	response = strings.TrimSpace(response)
+	if strings.HasPrefix(response, "```json") {
+		response = strings.TrimPrefix(response, "```json")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	} else if strings.HasPrefix(response, "```") {
+		response = strings.TrimPrefix(response, "```")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	}
+
 	// Parse LLM response
 	var llmResult struct {
 		Selected     int     `json:"selected"`

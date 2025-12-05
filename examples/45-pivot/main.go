@@ -2,187 +2,271 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-// SalesRow represents individual sales records
-type SalesRow struct {
-	Product string  `json:"product"`
-	Region  string  `json:"region"`
-	Quarter string  `json:"quarter"`
+// loadEnv loads environment variables from .env files
+func loadEnv() {
+	if err := godotenv.Load(); err == nil {
+		return
+	}
+	dir, _ := os.Getwd()
+	for i := 0; i < 3; i++ {
+		envPath := filepath.Join(dir, ".env")
+		if err := godotenv.Load(envPath); err == nil {
+			return
+		}
+		dir = filepath.Dir(dir)
+	}
+}
+
+// ============================================================
+// USE CASE 1: Sales Pipeline Dashboard (Rows → Columns)
+// ============================================================
+
+// SalesRecord - individual sales transaction
+type SalesRecord struct {
+	Rep     string  `json:"sales_rep"`
+	Month   string  `json:"month"`
 	Revenue float64 `json:"revenue"`
-	Units   int     `json:"units"`
+	Deals   int     `json:"deals_closed"`
 }
 
-// ProductSummary is pivoted view by product with quarters as columns
-type ProductSummary struct {
-	Product   string  `json:"product"`
-	Q1Revenue float64 `json:"q1_revenue"`
-	Q2Revenue float64 `json:"q2_revenue"`
-	Q3Revenue float64 `json:"q3_revenue"`
-	Q4Revenue float64 `json:"q4_revenue"`
-	TotalYear float64 `json:"total_year"`
+// RepQuarterly - pivoted quarterly view per rep
+type RepQuarterly struct {
+	Rep       string  `json:"sales_rep"`
+	Jan       float64 `json:"jan_revenue"`
+	Feb       float64 `json:"feb_revenue"`
+	Mar       float64 `json:"mar_revenue"`
+	Q1Total   float64 `json:"q1_total"`
+	TotalDeals int    `json:"total_deals"`
 }
 
-// NestedUser represents deeply nested user data
-type NestedUser struct {
-	ID      string `json:"id"`
-	Profile struct {
-		Name     string `json:"name"`
-		Email    string `json:"email"`
-		Settings struct {
-			Theme    string `json:"theme"`
-			Language string `json:"language"`
-		} `json:"settings"`
-	} `json:"profile"`
-	Address struct {
-		Street  string `json:"street"`
+// ============================================================
+// USE CASE 2: E-commerce Order Flattening (Nested → Flat)
+// ============================================================
+
+// NestedOrder - API response with nested structure
+type NestedOrder struct {
+	OrderID  string `json:"order_id"`
+	Customer struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	} `json:"customer"`
+	Shipping struct {
+		Address string `json:"address"`
 		City    string `json:"city"`
-		Country string `json:"country"`
-	} `json:"address"`
-	Subscription struct {
-		Plan    string  `json:"plan"`
-		Price   float64 `json:"price"`
-		Renewal string  `json:"renewal"`
-	} `json:"subscription"`
+		Zip     string `json:"zip"`
+		Method  string `json:"method"`
+	} `json:"shipping"`
+	Payment struct {
+		Method string  `json:"method"`
+		Amount float64 `json:"amount"`
+		Status string  `json:"status"`
+	} `json:"payment"`
 }
 
-// FlatUser is the flattened version
-type FlatUser struct {
-	ID                  string  `json:"id"`
-	ProfileName         string  `json:"profile_name"`
-	ProfileEmail        string  `json:"profile_email"`
-	SettingsTheme       string  `json:"settings_theme"`
-	SettingsLanguage    string  `json:"settings_language"`
-	AddressStreet       string  `json:"address_street"`
-	AddressCity         string  `json:"address_city"`
-	AddressCountry      string  `json:"address_country"`
-	SubscriptionPlan    string  `json:"subscription_plan"`
-	SubscriptionPrice   float64 `json:"subscription_price"`
-	SubscriptionRenewal string  `json:"subscription_renewal"`
+// FlatOrder - flattened for data warehouse
+type FlatOrder struct {
+	OrderID         string  `json:"order_id"`
+	CustomerID      string  `json:"customer_id"`
+	CustomerName    string  `json:"customer_name"`
+	CustomerEmail   string  `json:"customer_email"`
+	ShipAddress     string  `json:"ship_address"`
+	ShipCity        string  `json:"ship_city"`
+	ShipZip         string  `json:"ship_zip"`
+	ShipMethod      string  `json:"ship_method"`
+	PaymentMethod   string  `json:"payment_method"`
+	PaymentAmount   float64 `json:"payment_amount"`
+	PaymentStatus   string  `json:"payment_status"`
+}
+
+// ============================================================
+// USE CASE 3: Survey Response Pivot (Rows → Columns)
+// ============================================================
+
+// SurveyResponse - EAV (Entity-Attribute-Value) format
+type SurveyResponse struct {
+	RespondentID string `json:"respondent_id"`
+	Question     string `json:"question"`
+	Answer       string `json:"answer"`
+}
+
+// RespondentSurvey - one row per respondent
+type RespondentSurvey struct {
+	RespondentID    string `json:"respondent_id"`
+	Satisfaction    string `json:"satisfaction"`
+	Recommendation  string `json:"would_recommend"`
+	Feedback        string `json:"open_feedback"`
+	OverallScore    string `json:"overall_score"`
 }
 
 func main() {
-	// Initialize SchemaFlow
+	loadEnv()
+
 	if err := schemaflow.InitWithEnv(); err != nil {
-		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		fmt.Printf("Init failed: %v\n", err)
 		return
 	}
 
 	fmt.Println("=== Pivot Example ===")
+	fmt.Println("Restructuring data relationships between typed objects")
 
-	// Example 1: Pivot sales rows to quarterly columns
-	fmt.Println("\n--- Example 1: Sales Data Pivot ---")
+	// ============================================================
+	// USE CASE 1: Sales Pipeline Dashboard
+	// Scenario: Transform monthly sales rows into quarterly columns for dashboard
+	// ============================================================
+	fmt.Println("\n--- Use Case 1: Sales Pipeline Dashboard ---")
 
-	salesData := []SalesRow{
-		{Product: "Widget A", Region: "North", Quarter: "Q1", Revenue: 10000, Units: 100},
-		{Product: "Widget A", Region: "North", Quarter: "Q2", Revenue: 12000, Units: 120},
-		{Product: "Widget A", Region: "North", Quarter: "Q3", Revenue: 11000, Units: 110},
-		{Product: "Widget A", Region: "North", Quarter: "Q4", Revenue: 15000, Units: 150},
-		{Product: "Widget B", Region: "South", Quarter: "Q1", Revenue: 8000, Units: 80},
-		{Product: "Widget B", Region: "South", Quarter: "Q2", Revenue: 9500, Units: 95},
-		{Product: "Widget B", Region: "South", Quarter: "Q3", Revenue: 8500, Units: 85},
-		{Product: "Widget B", Region: "South", Quarter: "Q4", Revenue: 12000, Units: 120},
-		{Product: "Gadget X", Region: "East", Quarter: "Q1", Revenue: 20000, Units: 50},
-		{Product: "Gadget X", Region: "East", Quarter: "Q2", Revenue: 22000, Units: 55},
-		{Product: "Gadget X", Region: "East", Quarter: "Q3", Revenue: 25000, Units: 62},
-		{Product: "Gadget X", Region: "East", Quarter: "Q4", Revenue: 28000, Units: 70},
+	salesData := []SalesRecord{
+		{Rep: "Alice", Month: "Jan", Revenue: 45000, Deals: 5},
+		{Rep: "Alice", Month: "Feb", Revenue: 52000, Deals: 6},
+		{Rep: "Alice", Month: "Mar", Revenue: 48000, Deals: 5},
+		{Rep: "Bob", Month: "Jan", Revenue: 38000, Deals: 4},
+		{Rep: "Bob", Month: "Feb", Revenue: 41000, Deals: 4},
+		{Rep: "Bob", Month: "Mar", Revenue: 55000, Deals: 7},
+		{Rep: "Carol", Month: "Jan", Revenue: 62000, Deals: 8},
+		{Rep: "Carol", Month: "Feb", Revenue: 58000, Deals: 7},
+		{Rep: "Carol", Month: "Mar", Revenue: 71000, Deals: 9},
 	}
 
-	fmt.Println("Original Data (sample):")
-	for i := 0; i < 4 && i < len(salesData); i++ {
-		s := salesData[i]
-		fmt.Printf("  %s | %s | %s | $%.0f\n", s.Product, s.Region, s.Quarter, s.Revenue)
+	fmt.Println("Raw Sales Data (9 rows):")
+	fmt.Println("  Rep     | Month | Revenue  | Deals")
+	fmt.Println("  --------|-------|----------|------")
+	for _, s := range salesData[:4] {
+		fmt.Printf("  %-7s | %-5s | $%6.0f  | %d\n", s.Rep, s.Month, s.Revenue, s.Deals)
 	}
-	fmt.Println("  ...")
+	fmt.Println("  ... (5 more rows)")
 
-	result, err := schemaflow.Pivot[[]SalesRow, []ProductSummary](salesData, schemaflow.PivotOptions{
-		PivotOn:   []string{"Quarter"},
-		GroupBy:   []string{"Product"},
-		Aggregate: "sum",
-		Steering:  "Sum revenue by quarter for each product. Calculate total_year as sum of all quarters.",
+	salesResult, err := schemaflow.Pivot[[]SalesRecord, []RepQuarterly](salesData, schemaflow.PivotOptions{
+		PivotOn:      []string{"Month"},
+		GroupBy:      []string{"Rep"},
+		Aggregate:    "sum",
+		Intelligence: types.Smart,
+		Steering:     "Pivot months to columns. Sum deals across all months for total_deals. Calculate q1_total as sum of jan+feb+mar revenue.",
 	})
-
 	if err != nil {
-		schemaflow.GetLogger().Error("Pivot failed", "error", err)
-		return
-	}
-
-	fmt.Println("\nPivoted Data:")
-	fmt.Println("  Product    | Q1      | Q2      | Q3      | Q4      | Total")
-	fmt.Println("  -----------|---------|---------|---------|---------|----------")
-	for _, p := range result.Pivoted {
-		fmt.Printf("  %-10s | $%-6.0f | $%-6.0f | $%-6.0f | $%-6.0f | $%.0f\n",
-			p.Product, p.Q1Revenue, p.Q2Revenue, p.Q3Revenue, p.Q4Revenue, p.TotalYear)
-	}
-
-	fmt.Printf("\nPivot Stats:\n")
-	fmt.Printf("  Source Fields: %d\n", result.Stats.SourceFields)
-	fmt.Printf("  Target Fields: %d\n", result.Stats.TargetFields)
-	fmt.Printf("  Compressions: %d\n", result.Stats.Compressions)
-
-	// Example 2: Flatten nested structure
-	fmt.Println("\n\n--- Example 2: Flatten Nested Structure ---")
-
-	nestedUser := NestedUser{
-		ID: "USR-123",
-	}
-	nestedUser.Profile.Name = "John Doe"
-	nestedUser.Profile.Email = "john@example.com"
-	nestedUser.Profile.Settings.Theme = "dark"
-	nestedUser.Profile.Settings.Language = "en-US"
-	nestedUser.Address.Street = "123 Main St"
-	nestedUser.Address.City = "Boston"
-	nestedUser.Address.Country = "USA"
-	nestedUser.Subscription.Plan = "Premium"
-	nestedUser.Subscription.Price = 29.99
-	nestedUser.Subscription.Renewal = "2024-12-01"
-
-	fmt.Println("Nested Structure:")
-	fmt.Println("  user:")
-	fmt.Println("    id: USR-123")
-	fmt.Println("    profile:")
-	fmt.Println("      name: John Doe")
-	fmt.Println("      email: john@example.com")
-	fmt.Println("      settings:")
-	fmt.Println("        theme: dark")
-	fmt.Println("        language: en-US")
-	fmt.Println("    address:")
-	fmt.Println("      street: 123 Main St")
-	fmt.Println("      city: Boston")
-	fmt.Println("      ...")
-
-	flatResult, err := schemaflow.Pivot[NestedUser, FlatUser](nestedUser, schemaflow.PivotOptions{
-		Flatten: true,
-	})
-
-	if err != nil {
-		schemaflow.GetLogger().Error("Flatten failed", "error", err)
-		return
-	}
-
-	fmt.Println("\nFlattened Structure:")
-	fmt.Printf("  id: %s\n", flatResult.Pivoted.ID)
-	fmt.Printf("  profile_name: %s\n", flatResult.Pivoted.ProfileName)
-	fmt.Printf("  profile_email: %s\n", flatResult.Pivoted.ProfileEmail)
-	fmt.Printf("  settings_theme: %s\n", flatResult.Pivoted.SettingsTheme)
-	fmt.Printf("  settings_language: %s\n", flatResult.Pivoted.SettingsLanguage)
-	fmt.Printf("  address_street: %s\n", flatResult.Pivoted.AddressStreet)
-	fmt.Printf("  address_city: %s\n", flatResult.Pivoted.AddressCity)
-	fmt.Printf("  address_country: %s\n", flatResult.Pivoted.AddressCountry)
-	fmt.Printf("  subscription_plan: %s\n", flatResult.Pivoted.SubscriptionPlan)
-	fmt.Printf("  subscription_price: %.2f\n", flatResult.Pivoted.SubscriptionPrice)
-	fmt.Printf("  subscription_renewal: %s\n", flatResult.Pivoted.SubscriptionRenewal)
-
-	fmt.Printf("\nTransformation:\n")
-	fmt.Printf("  Depth Change: %d (shallower)\n", flatResult.Stats.DepthChange)
-	fmt.Printf("  Expansions: %d\n", flatResult.Stats.Expansions)
-
-	if len(flatResult.DataLoss) > 0 {
-		fmt.Printf("  Data Loss: %v\n", flatResult.DataLoss)
+		fmt.Printf("Sales pivot failed: %v\n", err)
 	} else {
-		fmt.Println("  Data Loss: none")
+		fmt.Println("\nPivoted Dashboard View (3 rows):")
+		fmt.Println("  Rep     | Jan     | Feb     | Mar     | Q1 Total  | Deals")
+		fmt.Println("  --------|---------|---------|---------|-----------|------")
+		for _, r := range salesResult.Pivoted {
+			fmt.Printf("  %-7s | $%5.0f  | $%5.0f  | $%5.0f  | $%6.0f   | %d\n",
+				r.Rep, r.Jan, r.Feb, r.Mar, r.Q1Total, r.TotalDeals)
+		}
+		fmt.Printf("\nStats: %d compressions (9 rows → 3 rows)\n", salesResult.Stats.Compressions)
+	}
+
+	// ============================================================
+	// USE CASE 2: E-commerce Order Flattening
+	// Scenario: Flatten nested API response for data warehouse ingestion
+	// ============================================================
+	fmt.Println("\n--- Use Case 2: E-commerce Order Flattening ---")
+
+	nestedOrder := NestedOrder{
+		OrderID: "ORD-2024-78421",
+	}
+	nestedOrder.Customer.ID = "CUST-1234"
+	nestedOrder.Customer.Name = "John Smith"
+	nestedOrder.Customer.Email = "john.smith@email.com"
+	nestedOrder.Shipping.Address = "123 Oak Street"
+	nestedOrder.Shipping.City = "Portland"
+	nestedOrder.Shipping.Zip = "97201"
+	nestedOrder.Shipping.Method = "Express"
+	nestedOrder.Payment.Method = "Credit Card"
+	nestedOrder.Payment.Amount = 299.99
+	nestedOrder.Payment.Status = "Completed"
+
+	fmt.Println("Nested API Response:")
+	fmt.Println("  {")
+	fmt.Println("    order_id: ORD-2024-78421")
+	fmt.Println("    customer: { id, name, email }")
+	fmt.Println("    shipping: { address, city, zip, method }")
+	fmt.Println("    payment:  { method, amount, status }")
+	fmt.Println("  }")
+
+	flatResult, err := schemaflow.Pivot[NestedOrder, FlatOrder](nestedOrder, schemaflow.PivotOptions{
+		Flatten:      true,
+		Intelligence: types.Smart,
+		Steering:     "Flatten all nested objects. Use prefixes like customer_, ship_, payment_.",
+	})
+	if err != nil {
+		fmt.Printf("Order flatten failed: %v\n", err)
+	} else {
+		fmt.Println("\nFlattened for Data Warehouse:")
+		fmt.Printf("  order_id:        %s\n", flatResult.Pivoted.OrderID)
+		fmt.Printf("  customer_id:     %s\n", flatResult.Pivoted.CustomerID)
+		fmt.Printf("  customer_name:   %s\n", flatResult.Pivoted.CustomerName)
+		fmt.Printf("  customer_email:  %s\n", flatResult.Pivoted.CustomerEmail)
+		fmt.Printf("  ship_address:    %s\n", flatResult.Pivoted.ShipAddress)
+		fmt.Printf("  ship_city:       %s\n", flatResult.Pivoted.ShipCity)
+		fmt.Printf("  ship_zip:        %s\n", flatResult.Pivoted.ShipZip)
+		fmt.Printf("  ship_method:     %s\n", flatResult.Pivoted.ShipMethod)
+		fmt.Printf("  payment_method:  %s\n", flatResult.Pivoted.PaymentMethod)
+		fmt.Printf("  payment_amount:  $%.2f\n", flatResult.Pivoted.PaymentAmount)
+		fmt.Printf("  payment_status:  %s\n", flatResult.Pivoted.PaymentStatus)
+		fmt.Printf("\nDepth Change: %d (flattened from 3 levels to 1)\n", flatResult.Stats.DepthChange)
+		if len(flatResult.DataLoss) > 0 {
+			fmt.Printf("Data Loss: %v\n", flatResult.DataLoss)
+		} else {
+			fmt.Println("Data Loss: none")
+		}
+	}
+
+	// ============================================================
+	// USE CASE 3: Survey Response Pivot
+	// Scenario: Transform EAV survey data to one-row-per-respondent
+	// ============================================================
+	fmt.Println("\n--- Use Case 3: Survey Response Pivot ---")
+
+	surveyData := []SurveyResponse{
+		{RespondentID: "R001", Question: "satisfaction", Answer: "Very Satisfied"},
+		{RespondentID: "R001", Question: "would_recommend", Answer: "Yes"},
+		{RespondentID: "R001", Question: "open_feedback", Answer: "Great product, fast delivery"},
+		{RespondentID: "R001", Question: "overall_score", Answer: "9"},
+		{RespondentID: "R002", Question: "satisfaction", Answer: "Satisfied"},
+		{RespondentID: "R002", Question: "would_recommend", Answer: "Maybe"},
+		{RespondentID: "R002", Question: "open_feedback", Answer: "Good but pricey"},
+		{RespondentID: "R002", Question: "overall_score", Answer: "7"},
+	}
+
+	fmt.Println("EAV Format (8 rows):")
+	fmt.Println("  RespondentID | Question        | Answer")
+	fmt.Println("  -------------|-----------------|------------------")
+	for _, s := range surveyData[:4] {
+		fmt.Printf("  %-12s | %-15s | %s\n", s.RespondentID, s.Question, s.Answer)
+	}
+	fmt.Println("  ... (4 more rows)")
+
+	surveyResult, err := schemaflow.Pivot[[]SurveyResponse, []RespondentSurvey](surveyData, schemaflow.PivotOptions{
+		PivotOn:      []string{"Question"},
+		GroupBy:      []string{"RespondentID"},
+		Aggregate:    "first",
+		Intelligence: types.Smart,
+		Steering:     "Pivot questions to become columns. Each respondent becomes one row.",
+	})
+	if err != nil {
+		fmt.Printf("Survey pivot failed: %v\n", err)
+	} else {
+		fmt.Println("\nPivoted Survey (2 rows):")
+		fmt.Println("  ID   | Satisfaction    | Recommend | Feedback                  | Score")
+		fmt.Println("  -----|-----------------|-----------|---------------------------|------")
+		for _, r := range surveyResult.Pivoted {
+			feedback := r.Feedback
+			if len(feedback) > 25 {
+				feedback = feedback[:22] + "..."
+			}
+			fmt.Printf("  %-4s | %-15s | %-9s | %-25s | %s\n",
+				r.RespondentID, r.Satisfaction, r.Recommendation, feedback, r.OverallScore)
+		}
+		fmt.Printf("\nCompression: 8 EAV rows → 2 respondent rows\n")
 	}
 
 	fmt.Println("\n=== Pivot Example Complete ===")

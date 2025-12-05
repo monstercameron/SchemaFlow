@@ -1,7 +1,36 @@
+// Example: 13-merge
+//
+// Operation: Merge[T] - Merge multiple records into one unified record
+//
+// Input: 3 CustomerRecord structs from different systems (CRM, Sales, Support)
+//   - CRM-001: John Smith, email, phone, prefers email
+//   - SALES-456: J. Smith, phone, address, VIP=true
+//   - SUPPORT-789: John A. Smith, email, address, premium support
+//
+// Merge Strategy:
+//   - Keep most complete name
+//   - Prefer email if present
+//   - Use most detailed address
+//   - VIP=true if ANY record has it
+//   - Combine all notes
+//
+// Expected Output: Single unified CustomerRecord
+//   - Name: "John A. Smith" (most complete)
+//   - Email: "john.smith@example.com"
+//   - Phone: "+1-555-0123"
+//   - Address: "123 Main Street, Springfield, Illinois"
+//   - VIP: true (from SALES)
+//   - Notes: Combined from all sources
+//
+// Provider: Cerebras (gpt-oss-120b via Fast intelligence)
+// Expected Duration: ~1s
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
@@ -17,7 +46,34 @@ type CustomerRecord struct {
 	Notes   string `json:"notes,omitempty"`
 }
 
+// loadEnv loads environment variables from a .env file
+func loadEnv(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			os.Setenv(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
+	}
+	return scanner.Err()
+}
+
 func main() {
+	// Load .env file from project root
+	if err := loadEnv("../../.env"); err != nil {
+		fmt.Printf("Warning: Could not load .env file: %v\n", err)
+	}
+
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)

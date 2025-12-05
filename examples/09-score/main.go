@@ -1,7 +1,29 @@
+// Example: 09-score
+//
+// Operation: Score[T] - Rate items on a numeric scale with breakdown
+//
+// Input: 3 Go code snippets (same function, different quality)
+//   - Alice: Clean, readable code with range loop
+//   - Bob: Terse code, poor naming, index-based loop
+//   - Carol: Well-documented, handles edge cases, best practices
+//
+// Criteria: readability, maintainability, documentation, error handling, best practices
+// Scale: 1-10 (10 = excellent)
+//
+// Expected Output:
+//   - Carol: ~8-9/10 (best - documented, handles edge cases)
+//   - Alice: ~6-7/10 (good - clean but no docs/error handling)
+//   - Bob: ~4-5/10 (poor - cryptic names, no docs)
+//
+// Provider: Cerebras (gpt-oss-120b via Fast intelligence)
+// Expected Duration: ~1-2s per snippet
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
@@ -14,7 +36,34 @@ type CodeSnippet struct {
 	Code     string
 }
 
+// loadEnv loads environment variables from a .env file
+func loadEnv(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			os.Setenv(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
+	}
+	return scanner.Err()
+}
+
 func main() {
+	// Load .env file from project root
+	if err := loadEnv("../../.env"); err != nil {
+		fmt.Printf("Warning: Could not load .env file: %v\n", err)
+	}
+
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
@@ -103,7 +152,7 @@ func CalculateTotal(prices []float64) float64 {
 			WithScaleMin(1).
 			WithScaleMax(10).
 			WithCriteria(criteria)
-		scoreOpts.OpOptions.Intelligence = schemaflow.Smart
+		scoreOpts.OpOptions.Intelligence = schemaflow.Fast
 
 		result, err := schemaflow.Score[string](snippet.Code, scoreOpts)
 		if err != nil {

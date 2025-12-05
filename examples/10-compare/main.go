@@ -1,7 +1,28 @@
+// Example: 10-compare
+//
+// Operation: Compare[T] - Compare two items across multiple aspects
+//
+// Input: Two smartphone products
+//   - UltraPhone Pro Max: $1299, 108MP camera, 12GB RAM, Android
+//   - SmartPhone Elite: $1099, 64MP camera, 8GB RAM, iOS
+//
+// Comparison Aspects: camera, battery, display, performance, value
+//
+// Expected Output:
+//   - SimilarityScore: ~60-70% (different ecosystems, similar tier)
+//   - Similarities: 5G, premium displays, flagship tier
+//   - Differences: Camera (108MP vs 64MP), RAM (12GB vs 8GB), OS, Price
+//   - Verdict: Summary recommendation
+//
+// Provider: Cerebras (gpt-oss-120b via Fast intelligence)
+// Expected Duration: ~1-2s
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
@@ -14,7 +35,34 @@ type Product struct {
 	Specs    map[string]string
 }
 
+// loadEnv loads environment variables from a .env file
+func loadEnv(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			os.Setenv(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
+	}
+	return scanner.Err()
+}
+
 func main() {
+	// Load .env file from project root
+	if err := loadEnv("../../.env"); err != nil {
+		fmt.Printf("Warning: Could not load .env file: %v\n", err)
+	}
+
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
@@ -74,7 +122,7 @@ func main() {
 		WithComparisonAspects([]string{"camera", "battery", "display", "performance", "value"}).
 		WithFocusOn("both")
 	compareOpts.Depth = 7
-	compareOpts.OpOptions.Intelligence = schemaflow.Smart
+	compareOpts.OpOptions.Intelligence = schemaflow.Fast
 
 	result, err := schemaflow.Compare[Product](productA, productB, compareOpts)
 	if err != nil {

@@ -2,152 +2,211 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/joho/godotenv"
+	"github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-// ProjectPlan represents the negotiated output
-type ProjectPlan struct {
-	Duration      int      `json:"duration"`       // Weeks
-	Budget        int      `json:"budget"`         // Dollars
-	TeamSize      int      `json:"team_size"`      // People
-	Features      []string `json:"features"`       // Features to include
-	Quality       string   `json:"quality"`        // "high", "medium", "basic"
-	Deadline      string   `json:"deadline"`       // Target date
-	DeliverySplit []string `json:"delivery_split"` // Phased delivery
-}
-
-// ProjectConstraints represents competing requirements
-type ProjectConstraints struct {
-	MaxBudget          int      `json:"max_budget"`
-	MinFeatures        []string `json:"min_features"`
-	DesiredFeatures    []string `json:"desired_features"`
-	HardDeadline       string   `json:"hard_deadline"`
-	PreferredDeadline  string   `json:"preferred_deadline"`
-	QualityRequirement string   `json:"quality_requirement"`
-	TeamAvailability   int      `json:"team_availability"`
-	RiskTolerance      string   `json:"risk_tolerance"`
+func loadEnv() {
+	dir, _ := os.Getwd()
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".env")); err == nil {
+			godotenv.Load(filepath.Join(dir, ".env"))
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
 }
 
 func main() {
-	// Initialize SchemaFlow
-	if err := schemaflow.InitWithEnv(); err != nil {
-		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
-		return
+	loadEnv()
+	schemaflow.InitWithEnv()
+
+	fmt.Println("=== NegotiateAdversarial Example ===")
+	fmt.Println("Two-party adversarial negotiation: Ours vs Theirs with leverage")
+	fmt.Println()
+
+	runSalaryNegotiation()
+	time.Sleep(2 * time.Second)
+	runVendorContract()
+	time.Sleep(2 * time.Second)
+	runAcquisition()
+
+	fmt.Println("\n=== NegotiateAdversarial Example Complete ===")
+}
+
+func runSalaryNegotiation() {
+	fmt.Println("--- Use Case 1: Salary Negotiation (Candidate vs Company) ---")
+
+	type SalaryTerms struct {
+		BaseSalary int `json:"base_salary"`
+		RemoteDays int `json:"remote_days"`
+		Bonus      int `json:"bonus"`
 	}
 
-	fmt.Println("=== Negotiate Example ===")
-
-	// Example 1: Project planning with competing constraints
-	fmt.Println("\n--- Example 1: Project Planning ---")
-
-	constraints := ProjectConstraints{
-		MaxBudget:          100000,
-		MinFeatures:        []string{"user_auth", "dashboard", "api"},
-		DesiredFeatures:    []string{"analytics", "mobile_app", "integrations", "ai_features"},
-		HardDeadline:       "2024-06-01",
-		PreferredDeadline:  "2024-04-01",
-		QualityRequirement: "high",
-		TeamAvailability:   4, // 4 developers available
-		RiskTolerance:      "low",
-	}
-
-	result, err := schemaflow.Negotiate[ProjectPlan](constraints, schemaflow.NegotiateOptions{
-		Strategy: "balanced",
-		Steering: "Prioritize meeting the hard deadline over including all desired features",
-	})
-
-	if err != nil {
-		schemaflow.GetLogger().Error("Negotiation failed", "error", err)
-		return
-	}
-
-	fmt.Printf("Negotiated Plan:\n")
-	fmt.Printf("  Duration: %d weeks\n", result.Solution.Duration)
-	fmt.Printf("  Budget: $%d\n", result.Solution.Budget)
-	fmt.Printf("  Team Size: %d\n", result.Solution.TeamSize)
-	fmt.Printf("  Features: %v\n", result.Solution.Features)
-	fmt.Printf("  Quality: %s\n", result.Solution.Quality)
-	fmt.Printf("  Deadline: %s\n", result.Solution.Deadline)
-
-	if len(result.Solution.DeliverySplit) > 0 {
-		fmt.Printf("  Phased Delivery:\n")
-		for _, phase := range result.Solution.DeliverySplit {
-			fmt.Printf("    - %s\n", phase)
-		}
-	}
-
-	fmt.Printf("\nTradeoffs Made:\n")
-	for _, tradeoff := range result.Tradeoffs {
-		fmt.Printf("  - Sacrificed: %s, Gained: %s\n", tradeoff.Sacrificed, tradeoff.Gained)
-		fmt.Printf("    Impact: %s\n", tradeoff.Impact)
-		if tradeoff.Reasoning != "" {
-			fmt.Printf("    Reason: %s\n", tradeoff.Reasoning)
-		}
-	}
-
-	fmt.Printf("\nConstraint Satisfaction:\n")
-	for constraint, score := range result.Satisfaction {
-		fmt.Printf("  %s: %.0f%%\n", constraint, score*100)
-	}
-
-	fmt.Printf("\nOverall Confidence: %.0f%%\n", result.Confidence*100)
-
-	// Example 2: Salary negotiation
-	fmt.Println("\n--- Example 2: Salary Negotiation ---")
-
-	type SalaryOffer struct {
-		BaseSalary   int    `json:"base_salary"`
-		Bonus        int    `json:"bonus"`
-		Equity       string `json:"equity"`
-		RemoteDays   int    `json:"remote_days"`
-		VacationDays int    `json:"vacation_days"`
-		StartDate    string `json:"start_date"`
-		SigningBonus int    `json:"signing_bonus"`
-	}
-
-	salaryConstraints := map[string]any{
-		"candidate_minimum_salary": 150000,
-		"candidate_wants_remote":   "3-5 days per week",
-		"candidate_wants_equity":   "at least 0.1%",
-		"candidate_ideal_start":    "2024-02-01",
-		"company_max_budget":       170000,
-		"company_equity_pool":      "0.05-0.15%",
-		"company_remote_policy":    "2-3 days per week",
-		"company_needs_start_by":   "2024-03-01",
-		"industry_average":         145000,
-	}
-
-	salaryResult, err := schemaflow.Negotiate[SalaryOffer](salaryConstraints, schemaflow.NegotiateOptions{
-		Strategy: "balanced",
-		Priorities: map[string]float64{
-			"base_salary":   0.4,
-			"remote_days":   0.25,
-			"equity":        0.2,
-			"vacation_days": 0.15,
+	ctx := schemaflow.AdversarialContext[SalaryTerms]{
+		Ours: schemaflow.AdversarialPosition[SalaryTerms]{
+			Position: SalaryTerms{BaseSalary: 160000, RemoteDays: 5, Bonus: 20000},
 		},
-	})
+		Theirs: schemaflow.AdversarialPosition[SalaryTerms]{
+			Position: SalaryTerms{BaseSalary: 130000, RemoteDays: 2, Bonus: 5000},
+		},
+		OurLeverage: "strong",
+	}
 
+	fmt.Println("INPUT: AdversarialContext[SalaryTerms]{")
+	fmt.Printf("  Ours:   {Position: {Salary: $%d, Remote: %d, Bonus: $%d}},\n",
+		ctx.Ours.Position.BaseSalary, ctx.Ours.Position.RemoteDays, ctx.Ours.Position.Bonus)
+	fmt.Printf("  Theirs: {Position: {Salary: $%d, Remote: %d, Bonus: $%d}},\n",
+		ctx.Theirs.Position.BaseSalary, ctx.Theirs.Position.RemoteDays, ctx.Theirs.Position.Bonus)
+	fmt.Printf("  OurLeverage: %q,\n", ctx.OurLeverage)
+	fmt.Println("}")
+	fmt.Println("OPTIONS: Steering: \"They definitely don't want RTO but salary might be moveable\"")
+
+	result, err := schemaflow.NegotiateAdversarial[SalaryTerms](ctx, schemaflow.AdversarialOptions{
+		Intelligence: types.Smart,
+		Steering:     "They definitely don't want RTO so hold firm on remote days. Salary is more flexible for them.",
+	})
 	if err != nil {
-		schemaflow.GetLogger().Error("Salary negotiation failed", "error", err)
+		fmt.Printf("Error: %v\n\n", err)
 		return
 	}
 
-	fmt.Printf("Negotiated Offer:\n")
-	fmt.Printf("  Base Salary: $%d\n", salaryResult.Solution.BaseSalary)
-	fmt.Printf("  Bonus: $%d\n", salaryResult.Solution.Bonus)
-	fmt.Printf("  Equity: %s\n", salaryResult.Solution.Equity)
-	fmt.Printf("  Remote Days: %d/week\n", salaryResult.Solution.RemoteDays)
-	fmt.Printf("  Vacation Days: %d\n", salaryResult.Solution.VacationDays)
-	fmt.Printf("  Start Date: %s\n", salaryResult.Solution.StartDate)
-	if salaryResult.Solution.SigningBonus > 0 {
-		fmt.Printf("  Signing Bonus: $%d\n", salaryResult.Solution.SigningBonus)
+	fmt.Println("OUTPUT: AdversarialResult[SalaryTerms]{")
+	fmt.Printf("  Deal: {Salary: $%d, Remote: %d, Bonus: $%d},\n",
+		result.Deal.BaseSalary, result.Deal.RemoteDays, result.Deal.Bonus)
+	fmt.Printf("  DealReached: %v,\n", result.DealReached)
+	fmt.Printf("  WhoConcededMore: %q,\n", result.WhoConcededMore)
+	if len(result.TermMovements) > 0 {
+		fmt.Println("  TermMovements: []TermMovement{")
+		for _, tm := range result.TermMovements {
+			fmt.Printf("    {Term: %q, OurAsk: %v, TheirOffer: %v, Final: %v, Movement: %q},\n",
+				tm.Term, tm.OurAsk, tm.TheirOffer, tm.FinalValue, tm.Movement)
+		}
+		fmt.Println("  },")
+	}
+	fmt.Printf("  OurSatisfaction: %.2f, TheirSatisfaction: %.2f,\n",
+		result.OurSatisfaction, result.TheirSatisfaction)
+	fmt.Println("}")
+	fmt.Println()
+}
+
+func runVendorContract() {
+	fmt.Println("--- Use Case 2: Vendor Contract (Buyer vs Seller) ---")
+
+	type ContractTerms struct {
+		Price    float64 `json:"price_per_unit"`
+		Quantity int     `json:"quantity"`
+		Terms    int     `json:"payment_days"`
 	}
 
-	fmt.Printf("\nKey Tradeoffs:\n")
-	for _, tradeoff := range salaryResult.Tradeoffs {
-		fmt.Printf("  - Sacrificed: %s → Gained: %s\n", tradeoff.Sacrificed, tradeoff.Gained)
+	ctx := schemaflow.AdversarialContext[ContractTerms]{
+		Ours: schemaflow.AdversarialPosition[ContractTerms]{
+			Position: ContractTerms{Price: 45, Quantity: 500, Terms: 60},
+		},
+		Theirs: schemaflow.AdversarialPosition[ContractTerms]{
+			Position: ContractTerms{Price: 65, Quantity: 1000, Terms: 30},
+		},
+		OurLeverage: "strong",
 	}
 
-	fmt.Println("\n=== Negotiate Example Complete ===")
+	fmt.Println("INPUT: AdversarialContext[ContractTerms]{")
+	fmt.Printf("  Ours:   {Position: {Price: $%.0f, Qty: %d, Terms: %d days}},\n",
+		ctx.Ours.Position.Price, ctx.Ours.Position.Quantity, ctx.Ours.Position.Terms)
+	fmt.Printf("  Theirs: {Position: {Price: $%.0f, Qty: %d, Terms: %d days}},\n",
+		ctx.Theirs.Position.Price, ctx.Theirs.Position.Quantity, ctx.Theirs.Position.Terms)
+	fmt.Printf("  OurLeverage: %q,\n", ctx.OurLeverage)
+	fmt.Println("}")
+	fmt.Println("OPTIONS: Steering: \"Seller is desperate to close Q4, price is negotiable\"")
+
+	result, err := schemaflow.NegotiateAdversarial[ContractTerms](ctx, schemaflow.AdversarialOptions{
+		Intelligence: types.Smart,
+		Steering:     "Seller is desperate to close before Q4 ends. Price is very negotiable. Quantity less so.",
+	})
+	if err != nil {
+		fmt.Printf("Error: %v\n\n", err)
+		return
+	}
+
+	fmt.Println("OUTPUT: AdversarialResult[ContractTerms]{")
+	fmt.Printf("  Deal: {Price: $%.2f, Qty: %d, Terms: %d days},\n",
+		result.Deal.Price, result.Deal.Quantity, result.Deal.Terms)
+	fmt.Printf("  DealReached: %v,\n", result.DealReached)
+	fmt.Printf("  WhoConcededMore: %q,\n", result.WhoConcededMore)
+	if len(result.TermMovements) > 0 {
+		fmt.Println("  TermMovements: []TermMovement{")
+		for _, tm := range result.TermMovements {
+			fmt.Printf("    {Term: %q, OurAsk: %v, TheirOffer: %v, Final: %v, Movement: %q},\n",
+				tm.Term, tm.OurAsk, tm.TheirOffer, tm.FinalValue, tm.Movement)
+		}
+		fmt.Println("  },")
+	}
+	fmt.Printf("  OurSatisfaction: %.2f, TheirSatisfaction: %.2f,\n",
+		result.OurSatisfaction, result.TheirSatisfaction)
+	fmt.Println("}")
+	fmt.Println()
+}
+
+func runAcquisition() {
+	fmt.Println("--- Use Case 3: M&A Acquisition (Acquirer vs Target) ---")
+
+	type AcquisitionTerms struct {
+		Valuation int `json:"valuation_millions"`
+		Earnout   int `json:"earnout_percent"`
+		Retention int `json:"retention_months"`
+	}
+
+	// Note: Target has leverage due to competing bidders
+	ctx := schemaflow.AdversarialContext[AcquisitionTerms]{
+		Ours: schemaflow.AdversarialPosition[AcquisitionTerms]{
+			Position: AcquisitionTerms{Valuation: 80, Earnout: 30, Retention: 24},
+		},
+		Theirs: schemaflow.AdversarialPosition[AcquisitionTerms]{
+			Position: AcquisitionTerms{Valuation: 120, Earnout: 10, Retention: 6},
+		},
+		OurLeverage:  "weak",
+		Relationship: "competitive",
+	}
+
+	fmt.Println("INPUT: AdversarialContext[AcquisitionTerms]{")
+	fmt.Printf("  Ours:   {Position: {Val: $%dM, Earnout: %d%%, Retention: %d mo}},\n",
+		ctx.Ours.Position.Valuation, ctx.Ours.Position.Earnout, ctx.Ours.Position.Retention)
+	fmt.Printf("  Theirs: {Position: {Val: $%dM, Earnout: %d%%, Retention: %d mo}},\n",
+		ctx.Theirs.Position.Valuation, ctx.Theirs.Position.Earnout, ctx.Theirs.Position.Retention)
+	fmt.Printf("  OurLeverage: %q, Relationship: %q,\n", ctx.OurLeverage, ctx.Relationship)
+	fmt.Println("}")
+
+	result, err := schemaflow.NegotiateAdversarial[AcquisitionTerms](ctx, schemaflow.AdversarialOptions{
+		Intelligence: types.Smart,
+		Steering:     "Target has 3 competing bidders, so they have the power.",
+	})
+	if err != nil {
+		fmt.Printf("Error: %v\n\n", err)
+		return
+	}
+
+	fmt.Println("OUTPUT: AdversarialResult[AcquisitionTerms]{")
+	fmt.Printf("  Deal: {Val: $%dM, Earnout: %d%%, Retention: %d months},\n",
+		result.Deal.Valuation, result.Deal.Earnout, result.Deal.Retention)
+	fmt.Printf("  DealReached: %v,\n", result.DealReached)
+	fmt.Printf("  WhoConcededMore: %q,\n", result.WhoConcededMore)
+	if len(result.TermMovements) > 0 {
+		fmt.Println("  TermMovements: []TermMovement{")
+		for _, tm := range result.TermMovements {
+			fmt.Printf("    {Term: %q, OurAsk: %v, TheirOffer: %v, Final: %v, Movement: %q},\n",
+				tm.Term, tm.OurAsk, tm.TheirOffer, tm.FinalValue, tm.Movement)
+		}
+		fmt.Println("  },")
+	}
+	fmt.Printf("  OurSatisfaction: %.2f, TheirSatisfaction: %.2f,\n",
+		result.OurSatisfaction, result.TheirSatisfaction)
+	fmt.Println("}")
 }

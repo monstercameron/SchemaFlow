@@ -1,180 +1,164 @@
+// 18-explain: Generate human-readable explanations of data structures
+// Intelligence: Fast (Cerebras gpt-oss-120b)
+// Expectations:
+// - Explains user profile data for different audiences
+// - Technical: focuses on struct design, serialization, patterns
+// - Executive: focuses on business value, engagement metrics
+// - Beginner: uses simple language and step-by-step format
+
 package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+
+	"github.com/joho/godotenv"
+	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
-func main() {
-	fmt.Println("=== SchemaFlow Explain Operation Examples ===")
-	fmt.Println()
-
-	// Note: For demonstration purposes, we'll show the API structure
-	// without making actual LLM calls (requires valid API key)
-	fmt.Println("📝 This example demonstrates the Explain operation API structure.")
-	fmt.Println("🔑 To run with actual LLM calls, set SCHEMAFLOW_API_KEY or OPENAI_API_KEY environment variable.")
-	fmt.Println()
-
-	// Example 1: Explain for non-technical audience
-	fmt.Println("1. Explanation for Non-Technical Audience:")
-	fmt.Println("------------------------------------------")
-	fmt.Println("Code that would be executed:")
-	fmt.Println(`explanation, err := schemaflow.Explain(sampleData,
-    schemaflow.NewExplainOptions().
-        WithAudience("non-technical").
-        WithDepth(2).
-        WithFormat("paragraph").
-        WithFocus("overview"))`)
-	fmt.Println()
-	fmt.Println("Mock Result:")
-	fmt.Println("Summary: This data represents a user's profile and activity information")
-	fmt.Println()
-	fmt.Println("Full Explanation:")
-	fmt.Println("This complex data structure contains information about a user named Alice Johnson. It includes her basic profile details like email and age, her preferences for using the application, a log of her recent activities, and some metadata about her account. The user appears to be an active premium member who enjoys technology and data science topics.")
-	fmt.Println()
-	fmt.Println("Key Points:")
-	fmt.Println("  1. User has been active for over a year")
-	fmt.Println("  2. Premium account with dark theme preference")
-	fmt.Println("  3. Interested in technology and data science")
-	fmt.Println("  4. Recent activity includes logging in and viewing analytics")
-	fmt.Println()
-
-	// Example 2: Technical explanation with implementation details
-	fmt.Println("2. Technical Explanation (Implementation Focus):")
-	fmt.Println("------------------------------------------------")
-	fmt.Println("Code that would be executed:")
-	fmt.Println(`explanation, err := schemaflow.Explain(sampleData,
-    schemaflow.NewExplainOptions().
-        WithAudience("technical").
-        WithDepth(3).
-        WithFormat("structured").
-        WithFocus("implementation").
-        WithContext("This is a user data structure from a web application"))`)
-	fmt.Println()
-	fmt.Println("Mock Result:")
-	fmt.Println("Summary: Go struct representing user data with JSON serialization")
-	fmt.Println()
-	fmt.Println("Full Explanation:")
-	fmt.Println("STRUCTURE OVERVIEW:")
-	fmt.Println("The data is organized as a ComplexData struct with four main components:")
-	fmt.Println("- UserProfile: Contains core user identification and verification fields")
-	fmt.Println("- Preferences: User-configurable settings and interests")
-	fmt.Println("- ActivityLog: Time-series array of user actions")
-	fmt.Println("- Metadata: System-generated tracking and versioning information")
-	fmt.Println()
-	fmt.Println("DATA FLOW:")
-	fmt.Println("1. UserProfile serves as the primary key with ID field")
-	fmt.Println("2. Preferences array allows multiple interest categorization")
-	fmt.Println("3. ActivityLog provides audit trail with timestamps and IP tracking")
-	fmt.Println("4. Metadata enables versioning and custom field extension")
-	fmt.Println()
-	fmt.Println("Key Points:")
-	fmt.Println("  1. Struct uses JSON tags for API serialization")
-	fmt.Println("  2. ActivityLog implements time-series data pattern")
-	fmt.Println("  3. Metadata map allows dynamic field extension")
-	fmt.Println("  4. UserProfile includes verification and role-based access")
-	fmt.Println()
-
-	// Example 3: Executive summary in bullet points
-	fmt.Println("3. Executive Summary (Bullet Points):")
-	fmt.Println("-------------------------------------")
-	fmt.Println("Code that would be executed:")
-	fmt.Println(`explanation, err := schemaflow.Explain(sampleData,
-    schemaflow.NewExplainOptions().
-        WithAudience("executive").
-        WithDepth(2).
-        WithFormat("bullet-points").
-        WithFocus("benefits").
-        WithContext("Business intelligence and user analytics data"))`)
-	fmt.Println()
-	fmt.Println("Mock Result:")
-	fmt.Println("Summary: Premium user profile with strong engagement metrics")
-	fmt.Println()
-	fmt.Println("Full Explanation:")
-	fmt.Println("• High-value customer with premium subscription")
-	fmt.Println("• Active user with recent login and feature usage")
-	fmt.Println("• Technology-focused interests align with product roadmap")
-	fmt.Println("• Complete profile data enables personalized marketing")
-	fmt.Println("• Audit trail supports customer success initiatives")
-	fmt.Println()
-	fmt.Println("Key Points:")
-	fmt.Println("  • 15+ months customer lifetime value")
-	fmt.Println("  • Multiple product feature adoption")
-	fmt.Println("  • Data completeness supports analytics")
-	fmt.Println("  • Engagement patterns indicate loyalty")
-	fmt.Println()
-
-	// Example 4: Simple explanation for beginners
-	fmt.Println("4. Beginner-Friendly Explanation:")
-	fmt.Println("----------------------------------")
-	fmt.Println("Code that would be executed:")
-	fmt.Println(`explanation, err := schemaflow.Explain(sampleData.UserProfile,
-    schemaflow.NewExplainOptions().
-        WithAudience("beginner").
-        WithDepth(1).
-        WithFormat("step-by-step").
-        WithFocus("overview"))`)
-	fmt.Println()
-	fmt.Println("Mock Result:")
-	fmt.Println("Summary: Basic information about a person using our service")
-	fmt.Println()
-	fmt.Println("Full Explanation:")
-	fmt.Println("Let me explain this user information step by step:")
-	fmt.Println("1. This is data about a person named Alice Johnson")
-	fmt.Println("2. She has an ID number to identify her in our system")
-	fmt.Println("3. Her email address is alice.johnson@example.com")
-	fmt.Println("4. She is 28 years old and joined in January 2023")
-	fmt.Println("5. Her account is verified and she has premium access")
-	fmt.Println()
-	fmt.Println("Key Points:")
-	fmt.Println("  1. Name and contact information")
-	fmt.Println("  2. Age and join date")
-	fmt.Println("  3. Account status and permissions")
-	fmt.Println()
-
-	// Example 5: Simple data structure explanation
-	fmt.Println("5. Simple Data Structure Explanation:")
-	fmt.Println("--------------------------------------")
-	fmt.Println("Code that would be executed:")
-	fmt.Println(`simpleData := map[string]interface{}{
-    "product": "Laptop Computer",
-    "price": 1299.99,
-    "specs": map[string]interface{}{
-        "cpu": "Intel i7",
-        "ram": "16GB",
-        "storage": "512GB SSD",
-    },
-    "in_stock": true,
+// loadEnv loads environment variables from .env file
+func loadEnv() {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			if err := godotenv.Load(envPath); err != nil {
+				log.Fatal("Error loading .env file")
+			}
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	log.Fatal(".env file not found")
 }
 
-explanation, err := schemaflow.Explain(simpleData,
-    schemaflow.NewExplainOptions().
-        WithAudience("children").
-        WithDepth(2).
-        WithFormat("paragraph").
-        WithContext("This is information about a computer for sale"))`)
-	fmt.Println()
-	fmt.Println("Mock Result:")
-	fmt.Println("Summary: Information about a cool computer you can buy")
-	fmt.Println()
-	fmt.Println("Full Explanation:")
-	fmt.Println("Imagine a super smart computer that you can carry around! This laptop costs $1299.99 and has really good parts inside. It has a fast brain called an Intel i7, 16GB of memory to remember lots of things, and 512GB of super quick storage. The best part is that it's ready to buy right now - it's in stock and waiting for you!")
-	fmt.Println()
-	fmt.Println("Key Points:")
-	fmt.Println("  1. Laptop computer for carrying around")
-	fmt.Println("  2. Costs about thirteen hundred dollars")
-	fmt.Println("  3. Has fast parts for good performance")
-	fmt.Println("  4. Available to buy right now")
-	fmt.Println()
+// UserProfile represents a user's profile data
+type UserProfile struct {
+	ID         int      `json:"id"`
+	Name       string   `json:"name"`
+	Email      string   `json:"email"`
+	Age        int      `json:"age"`
+	Role       string   `json:"role"`
+	IsVerified bool     `json:"is_verified"`
+	Interests  []string `json:"interests"`
+	JoinedAt   string   `json:"joined_at"`
+}
 
-	// Display metadata for the last explanation
-	fmt.Println("6. Explanation Metadata:")
-	fmt.Println("------------------------")
-	fmt.Println("Audience: children")
-	fmt.Println("Complexity: intermediate")
-	fmt.Println("Metadata:")
-	fmt.Println("  data_type: map[string]interface {}")
-	fmt.Println("  field_count: 4")
-	fmt.Println("  estimated_complexity: medium")
-	fmt.Println("  explanation_depth: 2")
-	fmt.Println("  focus_area: overview")
+func main() {
+	loadEnv()
+
+	fmt.Println("📚 Explain Example - Generate Human-Readable Explanations")
+	fmt.Println("=" + string(make([]byte, 60)))
+
+	// Initialize SchemaFlow with Fast intelligence (Cerebras)
+	if err := schemaflow.InitWithEnv(); err != nil {
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		return
+	}
+
+	// Sample user data to explain
+	userData := UserProfile{
+		ID:         12345,
+		Name:       "Alice Johnson",
+		Email:      "alice.johnson@example.com",
+		Age:        28,
+		Role:       "premium",
+		IsVerified: true,
+		Interests:  []string{"technology", "data science", "machine learning"},
+		JoinedAt:   "2023-01-15",
+	}
+
+	fmt.Println("\n📊 Data to Explain:")
+	fmt.Printf("   %+v\n", userData)
+
+	// Example 1: Technical audience explanation
+	fmt.Println("\n" + "─" + string(make([]byte, 60)))
+	fmt.Println("1️⃣  Technical Audience Explanation")
+	fmt.Println("─" + string(make([]byte, 60)))
+
+	techResult, err := schemaflow.Explain(userData,
+		schemaflow.NewExplainOptions().
+			WithAudience("technical").
+			WithDepth(2).
+			WithFormat("structured").
+			WithFocus("implementation").
+			WithIntelligence(schemaflow.Fast))
+
+	if err != nil {
+		fmt.Printf("   ❌ Error: %v\n", err)
+	} else {
+		fmt.Printf("\n   📝 Summary: %s\n", techResult.Summary)
+		fmt.Printf("\n   📖 Explanation:\n   %s\n", techResult.Explanation)
+		if len(techResult.KeyPoints) > 0 {
+			fmt.Println("\n   🔑 Key Points:")
+			for _, point := range techResult.KeyPoints {
+				fmt.Printf("      • %s\n", point)
+			}
+		}
+	}
+
+	// Example 2: Executive audience explanation
+	fmt.Println("\n" + "─" + string(make([]byte, 60)))
+	fmt.Println("2️⃣  Executive Audience Explanation")
+	fmt.Println("─" + string(make([]byte, 60)))
+
+	execResult, err := schemaflow.Explain(userData,
+		schemaflow.NewExplainOptions().
+			WithAudience("executive").
+			WithDepth(1).
+			WithFormat("bullet-points").
+			WithFocus("benefits").
+			WithContext("Business intelligence and user analytics data").
+			WithIntelligence(schemaflow.Fast))
+
+	if err != nil {
+		fmt.Printf("   ❌ Error: %v\n", err)
+	} else {
+		fmt.Printf("\n   📝 Summary: %s\n", execResult.Summary)
+		fmt.Printf("\n   📖 Explanation:\n   %s\n", execResult.Explanation)
+		if len(execResult.KeyPoints) > 0 {
+			fmt.Println("\n   🔑 Key Points:")
+			for _, point := range execResult.KeyPoints {
+				fmt.Printf("      • %s\n", point)
+			}
+		}
+	}
+
+	// Example 3: Beginner-friendly explanation
+	fmt.Println("\n" + "─" + string(make([]byte, 60)))
+	fmt.Println("3️⃣  Beginner-Friendly Explanation")
+	fmt.Println("─" + string(make([]byte, 60)))
+
+	beginnerResult, err := schemaflow.Explain(userData,
+		schemaflow.NewExplainOptions().
+			WithAudience("beginner").
+			WithDepth(1).
+			WithFormat("step-by-step").
+			WithFocus("overview").
+			WithIntelligence(schemaflow.Fast))
+
+	if err != nil {
+		fmt.Printf("   ❌ Error: %v\n", err)
+	} else {
+		fmt.Printf("\n   📝 Summary: %s\n", beginnerResult.Summary)
+		fmt.Printf("\n   📖 Explanation:\n   %s\n", beginnerResult.Explanation)
+		if len(beginnerResult.KeyPoints) > 0 {
+			fmt.Println("\n   🔑 Key Points:")
+			for _, point := range beginnerResult.KeyPoints {
+				fmt.Printf("      • %s\n", point)
+			}
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("✨ Success! Data explained for different audiences")
 }

@@ -4,20 +4,40 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
+	"github.com/monstercameron/SchemaFlow"
 	"github.com/monstercameron/SchemaFlow/internal/ops"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-func main() {
-	// Ensure environment is configured
-	if os.Getenv("SCHEMAFLOW_API_KEY") == "" {
-		log.Fatal("SCHEMAFLOW_API_KEY environment variable not set")
+func loadEnv() {
+	dir, _ := os.Getwd()
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".env")); err == nil {
+			godotenv.Load(filepath.Join(dir, ".env"))
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
 	}
+}
+
+func main() {
+	loadEnv()
+	schemaflow.InitWithEnv()
 
 	fmt.Println("=== Enrich Example ===")
+	fmt.Println("Adds derived fields to data using LLM inference")
+	fmt.Println()
 
-	// Example 1: Enrich a product with derived fields
-	fmt.Println("--- Example 1: Product Enrichment ---")
+	// Business Use Case: Enrich product listings with marketing metadata
+	fmt.Println("--- Business Use Case: Product Catalog Enrichment ---")
+
 	type Product struct {
 		Name        string  `json:"name"`
 		Description string  `json:"description"`
@@ -31,142 +51,88 @@ func main() {
 		Category     string   `json:"category"`
 		Keywords     []string `json:"keywords"`
 		TargetMarket string   `json:"target_market"`
-		PriceRange   string   `json:"price_range"`
 	}
 
 	product := Product{
 		Name:        "Pro Gaming Keyboard RGB",
-		Description: "Mechanical keyboard with Cherry MX switches, customizable RGB lighting, and programmable macros",
+		Description: "Mechanical keyboard with Cherry MX switches and RGB lighting",
 		Price:       149.99,
 	}
 
+	fmt.Println("INPUT: Product struct")
+	fmt.Printf("  Name:        %q\n", product.Name)
+	fmt.Printf("  Description: %q\n", product.Description)
+	fmt.Printf("  Price:       $%.2f\n\n", product.Price)
+
 	opts := ops.NewEnrichOptions().
-		WithDeriveFields([]string{"category", "keywords", "target_market", "price_range"}).
-		WithDomain("e-commerce")
+		WithDeriveFields([]string{"category", "keywords", "target_market"}).
+		WithDomain("e-commerce").
+		WithIntelligence(types.Smart)
 
 	result, err := ops.Enrich[Product, EnrichedProduct](product, opts)
 	if err != nil {
 		log.Fatalf("Enrichment failed: %v", err)
 	}
 
-	fmt.Printf("Original product: %s\n", product.Name)
-	fmt.Printf("Enriched with:\n")
-	fmt.Printf("  Category: %s\n", result.Enriched.Category)
-	fmt.Printf("  Keywords: %v\n", result.Enriched.Keywords)
-	fmt.Printf("  Target Market: %s\n", result.Enriched.TargetMarket)
-	fmt.Printf("  Price Range: %s\n", result.Enriched.PriceRange)
+	fmt.Println("OUTPUT: EnrichedProduct struct")
+	fmt.Printf("  Name:        %q\n", result.Enriched.Name)
+	fmt.Printf("  Description: %q\n", result.Enriched.Description)
+	fmt.Printf("  Price:       $%.2f\n", result.Enriched.Price)
+	fmt.Println("  --- Derived Fields ---")
+	fmt.Printf("  Category:     %q\n", result.Enriched.Category)
+	fmt.Printf("  Keywords:     %v\n", result.Enriched.Keywords)
+	fmt.Printf("  TargetMarket: %q\n", result.Enriched.TargetMarket)
 	fmt.Println()
 
-	// Example 2: Enrich a contact with inferred information
-	fmt.Println("--- Example 2: Contact Enrichment ---")
-	type Contact struct {
+	// Business Use Case: Enrich sales lead with firmographic data
+	fmt.Println("--- Business Use Case: Sales Lead Enrichment ---")
+
+	type Lead struct {
 		Email   string `json:"email"`
 		Company string `json:"company"`
 		Title   string `json:"title"`
 	}
 
-	type EnrichedContact struct {
+	type EnrichedLead struct {
 		Email      string `json:"email"`
 		Company    string `json:"company"`
 		Title      string `json:"title"`
 		Department string `json:"department"`
 		Seniority  string `json:"seniority"`
 		Industry   string `json:"industry"`
-		Region     string `json:"region"`
 	}
 
-	contact := Contact{
+	lead := Lead{
 		Email:   "john.smith@techcorp.io",
 		Company: "TechCorp Inc",
 		Title:   "VP of Engineering",
 	}
 
-	contactOpts := ops.NewEnrichOptions().
-		WithDeriveFields([]string{"department", "seniority", "industry", "region"}).
+	fmt.Println("INPUT: Lead struct")
+	fmt.Printf("  Email:   %q\n", lead.Email)
+	fmt.Printf("  Company: %q\n", lead.Company)
+	fmt.Printf("  Title:   %q\n\n", lead.Title)
+
+	leadOpts := ops.NewEnrichOptions().
+		WithDeriveFields([]string{"department", "seniority", "industry"}).
 		WithDerivationRules(map[string]string{
 			"seniority": "Infer from job title (executive, senior, mid, junior)",
-			"region":    "Infer from email domain if possible",
-		})
+		}).
+		WithIntelligence(types.Smart)
 
-	contactResult, err := ops.Enrich[Contact, EnrichedContact](contact, contactOpts)
+	leadResult, err := ops.Enrich[Lead, EnrichedLead](lead, leadOpts)
 	if err != nil {
-		log.Fatalf("Contact enrichment failed: %v", err)
+		log.Fatalf("Lead enrichment failed: %v", err)
 	}
 
-	fmt.Printf("Original: %s at %s\n", contact.Title, contact.Company)
-	fmt.Printf("Enriched:\n")
-	fmt.Printf("  Department: %s\n", contactResult.Enriched.Department)
-	fmt.Printf("  Seniority: %s\n", contactResult.Enriched.Seniority)
-	fmt.Printf("  Industry: %s\n", contactResult.Enriched.Industry)
-	fmt.Printf("  Region: %s\n", contactResult.Enriched.Region)
-	fmt.Println()
-
-	// Example 3: Enrich text content
-	fmt.Println("--- Example 3: Article Enrichment ---")
-	type Article struct {
-		Title   string `json:"title"`
-		Content string `json:"content"`
-		Author  string `json:"author"`
-	}
-
-	type EnrichedArticle struct {
-		Title        string   `json:"title"`
-		Content      string   `json:"content"`
-		Author       string   `json:"author"`
-		Summary      string   `json:"summary"`
-		Topics       []string `json:"topics"`
-		ReadingTime  string   `json:"reading_time"`
-		Difficulty   string   `json:"difficulty"`
-		KeyTakeaways []string `json:"key_takeaways"`
-	}
-
-	article := Article{
-		Title:   "Understanding Kubernetes Operators",
-		Content: "Kubernetes Operators extend the Kubernetes API to manage complex applications...",
-		Author:  "Jane Developer",
-	}
-
-	articleOpts := ops.NewEnrichOptions().
-		WithDeriveFields([]string{"summary", "topics", "reading_time", "difficulty", "key_takeaways"}).
-		WithDomain("technology").
-		WithIncludeConfidence(true)
-
-	articleResult, err := ops.Enrich[Article, EnrichedArticle](article, articleOpts)
-	if err != nil {
-		log.Fatalf("Article enrichment failed: %v", err)
-	}
-
-	fmt.Printf("Article: %s\n", article.Title)
-	fmt.Printf("Enriched:\n")
-	fmt.Printf("  Summary: %s\n", articleResult.Enriched.Summary)
-	fmt.Printf("  Topics: %v\n", articleResult.Enriched.Topics)
-	fmt.Printf("  Reading Time: %s\n", articleResult.Enriched.ReadingTime)
-	fmt.Printf("  Difficulty: %s\n", articleResult.Enriched.Difficulty)
-	fmt.Printf("  Key Takeaways: %v\n", articleResult.Enriched.KeyTakeaways)
-
-	// Example 4: In-place enrichment
-	fmt.Println("\n--- Example 4: In-Place Enrichment ---")
-	type Document struct {
-		Text     string   `json:"text"`
-		Keywords []string `json:"keywords"`
-		Language string   `json:"language"`
-	}
-
-	doc := Document{
-		Text: "Machine learning is transforming healthcare diagnostics.",
-	}
-
-	inPlaceOpts := ops.NewEnrichOptions().
-		WithDeriveFields([]string{"keywords", "language"})
-
-	enrichedDoc, err := ops.EnrichInPlace(doc, inPlaceOpts)
-	if err != nil {
-		log.Fatalf("In-place enrichment failed: %v", err)
-	}
-
-	fmt.Printf("Original text: %s\n", doc.Text)
-	fmt.Printf("Added keywords: %v\n", enrichedDoc.Keywords)
-	fmt.Printf("Detected language: %s\n", enrichedDoc.Language)
+	fmt.Println("OUTPUT: EnrichedLead struct")
+	fmt.Printf("  Email:   %q\n", leadResult.Enriched.Email)
+	fmt.Printf("  Company: %q\n", leadResult.Enriched.Company)
+	fmt.Printf("  Title:   %q\n", leadResult.Enriched.Title)
+	fmt.Println("  --- Derived Fields ---")
+	fmt.Printf("  Department: %q\n", leadResult.Enriched.Department)
+	fmt.Printf("  Seniority:  %q\n", leadResult.Enriched.Seniority)
+	fmt.Printf("  Industry:   %q\n", leadResult.Enriched.Industry)
 
 	fmt.Println("\n=== Enrich Example Complete ===")
 }

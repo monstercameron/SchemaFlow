@@ -4,181 +4,147 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
+	"github.com/monstercameron/SchemaFlow"
 	"github.com/monstercameron/SchemaFlow/internal/ops"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-func main() {
-	// Ensure environment is configured
-	if os.Getenv("SCHEMAFLOW_API_KEY") == "" {
-		log.Fatal("SCHEMAFLOW_API_KEY environment variable not set")
+func loadEnv() {
+	dir, _ := os.Getwd()
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".env")); err == nil {
+			godotenv.Load(filepath.Join(dir, ".env"))
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
 	}
+}
+
+func main() {
+	loadEnv()
+	schemaflow.InitWithEnv()
 
 	fmt.Println("=== Predict Example ===")
+	fmt.Println("Forecasts future values based on historical data patterns")
+	fmt.Println()
 
-	// Example 1: Predict sales for next quarter
-	fmt.Println("--- Example 1: Sales Forecast ---")
-	type SalesForecast struct {
-		Revenue    float64 `json:"revenue"`
-		GrowthRate float64 `json:"growth_rate"`
-		Units      int     `json:"units"`
+	// Business Use Case: Sales forecasting with business context
+	fmt.Println("--- Business Use Case: Q1 2025 Sales Forecast ---")
+
+	type QuarterlyData struct {
+		Quarter        string  `json:"quarter"`
+		Revenue        float64 `json:"revenue"`
+		Units          int     `json:"units"`
+		MarketingSpend float64 `json:"marketing_spend"`
+		Headcount      int     `json:"sales_headcount"`
+		NewProducts    int     `json:"new_products_launched"`
+		ChurnRate      float64 `json:"customer_churn_rate"`
 	}
 
-	historicalSales := []map[string]any{
-		{"quarter": "Q1 2023", "revenue": 1000000, "units": 5000},
-		{"quarter": "Q2 2023", "revenue": 1150000, "units": 5500},
-		{"quarter": "Q3 2023", "revenue": 1100000, "units": 5200},
-		{"quarter": "Q4 2023", "revenue": 1400000, "units": 7000},
-		{"quarter": "Q1 2024", "revenue": 1250000, "units": 6000},
-		{"quarter": "Q2 2024", "revenue": 1450000, "units": 7200},
+	type MarketContext struct {
+		IndustryGrowthRate float64 `json:"industry_growth_rate"`
+		CompetitorCount    int     `json:"competitor_count"`
+		SeasonalityIndex   float64 `json:"seasonality_index_q1"`
+		EconomicOutlook    string  `json:"economic_outlook"`
 	}
+
+	type ForecastInput struct {
+		Historical    []QuarterlyData `json:"historical_data"`
+		MarketContext MarketContext   `json:"market_context"`
+		Assumptions   []string        `json:"planning_assumptions"`
+	}
+
+	input := ForecastInput{
+		Historical: []QuarterlyData{
+			{Quarter: "Q1 2024", Revenue: 1000000, Units: 5000, MarketingSpend: 50000, Headcount: 10, NewProducts: 0, ChurnRate: 0.05},
+			{Quarter: "Q2 2024", Revenue: 1150000, Units: 5500, MarketingSpend: 75000, Headcount: 12, NewProducts: 1, ChurnRate: 0.04},
+			{Quarter: "Q3 2024", Revenue: 1100000, Units: 5200, MarketingSpend: 60000, Headcount: 12, NewProducts: 0, ChurnRate: 0.06},
+			{Quarter: "Q4 2024", Revenue: 1400000, Units: 7000, MarketingSpend: 100000, Headcount: 15, NewProducts: 2, ChurnRate: 0.03},
+		},
+		MarketContext: MarketContext{
+			IndustryGrowthRate: 0.08,
+			CompetitorCount:    5,
+			SeasonalityIndex:   0.85, // Q1 typically 15% below average
+			EconomicOutlook:    "stable with mild recession risk",
+		},
+		Assumptions: []string{
+			"Marketing budget Q1 2025: $80,000",
+			"Hiring 2 additional sales reps",
+			"No new product launches planned",
+		},
+	}
+
+	fmt.Println("INPUT: ForecastInput struct")
+	fmt.Println("  Historical: []QuarterlyData")
+	for _, q := range input.Historical {
+		fmt.Printf("    - %s: Rev=$%.0fK, Marketing=$%.0fK, Headcount=%d, Churn=%.0f%%\n",
+			q.Quarter, q.Revenue/1000, q.MarketingSpend/1000, q.Headcount, q.ChurnRate*100)
+	}
+	fmt.Println("  MarketContext:")
+	fmt.Printf("    IndustryGrowth: %.0f%%, Competitors: %d, SeasonalityIndex: %.2f\n",
+		input.MarketContext.IndustryGrowthRate*100, input.MarketContext.CompetitorCount, input.MarketContext.SeasonalityIndex)
+	fmt.Printf("    EconomicOutlook: %q\n", input.MarketContext.EconomicOutlook)
+	fmt.Println("  Assumptions:")
+	for _, a := range input.Assumptions {
+		fmt.Printf("    - %s\n", a)
+	}
+	fmt.Println()
 
 	opts := ops.NewPredictOptions().
-		WithHorizon("Q3 2024").
-		WithIncludeConfidenceInterval(true).
-		WithConfidenceLevel(0.8).
-		WithIncludeReasoning(true)
+		WithHorizon("Q1 2025").
+		WithIntelligence(types.Smart)
 
-	result, err := ops.Predict[SalesForecast](historicalSales, opts)
+	// Use float64 since prediction is a single revenue value
+	result, err := ops.Predict[float64](input, opts)
 	if err != nil {
 		log.Fatalf("Prediction failed: %v", err)
 	}
 
-	fmt.Println("Q3 2024 Sales Forecast:")
-	fmt.Printf("  Predicted Revenue: $%.2f\n", result.Prediction.Revenue)
-	fmt.Printf("  Predicted Units: %d\n", result.Prediction.Units)
-	fmt.Printf("  Growth Rate: %.1f%%\n", result.Prediction.GrowthRate*100)
-	fmt.Printf("  Confidence: %.0f%%\n\n", result.Confidence*100)
+	fmt.Println("OUTPUT: PredictResult[float64]")
+	fmt.Printf("  Prediction (Q1 2025 Revenue): $%.0f\n", result.Prediction)
+	fmt.Printf("  Confidence:                   %.0f%%\n", result.Confidence*100)
 
 	if result.Interval != nil {
-		fmt.Printf("  %.0f%% Confidence Interval:\n", result.Interval.ConfidenceLevel*100)
-		fmt.Printf("    Revenue: $%.2f - $%.2f\n", result.Interval.Lower, result.Interval.Upper)
+		fmt.Println("  ConfidenceInterval:")
+		fmt.Printf("    Lower:           $%.0f\n", result.Interval.Lower)
+		fmt.Printf("    Upper:           $%.0f\n", result.Interval.Upper)
 	}
 
 	if result.Reasoning != "" {
-		fmt.Printf("\n  Reasoning: %s\n", result.Reasoning)
-	}
-	fmt.Println()
-
-	// Example 2: Predict with scenarios
-	fmt.Println("--- Example 2: Scenario-Based Prediction ---")
-	type MarketPrediction struct {
-		Price  float64 `json:"price"`
-		Volume int     `json:"volume"`
-		Trend  string  `json:"trend"`
-	}
-
-	marketData := []map[string]any{
-		{"date": "2024-01", "price": 100, "volume": 10000},
-		{"date": "2024-02", "price": 105, "volume": 12000},
-		{"date": "2024-03", "price": 102, "volume": 11000},
-		{"date": "2024-04", "price": 110, "volume": 15000},
-		{"date": "2024-05", "price": 115, "volume": 14000},
-	}
-
-	scenarioOpts := ops.NewPredictOptions().
-		WithHorizon("next 3 months").
-		WithIncludeScenarios(true).
-		WithNumScenarios(3).
-		WithFactors([]string{"market_sentiment", "seasonality", "competition"})
-
-	scenarioResult, err := ops.Predict[MarketPrediction](marketData, scenarioOpts)
-	if err != nil {
-		log.Fatalf("Scenario prediction failed: %v", err)
-	}
-
-	fmt.Println("Market Prediction (Base Case):")
-	fmt.Printf("  Price: $%.2f\n", scenarioResult.Prediction.Price)
-	fmt.Printf("  Volume: %d\n", scenarioResult.Prediction.Volume)
-	fmt.Printf("  Trend: %s\n\n", scenarioResult.Prediction.Trend)
-
-	fmt.Println("Alternative Scenarios:")
-	for _, scenario := range scenarioResult.Scenarios {
-		fmt.Printf("\n  %s (%.0f%% probability)\n", scenario.Name, scenario.Probability*100)
-		fmt.Printf("  Description: %s\n", scenario.Description)
-		if len(scenario.Conditions) > 0 {
-			fmt.Printf("  Conditions: %v\n", scenario.Conditions)
+		// Truncate reasoning for display
+		reasoning := result.Reasoning
+		if len(reasoning) > 300 {
+			reasoning = reasoning[:300] + "..."
 		}
-	}
-	fmt.Println()
-
-	// Example 3: Predict with assumptions
-	fmt.Println("--- Example 3: Prediction with Assumptions ---")
-	type ResourceForecast struct {
-		Headcount int     `json:"headcount"`
-		Budget    float64 `json:"budget"`
-		Projects  int     `json:"projects"`
+		fmt.Printf("  Reasoning: %s\n", reasoning)
 	}
 
-	teamHistory := []map[string]any{
-		{"year": 2021, "headcount": 10, "budget": 500000, "projects": 5},
-		{"year": 2022, "headcount": 15, "budget": 750000, "projects": 8},
-		{"year": 2023, "headcount": 22, "budget": 1100000, "projects": 12},
-	}
-
-	assumptionOpts := ops.NewPredictOptions().
-		WithHorizon("2025").
-		WithAssumptions([]string{
-			"20% annual growth target",
-			"No major market disruptions",
-			"Continued remote work policy",
-		}).
-		WithIncludeReasoning(true)
-
-	resourceResult, err := ops.Predict[ResourceForecast](teamHistory, assumptionOpts)
-	if err != nil {
-		log.Fatalf("Resource prediction failed: %v", err)
-	}
-
-	fmt.Println("2025 Resource Forecast:")
-	fmt.Printf("  Projected Headcount: %d\n", resourceResult.Prediction.Headcount)
-	fmt.Printf("  Projected Budget: $%.0f\n", resourceResult.Prediction.Budget)
-	fmt.Printf("  Expected Projects: %d\n", resourceResult.Prediction.Projects)
-
-	if len(resourceResult.Assumptions) > 0 {
-		fmt.Println("\n  Based on assumptions:")
-		for _, a := range resourceResult.Assumptions {
+	if len(result.Assumptions) > 0 {
+		fmt.Println("  Assumptions:")
+		for i, a := range result.Assumptions {
+			if i >= 3 {
+				fmt.Printf("    ... and %d more\n", len(result.Assumptions)-3)
+				break
+			}
 			fmt.Printf("    - %s\n", a)
 		}
 	}
 
-	if len(resourceResult.Risks) > 0 {
-		fmt.Println("\n  Identified Risks:")
-		for _, r := range resourceResult.Risks {
-			fmt.Printf("    ⚠ %s\n", r)
-		}
-	}
-	fmt.Println()
-
-	// Example 4: Trend-based prediction
-	fmt.Println("--- Example 4: Trend Analysis ---")
-	type TrendPrediction struct {
-		Value     float64 `json:"value"`
-		Direction string  `json:"direction"`
-		Velocity  float64 `json:"velocity"`
-	}
-
-	trendData := []float64{10, 12, 15, 14, 18, 22, 21, 25, 28}
-
-	trendOpts := ops.NewPredictOptions().
-		WithHorizon("next 3 periods").
-		WithMethod("trend").
-		WithIncludeReasoning(true)
-
-	trendResult, err := ops.Predict[TrendPrediction](trendData, trendOpts)
-	if err != nil {
-		log.Fatalf("Trend prediction failed: %v", err)
-	}
-
-	fmt.Println("Trend Analysis:")
-	fmt.Printf("  Next Value: %.2f\n", trendResult.Prediction.Value)
-	fmt.Printf("  Direction: %s\n", trendResult.Prediction.Direction)
-	fmt.Printf("  Velocity: %.2f per period\n", trendResult.Prediction.Velocity)
-
-	if len(trendResult.Factors) > 0 {
-		fmt.Println("\n  Key Factors:")
-		for _, f := range trendResult.Factors {
-			fmt.Printf("    %s [%s]: weight %.2f\n", f.Name, f.Impact, f.Weight)
+	if len(result.Risks) > 0 {
+		fmt.Println("  Risks:")
+		for i, r := range result.Risks {
+			if i >= 3 {
+				fmt.Printf("    ... and %d more\n", len(result.Risks)-3)
+				break
+			}
+			fmt.Printf("    - %s\n", r)
 		}
 	}
 

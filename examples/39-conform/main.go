@@ -2,12 +2,35 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-// Address represents a mailing address
-type Address struct {
+// loadEnv loads environment variables from .env files
+func loadEnv() {
+	if err := godotenv.Load(); err == nil {
+		return
+	}
+	dir, _ := os.Getwd()
+	for i := 0; i < 3; i++ {
+		envPath := filepath.Join(dir, ".env")
+		if err := godotenv.Load(envPath); err == nil {
+			return
+		}
+		dir = filepath.Dir(dir)
+	}
+}
+
+// ============================================================
+// USE CASE 1: USPS Address Standardization
+// ============================================================
+
+// ShippingAddress from customer input
+type ShippingAddress struct {
 	Name       string `json:"name"`
 	Street1    string `json:"street1"`
 	Street2    string `json:"street2"`
@@ -17,159 +40,189 @@ type Address struct {
 	Country    string `json:"country"`
 }
 
-// ContactInfo with various formats
-type ContactInfo struct {
-	Phone     string `json:"phone"`
-	AltPhone  string `json:"alt_phone"`
-	Fax       string `json:"fax"`
-	Email     string `json:"email"`
-	Birthdate string `json:"birthdate"`
-	JoinDate  string `json:"join_date"`
+// ============================================================
+// USE CASE 2: Financial Data ISO Conformance
+// ============================================================
+
+// FinancialTransaction from legacy system
+type FinancialTransaction struct {
+	TransactionID string  `json:"transaction_id"`
+	Amount        float64 `json:"amount"`
+	Currency      string  `json:"currency"`
+	Timestamp     string  `json:"timestamp"`
+	SenderIBAN    string  `json:"sender_iban"`
+	ReceiverIBAN  string  `json:"receiver_iban"`
+	Reference     string  `json:"reference"`
+}
+
+// ============================================================
+// USE CASE 3: Healthcare HL7 FHIR Conformance
+// ============================================================
+
+// PatientRecord from EHR export
+type PatientRecord struct {
+	PatientID   string `json:"patient_id"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	DOB         string `json:"dob"`
+	Gender      string `json:"gender"`
+	SSN         string `json:"ssn"`
+	Phone       string `json:"phone"`
+	Diagnosis   string `json:"diagnosis"`
+	DiagnosisAt string `json:"diagnosis_at"`
 }
 
 func main() {
-	// Initialize SchemaFlow
+	loadEnv()
+
 	if err := schemaflow.InitWithEnv(); err != nil {
-		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		fmt.Printf("Init failed: %v\n", err)
 		return
 	}
 
 	fmt.Println("=== Conform Example ===")
+	fmt.Println("Transforming data to match standards and schemas")
 
-	// Example 1: Conform address to USPS standard
-	fmt.Println("\n--- Example 1: USPS Address Standardization ---")
+	// ============================================================
+	// USE CASE 1: USPS Address Standardization
+	// Scenario: Normalize customer-entered addresses for shipping labels
+	// ============================================================
+	fmt.Println("\n--- Use Case 1: USPS Address Standardization ---")
 
-	rawAddress := Address{
-		Name:       "john smith",
-		Street1:    "123 north main street, apt 4b",
+	rawAddress := ShippingAddress{
+		Name:       "dr. john q. smith jr.",
+		Street1:    "one-hundred twenty-three north main street, suite 400",
 		Street2:    "",
 		City:       "los angeles",
 		State:      "california",
 		PostalCode: "90210",
-		Country:    "usa",
+		Country:    "united states of america",
 	}
 
-	fmt.Printf("Original Address:\n")
-	fmt.Printf("  Name: %s\n", rawAddress.Name)
-	fmt.Printf("  Street: %s\n", rawAddress.Street1)
-	fmt.Printf("  City, State ZIP: %s, %s %s\n", rawAddress.City, rawAddress.State, rawAddress.PostalCode)
-	fmt.Printf("  Country: %s\n", rawAddress.Country)
-
-	result, err := schemaflow.Conform[Address](rawAddress, "USPS", schemaflow.ConformOptions{
-		Strict: true,
+	addrResult, err := schemaflow.Conform[ShippingAddress](rawAddress, "USPS", schemaflow.ConformOptions{
+		Strict:       true,
+		Intelligence: types.Smart,
+		Steering:     "Apply full USPS Publication 28 standards: uppercase, abbreviated directionals (N, S, E, W), abbreviated suffixes (ST, AVE, BLVD), state abbreviations, and standard country code USA.",
 	})
-
 	if err != nil {
-		schemaflow.GetLogger().Error("Conform failed", "error", err)
-		return
+		fmt.Printf("USPS conform failed: %v\n", err)
+	} else {
+		fmt.Printf("Original:\n")
+		fmt.Printf("  Name: %s\n", rawAddress.Name)
+		fmt.Printf("  Street: %s\n", rawAddress.Street1)
+		fmt.Printf("  City/State/ZIP: %s, %s %s\n", rawAddress.City, rawAddress.State, rawAddress.PostalCode)
+		fmt.Printf("  Country: %s\n", rawAddress.Country)
+		fmt.Printf("\nUSPS Conformed:\n")
+		fmt.Printf("  Name: %s\n", addrResult.Conformed.Name)
+		fmt.Printf("  Street1: %s\n", addrResult.Conformed.Street1)
+		if addrResult.Conformed.Street2 != "" {
+			fmt.Printf("  Street2: %s\n", addrResult.Conformed.Street2)
+		}
+		fmt.Printf("  City/State/ZIP: %s, %s %s\n",
+			addrResult.Conformed.City, addrResult.Conformed.State, addrResult.Conformed.PostalCode)
+		fmt.Printf("  Country: %s\n", addrResult.Conformed.Country)
+		fmt.Printf("\nAdjustments (%d):\n", len(addrResult.Adjustments))
+		for _, adj := range addrResult.Adjustments {
+			fmt.Printf("  %s: %s\n", adj.Field, adj.Description)
+		}
+		fmt.Printf("Compliance: %.0f%%\n", addrResult.Compliance*100)
 	}
 
-	fmt.Printf("\nUSPS Standardized:\n")
-	fmt.Printf("  Name: %s\n", result.Conformed.Name)
-	fmt.Printf("  Street1: %s\n", result.Conformed.Street1)
-	if result.Conformed.Street2 != "" {
-		fmt.Printf("  Street2: %s\n", result.Conformed.Street2)
-	}
-	fmt.Printf("  City, State ZIP: %s, %s %s\n", result.Conformed.City, result.Conformed.State, result.Conformed.PostalCode)
-	fmt.Printf("  Country: %s\n", result.Conformed.Country)
+	// ============================================================
+	// USE CASE 2: Financial Data ISO Conformance
+	// Scenario: Transform legacy payment data to ISO 20022 format
+	// ============================================================
+	fmt.Println("\n--- Use Case 2: Financial ISO 20022 Conformance ---")
 
-	fmt.Printf("\nAdjustments Made:\n")
-	for _, adj := range result.Adjustments {
-		fmt.Printf("  %s: '%v' → '%v'\n", adj.Field, adj.OriginalValue, adj.ConformedValue)
-		fmt.Printf("    Rule: %s\n", adj.Description)
-	}
-
-	fmt.Printf("\nCompliance: %.0f%%\n", result.Compliance*100)
-
-	// Example 2: Conform contact info to E164 and ISO8601
-	fmt.Println("\n--- Example 2: Phone (E164) & Date (ISO8601) ---")
-
-	rawContact := ContactInfo{
-		Phone:     "(555) 123-4567",
-		AltPhone:  "1-800-FLOWERS",
-		Fax:       "555.999.8888",
-		Email:     "John.Smith@Email.COM",
-		Birthdate: "March 15th, 1990",
-		JoinDate:  "01/20/2024",
+	legacyTxn := FinancialTransaction{
+		TransactionID: "PAY123456",
+		Amount:        15750.00,
+		Currency:      "dollars",
+		Timestamp:     "12/15/2024 3:45 PM EST",
+		SenderIBAN:    "de89370400440532013000",
+		ReceiverIBAN:  "GB82 WEST 1234 5698 7654 32",
+		Reference:     "invoice payment #INV-2024-0089",
 	}
 
-	fmt.Printf("Original Contact:\n")
-	fmt.Printf("  Phone: %s\n", rawContact.Phone)
-	fmt.Printf("  Alt Phone: %s\n", rawContact.AltPhone)
-	fmt.Printf("  Fax: %s\n", rawContact.Fax)
-	fmt.Printf("  Email: %s\n", rawContact.Email)
-	fmt.Printf("  Birthdate: %s\n", rawContact.Birthdate)
-	fmt.Printf("  Join Date: %s\n", rawContact.JoinDate)
-
-	// Conform to E164 for phones
-	phoneResult, err := schemaflow.Conform[ContactInfo](rawContact, "E164+ISO8601", schemaflow.ConformOptions{
-		Steering: "Assume US country code +1 for phone numbers. Convert dates to ISO8601 format.",
+	finResult, err := schemaflow.Conform[FinancialTransaction](legacyTxn, "ISO 20022", schemaflow.ConformOptions{
+		Intelligence: types.Smart,
+		Steering:     "Apply ISO 20022 PAIN/PACS standards: ISO 4217 currency codes (USD not dollars), ISO 8601 timestamps in UTC, IBAN without spaces uppercase, structured reference max 35 chars.",
 	})
-
 	if err != nil {
-		schemaflow.GetLogger().Error("Phone conform failed", "error", err)
-		return
+		fmt.Printf("ISO 20022 conform failed: %v\n", err)
+	} else {
+		fmt.Printf("Original (Legacy):\n")
+		fmt.Printf("  TxnID: %s\n", legacyTxn.TransactionID)
+		fmt.Printf("  Amount: %.2f %s\n", legacyTxn.Amount, legacyTxn.Currency)
+		fmt.Printf("  Timestamp: %s\n", legacyTxn.Timestamp)
+		fmt.Printf("  Sender IBAN: %s\n", legacyTxn.SenderIBAN)
+		fmt.Printf("  Receiver IBAN: %s\n", legacyTxn.ReceiverIBAN)
+		fmt.Printf("  Reference: %s\n", legacyTxn.Reference)
+		fmt.Printf("\nISO 20022 Conformed:\n")
+		fmt.Printf("  TxnID: %s\n", finResult.Conformed.TransactionID)
+		fmt.Printf("  Amount: %.2f %s\n", finResult.Conformed.Amount, finResult.Conformed.Currency)
+		fmt.Printf("  Timestamp: %s\n", finResult.Conformed.Timestamp)
+		fmt.Printf("  Sender IBAN: %s\n", finResult.Conformed.SenderIBAN)
+		fmt.Printf("  Receiver IBAN: %s\n", finResult.Conformed.ReceiverIBAN)
+		fmt.Printf("  Reference: %s\n", finResult.Conformed.Reference)
+		fmt.Printf("\nAdjustments (%d):\n", len(finResult.Adjustments))
+		for _, adj := range finResult.Adjustments {
+			fmt.Printf("  %s: %s\n", adj.Field, adj.Description)
+		}
+		fmt.Printf("Compliance: %.0f%%\n", finResult.Compliance*100)
 	}
 
-	fmt.Printf("\nStandardized Contact:\n")
-	fmt.Printf("  Phone: %s\n", phoneResult.Conformed.Phone)
-	fmt.Printf("  Alt Phone: %s\n", phoneResult.Conformed.AltPhone)
-	fmt.Printf("  Fax: %s\n", phoneResult.Conformed.Fax)
-	fmt.Printf("  Email: %s\n", phoneResult.Conformed.Email)
-	fmt.Printf("  Birthdate: %s\n", phoneResult.Conformed.Birthdate)
-	fmt.Printf("  Join Date: %s\n", phoneResult.Conformed.JoinDate)
+	// ============================================================
+	// USE CASE 3: Healthcare HL7 FHIR Conformance
+	// Scenario: Transform EHR data to FHIR R4 Patient resource format
+	// ============================================================
+	fmt.Println("\n--- Use Case 3: Healthcare HL7 FHIR Conformance ---")
 
-	fmt.Printf("\nAdjustments:\n")
-	for _, adj := range phoneResult.Adjustments {
-		fmt.Printf("  %s: %s\n", adj.Field, adj.Description)
+	patientData := PatientRecord{
+		PatientID:   "PAT-00123456",
+		FirstName:   "JANE",
+		LastName:    "DOE",
+		DOB:         "03/15/1985",
+		Gender:      "F",
+		SSN:         "123-45-6789",
+		Phone:       "(555) 234-5678",
+		Diagnosis:   "Type 2 Diabetes Mellitus",
+		DiagnosisAt: "Jan 10, 2024",
 	}
 
-	// Example 3: Custom standard conformance
-	fmt.Println("\n--- Example 3: Custom Standard ---")
-
-	type ProductCode struct {
-		SKU         string `json:"sku"`
-		Barcode     string `json:"barcode"`
-		Category    string `json:"category"`
-		Description string `json:"description"`
-	}
-
-	rawProduct := ProductCode{
-		SKU:         "electronics-laptop-dell-001",
-		Barcode:     "1234567890",
-		Category:    "LAPTOPS & COMPUTERS",
-		Description: "Dell Laptop 15 inch",
-	}
-
-	customStandard := `
-	SKU Format: CAT-SUB-BRAND-NUM (uppercase, max 20 chars)
-	Barcode: EAN-13 format (13 digits with check digit)
-	Category: Title case, no special characters
-	Description: Sentence case, max 50 chars
-	`
-
-	customResult, err := schemaflow.Conform[ProductCode](rawProduct, customStandard, schemaflow.ConformOptions{
-		Strict: false,
+	fhirResult, err := schemaflow.Conform[PatientRecord](patientData, "HL7 FHIR R4", schemaflow.ConformOptions{
+		Intelligence: types.Smart,
+		Steering:     "Apply FHIR R4 standards: ISO 8601 dates, E.164 phone (+1...), FHIR gender codes (male/female/other/unknown), SSN should be masked to last 4 only (XXX-XX-####), ICD-10 diagnosis code format.",
 	})
-
 	if err != nil {
-		schemaflow.GetLogger().Error("Custom conform failed", "error", err)
-		return
+		fmt.Printf("FHIR conform failed: %v\n", err)
+	} else {
+		fmt.Printf("Original (EHR Export):\n")
+		fmt.Printf("  Patient ID: %s\n", patientData.PatientID)
+		fmt.Printf("  Name: %s %s\n", patientData.FirstName, patientData.LastName)
+		fmt.Printf("  DOB: %s\n", patientData.DOB)
+		fmt.Printf("  Gender: %s\n", patientData.Gender)
+		fmt.Printf("  SSN: %s\n", patientData.SSN)
+		fmt.Printf("  Phone: %s\n", patientData.Phone)
+		fmt.Printf("  Diagnosis: %s @ %s\n", patientData.Diagnosis, patientData.DiagnosisAt)
+		fmt.Printf("\nFHIR R4 Conformed:\n")
+		fmt.Printf("  Patient ID: %s\n", fhirResult.Conformed.PatientID)
+		fmt.Printf("  Name: %s %s\n", fhirResult.Conformed.FirstName, fhirResult.Conformed.LastName)
+		fmt.Printf("  DOB: %s\n", fhirResult.Conformed.DOB)
+		fmt.Printf("  Gender: %s\n", fhirResult.Conformed.Gender)
+		fmt.Printf("  SSN: %s\n", fhirResult.Conformed.SSN)
+		fmt.Printf("  Phone: %s\n", fhirResult.Conformed.Phone)
+		fmt.Printf("  Diagnosis: %s @ %s\n",
+			fhirResult.Conformed.Diagnosis, fhirResult.Conformed.DiagnosisAt)
+		fmt.Printf("\nAdjustments (%d):\n", len(fhirResult.Adjustments))
+		for _, adj := range fhirResult.Adjustments {
+			fmt.Printf("  %s: %s\n", adj.Field, adj.Description)
+		}
+		if len(fhirResult.Violations) > 0 {
+			fmt.Printf("Violations: %v\n", fhirResult.Violations)
+		}
+		fmt.Printf("Compliance: %.0f%%\n", fhirResult.Compliance*100)
 	}
-
-	fmt.Printf("Original:\n")
-	fmt.Printf("  SKU: %s\n", rawProduct.SKU)
-	fmt.Printf("  Barcode: %s\n", rawProduct.Barcode)
-	fmt.Printf("  Category: %s\n", rawProduct.Category)
-	fmt.Printf("  Description: %s\n", rawProduct.Description)
-
-	fmt.Printf("\nConformed:\n")
-	fmt.Printf("  SKU: %s\n", customResult.Conformed.SKU)
-	fmt.Printf("  Barcode: %s\n", customResult.Conformed.Barcode)
-	fmt.Printf("  Category: %s\n", customResult.Conformed.Category)
-	fmt.Printf("  Description: %s\n", customResult.Conformed.Description)
-
-	fmt.Printf("\nCompliance: %.0f%%\n", customResult.Compliance*100)
 
 	fmt.Println("\n=== Conform Example Complete ===")
 }

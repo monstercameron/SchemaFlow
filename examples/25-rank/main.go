@@ -1,20 +1,59 @@
+// Example 25: Rank Operation
+// Ranks items by relevance to a query using LLM intelligence
+
 package main
 
 import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
+	schemaflow "github.com/monstercameron/SchemaFlow"
 	"github.com/monstercameron/SchemaFlow/internal/ops"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
+// loadEnv loads environment variables from .env file
+func loadEnv() {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			if err := godotenv.Load(envPath); err != nil {
+				log.Fatal("Error loading .env file")
+			}
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	log.Fatal(".env file not found")
+}
+
 func main() {
+	loadEnv()
+
 	// Ensure environment is configured
 	if os.Getenv("SCHEMAFLOW_API_KEY") == "" {
 		log.Fatal("SCHEMAFLOW_API_KEY environment variable not set")
 	}
 
+	// Initialize SchemaFlow
+	if err := schemaflow.InitWithEnv(); err != nil {
+		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
+	}
+
 	fmt.Println("=== Rank Example ===")
+	fmt.Println("Ranks items by semantic relevance to a query")
+	fmt.Println()
 
 	// Example 1: Rank articles by relevance
 	fmt.Println("--- Example 1: Article Relevance Ranking ---")
@@ -33,23 +72,33 @@ func main() {
 		{Title: "Python Data Science", Content: "Using pandas and numpy", Author: "Frank"},
 	}
 
+	fmt.Println("INPUT: []Article")
+	for _, a := range articles {
+		fmt.Printf("  {Title: %q, Content: %q, Author: %q}\n", a.Title, a.Content, a.Author)
+	}
+
 	query := "Go programming patterns and best practices"
+	fmt.Printf("\nQuery: %q\n\n", query)
+
 	opts := ops.NewRankOptions().
 		WithQuery(query).
 		WithTopK(3).
-		WithIncludeExplanation(true)
+		WithIncludeExplanation(true).
+		WithIntelligence(types.Smart)
 
 	result, err := ops.Rank(articles, opts)
 	if err != nil {
 		log.Fatalf("Ranking failed: %v", err)
 	}
 
-	fmt.Printf("Query: '%s'\n", query)
-	fmt.Printf("Top %d results:\n\n", len(result.Items))
+	fmt.Println("OUTPUT: RankResult[Article]")
+	fmt.Printf("  TotalItems: %d, ReturnedItems: %d\n", result.TotalItems, len(result.Items))
+	fmt.Println("  Items (RankedItem[Article]):")
 	for i, item := range result.Items {
-		fmt.Printf("  %d. %s (Score: %.2f)\n", i+1, item.Item.Title, item.Score)
+		fmt.Printf("    %d. Score: %.2f\n", i+1, item.Score)
+		fmt.Printf("       Item: Article{Title: %q, Author: %q}\n", item.Item.Title, item.Item.Author)
 		if item.Explanation != "" {
-			fmt.Printf("     Reason: %s\n", item.Explanation)
+			fmt.Printf("       Explanation: %s\n", item.Explanation)
 		}
 	}
 	fmt.Println()
@@ -71,30 +120,36 @@ func main() {
 		{Name: "Eve", Experience: 4, Skills: []string{"Go", "gRPC", "Microservices"}, Education: "MS Software Engineering"},
 	}
 
+	fmt.Println("INPUT: []Candidate")
+	for _, c := range candidates {
+		fmt.Printf("  {Name: %q, Experience: %d, Skills: %v}\n", c.Name, c.Experience, c.Skills)
+	}
+
 	jobQuery := "Senior Go developer with cloud infrastructure experience"
+	fmt.Printf("\nQuery: %q\n\n", jobQuery)
+
 	candidateOpts := ops.NewRankOptions().
 		WithQuery(jobQuery).
 		WithTopK(3).
 		WithBoostFields(map[string]float64{"skills": 2.0, "experience_years": 1.5}).
-		WithIncludeExplanation(true)
+		WithIncludeExplanation(true).
+		WithIntelligence(types.Smart)
 
 	candidateResult, err := ops.Rank(candidates, candidateOpts)
 	if err != nil {
 		log.Fatalf("Candidate ranking failed: %v", err)
 	}
 
-	fmt.Printf("Job: '%s'\n", jobQuery)
-	fmt.Printf("Top candidates:\n\n")
+	fmt.Println("OUTPUT: RankResult[Candidate]")
 	for i, item := range candidateResult.Items {
-		fmt.Printf("  %d. %s\n", i+1, item.Item.Name)
-		fmt.Printf("     Experience: %d years\n", item.Item.Experience)
-		fmt.Printf("     Skills: %v\n", item.Item.Skills)
-		fmt.Printf("     Match Score: %.2f\n", item.Score)
+		fmt.Printf("  %d. Score: %.2f\n", i+1, item.Score)
+		fmt.Printf("     Item: Candidate{Name: %q, Experience: %d, Skills: %v}\n",
+			item.Item.Name, item.Item.Experience, item.Item.Skills)
 		if item.Explanation != "" {
-			fmt.Printf("     Why: %s\n", item.Explanation)
+			fmt.Printf("     Explanation: %s\n", item.Explanation)
 		}
-		fmt.Println()
 	}
+	fmt.Println()
 
 	// Example 3: Rank with penalization
 	fmt.Println("--- Example 3: Ranking with Boost/Penalize ---")
@@ -117,7 +172,8 @@ func main() {
 	productOpts := ops.NewRankOptions().
 		WithQuery(productQuery).
 		WithBoostFields(map[string]float64{"rating": 2.0, "in_stock": 1.5}).
-		WithPenalizeFields(map[string]float64{"spam_score": 0.5})
+		WithPenalizeFields(map[string]float64{"spam_score": 0.5}).
+		WithIntelligence(types.Smart)
 
 	productResult, err := ops.Rank(products, productOpts)
 	if err != nil {

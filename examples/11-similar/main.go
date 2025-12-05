@@ -1,7 +1,28 @@
+// Example: 11-similar
+//
+// Operation: Similar[T] - Check semantic similarity between two items
+//
+// Input: 4 Support Tickets (pairwise comparison)
+//   - #1001: "Can't login to my account" (Authentication)
+//   - #1002: "Payment declined" (Billing)
+//   - #1003: "Unable to sign in" (Authentication) ← Similar to #1001!
+//   - #1004: "App crashes on startup" (Technical)
+//
+// Expected Output:
+//   - #1001 vs #1003: ~80-90% similar (both login issues) → DUPLICATE
+//   - #1001 vs #1002: ~10-20% similar (different problems)
+//   - #1001 vs #1004: ~10-20% similar (different problems)
+//   - etc.
+//
+// Provider: Cerebras (gpt-oss-120b via Fast intelligence)
+// Expected Duration: ~500ms per comparison
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
@@ -14,7 +35,34 @@ type SupportTicket struct {
 	Category    string
 }
 
+// loadEnv loads environment variables from a .env file
+func loadEnv(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			os.Setenv(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
+	}
+	return scanner.Err()
+}
+
 func main() {
+	// Load .env file from project root
+	if err := loadEnv("../../.env"); err != nil {
+		fmt.Printf("Warning: Could not load .env file: %v\n", err)
+	}
+
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)

@@ -1,10 +1,45 @@
+// 19-parse: Parse unstructured/semi-structured text into typed Go structs
+// Intelligence: Fast (Cerebras gpt-oss-120b) - for LLM fallback on complex formats
+// Expectations:
+// - Auto-detects JSON, XML, YAML, CSV formats
+// - Parses pipe-delimited and custom formats
+// - Converts types (string→int, string→bool, etc.)
+// - Falls back to LLM for malformed or ambiguous data
+
 package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
+
+// loadEnv loads environment variables from .env file
+func loadEnv() {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			if err := godotenv.Load(envPath); err != nil {
+				log.Fatal("Error loading .env file")
+			}
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	log.Fatal(".env file not found")
+}
 
 type Person struct {
 	Name string `json:"name" xml:"name" yaml:"name"`
@@ -26,7 +61,15 @@ type Config struct {
 }
 
 func main() {
+	loadEnv()
+
 	fmt.Println("=== SchemaFlow Parse Operation Examples ===")
+
+	// Initialize SchemaFlow with Fast intelligence (Cerebras)
+	if err := schemaflow.InitWithEnv(); err != nil {
+		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		return
+	}
 
 	// Example 1: Parse standard JSON
 	fmt.Println("1. Parsing Standard JSON:")

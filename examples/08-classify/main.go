@@ -1,8 +1,29 @@
+// Example: 08-classify
+//
+// Operation: Classify[I,C] - Classify items into categories with confidence
+//
+// Input: []Review (5 customer reviews)
+//   - #1: "Amazing sound quality!" (Wireless Headphones) → positive
+//   - #2: "Total disappointment..." (Smart Watch) → negative
+//   - #3: "It's okay. Makes decent coffee." (Coffee Maker) → neutral
+//   - #4: "Life-changing for my back pain!" (Standing Desk) → positive
+//   - #5: "Arrived damaged and sound quality terrible" (Speaker) → negative
+//
+// Expected Output: ClassificationResult for each
+//   - Category: "positive" | "negative" | "neutral"
+//   - Confidence: 0.0-1.0
+//   - Reasoning: explanation of classification
+//   - Alternatives: other possible categories with confidence
+//
+// Provider: Cerebras (gpt-oss-120b via Fast intelligence)
+// Expected Duration: ~500-1000ms per review
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
@@ -22,7 +43,34 @@ type ClassifiedReview struct {
 	Confidence float64
 }
 
+// loadEnv loads environment variables from a .env file
+func loadEnv(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			os.Setenv(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
+	}
+	return scanner.Err()
+}
+
 func main() {
+	// Load .env file from project root
+	if err := loadEnv("../../.env"); err != nil {
+		fmt.Printf("Warning: Could not load .env file: %v\n", err)
+	}
+
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)

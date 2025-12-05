@@ -1,17 +1,54 @@
+// Example 23: Annotate Operation
+// Demonstrates LLM-powered text annotation for entities, sentiment, topics, and keywords
+
 package main
 
 import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
+	schemaflow "github.com/monstercameron/SchemaFlow"
 	"github.com/monstercameron/SchemaFlow/internal/ops"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
+// loadEnv loads environment variables from .env file
+func loadEnv() {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			if err := godotenv.Load(envPath); err != nil {
+				log.Fatal("Error loading .env file")
+			}
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	log.Fatal(".env file not found")
+}
+
 func main() {
+	loadEnv()
+
 	// Ensure environment is configured
 	if os.Getenv("SCHEMAFLOW_API_KEY") == "" {
 		log.Fatal("SCHEMAFLOW_API_KEY environment variable not set")
+	}
+
+	// Initialize SchemaFlow
+	if err := schemaflow.InitWithEnv(); err != nil {
+		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
 	}
 
 	// Sample text for annotation (Named Entity Recognition)
@@ -29,7 +66,8 @@ func main() {
 	opts := ops.NewAnnotateOptions().
 		WithAnnotationTypes([]string{"entities"}).
 		WithFormat("structured").
-		WithMinConfidence(0.7)
+		WithMinConfidence(0.7).
+		WithIntelligence(types.Smart) // Use smarter model for complex annotation
 
 	result, err := ops.Annotate(text, opts)
 	if err != nil {
@@ -51,7 +89,8 @@ func main() {
 
 	sentimentOpts := ops.NewAnnotateOptions().
 		WithAnnotationTypes([]string{"sentiment"}).
-		WithFormat("structured")
+		WithFormat("structured").
+		WithIntelligence(types.Smart)
 
 	sentimentResult, err := ops.Annotate(reviewText, sentimentOpts)
 	if err != nil {
@@ -73,7 +112,8 @@ func main() {
 
 	topicOpts := ops.NewAnnotateOptions().
 		WithAnnotationTypes([]string{"topics", "keywords"}).
-		WithDomain("healthcare")
+		WithDomain("healthcare").
+		WithIntelligence(types.Smart)
 
 	topicResult, err := ops.Annotate(articleText, topicOpts)
 	if err != nil {

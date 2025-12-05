@@ -11,6 +11,7 @@ import (
 )
 
 // Choose selects the best option from a list with specialized options.
+// Uses semantic matching instead of index-based selection for reliability.
 //
 // Examples:
 //
@@ -81,15 +82,22 @@ func Choose[T any](options []T, opts ChooseOptions) (T, error) {
 		}
 	}
 
+	// Use object-based selection instead of index-based
 	systemPrompt := `You are a selection expert. Choose the best option from the provided list.
 
 Rules:
-- Evaluate all options carefully
-- Select the most appropriate one based on the criteria
-- Return ONLY the index number (0-based) of your choice
-- Return a single integer, nothing else`
+- Evaluate all options carefully against the criteria
+- Select the single most appropriate option that MATCHES ALL criteria
+- Return the COMPLETE selected option as a JSON object
+- Return ONLY the JSON object of your choice, nothing else
+- Do NOT wrap in markdown code blocks
+- Pay close attention to constraints like price limits and requirements`
 
+	// Include steering/criteria in the user prompt for better adherence
 	userPrompt := fmt.Sprintf("Choose the best option from this list:\n%s", string(optionsJSON))
+	if opOptions.Steering != "" {
+		userPrompt = fmt.Sprintf("Selection Requirements: %s\n\nChoose the best option from this list:\n%s", opOptions.Steering, string(optionsJSON))
+	}
 
 	response, err := callLLM(ctx, systemPrompt, userPrompt, opOptions)
 	if err != nil {
@@ -99,26 +107,31 @@ Rules:
 		}
 	}
 
+	// Clean up response
 	response = strings.TrimSpace(response)
-	var index int
-	if _, err := fmt.Sscanf(response, "%d", &index); err != nil {
+	if strings.HasPrefix(response, "```json") {
+		response = strings.TrimPrefix(response, "```json")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	} else if strings.HasPrefix(response, "```") {
+		response = strings.TrimPrefix(response, "```")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	}
+
+	// Parse the selected option directly
+	if err := json.Unmarshal([]byte(response), &result); err != nil {
 		return result, types.ChooseError{
 			Options: interfaceSlice(options),
-			Reason:  fmt.Sprintf("failed to parse index: %v", err),
+			Reason:  fmt.Sprintf("failed to parse selected option: %v (response: %s)", err, response),
 		}
 	}
 
-	if index < 0 || index >= len(options) {
-		return result, types.ChooseError{
-			Options: interfaceSlice(options),
-			Reason:  fmt.Sprintf("index %d out of range", index),
-		}
-	}
-
-	return options[index], nil
+	return result, nil
 }
 
 // Filter semantically filters items with specialized options.
+// Returns the actual matching objects instead of using index-based selection.
 //
 // Examples:
 //
@@ -179,13 +192,15 @@ func Filter[T any](items []T, opts FilterOptions) ([]T, error) {
 		}
 	}
 
+	// Use object-based filtering instead of index-based
 	systemPrompt := `You are a filtering expert. Filter items based on the specified criteria.
 
 Rules:
 - Evaluate each item against the criteria
 - Include items that match the criteria
-- Return a JSON array of indices (0-based) of items to keep
-- Return ONLY the JSON array, nothing else`
+- Return a JSON array containing the COMPLETE objects that should be kept
+- Return ONLY the JSON array of objects, nothing else
+- Do NOT wrap in markdown code blocks`
 
 	userPrompt := fmt.Sprintf("Filter these items:\n%s", string(itemsJSON))
 
@@ -197,18 +212,24 @@ Rules:
 		}
 	}
 
-	var indices []int
-	if err := json.Unmarshal([]byte(response), &indices); err != nil {
-		return nil, types.FilterError{
-			Items:  interfaceSlice(items),
-			Reason: fmt.Sprintf("failed to parse indices: %v", err),
-		}
+	// Clean up response
+	response = strings.TrimSpace(response)
+	if strings.HasPrefix(response, "```json") {
+		response = strings.TrimPrefix(response, "```json")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	} else if strings.HasPrefix(response, "```") {
+		response = strings.TrimPrefix(response, "```")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
 	}
 
-	result := make([]T, 0, len(indices))
-	for _, idx := range indices {
-		if idx >= 0 && idx < len(items) {
-			result = append(result, items[idx])
+	// Parse the filtered objects directly
+	var result []T
+	if err := json.Unmarshal([]byte(response), &result); err != nil {
+		return nil, types.FilterError{
+			Items:  interfaceSlice(items),
+			Reason: fmt.Sprintf("failed to parse filtered items: %v (response: %s)", err, response),
 		}
 	}
 
@@ -216,6 +237,7 @@ Rules:
 }
 
 // Sort orders items semantically with specialized options.
+// Returns the items in sorted order without using index-based reordering.
 //
 // Examples:
 //
@@ -282,13 +304,16 @@ func Sort[T any](items []T, opts SortOptions) ([]T, error) {
 		}
 	}
 
+	// Use object-based sorting instead of index-based
 	systemPrompt := `You are a sorting expert. Sort items based on the specified criteria.
 
 Rules:
 - Evaluate all items according to the sorting criteria
 - Arrange them in the proper order
-- Return a JSON array of indices (0-based) representing the sorted order
-- Return ONLY the JSON array, nothing else`
+- Return a JSON array containing ALL the COMPLETE objects in sorted order
+- Return ONLY the JSON array of objects, nothing else
+- Do NOT wrap in markdown code blocks
+- Include every item exactly once in the sorted output`
 
 	userPrompt := fmt.Sprintf("Sort these items:\n%s", string(itemsJSON))
 
@@ -300,30 +325,32 @@ Rules:
 		}
 	}
 
-	var indices []int
-	if err := json.Unmarshal([]byte(response), &indices); err != nil {
+	// Clean up response
+	response = strings.TrimSpace(response)
+	if strings.HasPrefix(response, "```json") {
+		response = strings.TrimPrefix(response, "```json")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	} else if strings.HasPrefix(response, "```") {
+		response = strings.TrimPrefix(response, "```")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	}
+
+	// Parse the sorted objects directly
+	var result []T
+	if err := json.Unmarshal([]byte(response), &result); err != nil {
 		return nil, types.SortError{
 			Items:  interfaceSlice(items),
-			Reason: fmt.Sprintf("failed to parse indices: %v", err),
+			Reason: fmt.Sprintf("failed to parse sorted items: %v (response: %s)", err, response),
 		}
 	}
 
-	if len(indices) != len(items) {
+	if len(result) != len(items) {
 		return nil, types.SortError{
 			Items:  interfaceSlice(items),
-			Reason: fmt.Sprintf("received %d indices for %d items", len(indices), len(items)),
+			Reason: fmt.Sprintf("received %d items for %d input items", len(result), len(items)),
 		}
-	}
-
-	result := make([]T, len(items))
-	for i, idx := range indices {
-		if idx < 0 || idx >= len(items) {
-			return nil, types.SortError{
-				Items:  interfaceSlice(items),
-				Reason: fmt.Sprintf("index %d out of range", idx),
-			}
-		}
-		result[i] = items[idx]
 	}
 
 	return result, nil

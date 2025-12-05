@@ -1,10 +1,46 @@
+// 14-decide: Make decisions with explanations
+// Intelligence: Fast (Cerebras gpt-oss-120b)
+// Expectations:
+// - Routes support tickets to appropriate departments
+// - Provides confidence scores and reasoning for each decision
+// - Technical issues → Technical Support
+// - Training requests → Customer Success
+// - Invoice issues → Billing Support
+
 package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
+
+// loadEnv loads environment variables from .env file
+func loadEnv() {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			if err := godotenv.Load(envPath); err != nil {
+				log.Fatal("Error loading .env file")
+			}
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	log.Fatal(".env file not found")
+}
 
 // SupportTicket represents a customer support ticket
 type SupportTicket struct {
@@ -24,7 +60,9 @@ type Department struct {
 }
 
 func main() {
-	// Initialize SchemaFlow
+	loadEnv()
+
+	// Initialize SchemaFlow with Fast intelligence (Cerebras)
 	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return

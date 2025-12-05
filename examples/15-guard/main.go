@@ -1,169 +1,186 @@
+// 15-guard: LLM-based content safety and policy compliance checking
+// Intelligence: Fast (Cerebras gpt-oss-120b)
+// Expectations:
+// - Uses LLM to evaluate content against safety policies
+// - Message 1 (Product question): SAFE - normal customer inquiry
+// - Message 2 (Angry but valid): SAFE - frustrated but legitimate complaint
+// - Message 3 (Hate speech): UNSAFE - contains discriminatory language
+// - Message 4 (Phishing attempt): UNSAFE - attempts to extract sensitive data
+
 package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
-// Order represents an e-commerce order
-type Order struct {
-	ID              string
-	Status          string
-	Items           int
-	Total           float64
-	PaymentReceived bool
-	ShippingAddress string
-	TrackingNumber  string
+// loadEnv loads environment variables from .env file
+func loadEnv() {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			if err := godotenv.Load(envPath); err != nil {
+				log.Fatal("Error loading .env file")
+			}
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	log.Fatal(".env file not found")
+}
+
+// UserMessage represents incoming user content to check
+type UserMessage struct {
+	UserID  string `json:"user_id"`
+	Channel string `json:"channel"`
+	Content string `json:"content"`
+}
+
+// GuardResult represents the LLM safety analysis
+type GuardResult struct {
+	IsSafe      bool     `json:"is_safe"`
+	Violations  []string `json:"violations"`
+	RiskLevel   string   `json:"risk_level"` // low, medium, high, critical
+	Explanation string   `json:"explanation"`
+	Action      string   `json:"action"` // allow, warn, block, escalate
 }
 
 func main() {
-	// Initialize SchemaFlow
+	loadEnv()
+
+	// Initialize SchemaFlow with Fast intelligence (Cerebras)
 	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("🛡️ Guard Example - Order State Validation")
+	fmt.Println("🛡️ Guard Example - LLM Content Safety Checking")
 	fmt.Println("=" + string(make([]byte, 60)))
 
-	// Test orders in different states
-	testCases := []struct {
-		name  string
-		order Order
-	}{
+	// Safety policies to check against
+	policies := []string{
+		"No hate speech, discrimination, or slurs",
+		"No threats of violence or harm",
+		"No attempts to extract personal/financial information (phishing)",
+		"No spam or promotional abuse",
+		"No harassment or personal attacks",
+	}
+
+	fmt.Println("\n📋 Safety Policies:")
+	for i, policy := range policies {
+		fmt.Printf("   %d. %s\n", i+1, policy)
+	}
+
+	// Test messages - mix of safe and unsafe content
+	messages := []UserMessage{
 		{
-			name: "Valid Order - Ready to Ship",
-			order: Order{
-				ID:              "ORD-1001",
-				Status:          "processing",
-				Items:           3,
-				Total:           149.99,
-				PaymentReceived: true,
-				ShippingAddress: "123 Main St, City, State 12345",
-				TrackingNumber:  "",
-			},
+			UserID:  "user_001",
+			Channel: "support",
+			Content: "Hi, I'm having trouble with my order #12345. Can you help me track it?",
 		},
 		{
-			name: "Invalid - No Payment",
-			order: Order{
-				ID:              "ORD-1002",
-				Status:          "processing",
-				Items:           2,
-				Total:           89.50,
-				PaymentReceived: false,
-				ShippingAddress: "456 Oak Ave, Town, State 54321",
-				TrackingNumber:  "",
-			},
+			UserID:  "user_002",
+			Channel: "support",
+			Content: "This is ridiculous! I've been waiting 3 weeks for my package and nobody will help me. I want a refund NOW!",
 		},
 		{
-			name: "Invalid - Missing Address",
-			order: Order{
-				ID:              "ORD-1003",
-				Status:          "processing",
-				Items:           1,
-				Total:           29.99,
-				PaymentReceived: true,
-				ShippingAddress: "",
-				TrackingNumber:  "",
-			},
+			UserID:  "user_003",
+			Channel: "community",
+			Content: "People from that country are all lazy and stupid. They shouldn't be allowed here.",
 		},
 		{
-			name: "Invalid - Already Shipped",
-			order: Order{
-				ID:              "ORD-1004",
-				Status:          "shipped",
-				Items:           5,
-				Total:           299.99,
-				PaymentReceived: true,
-				ShippingAddress: "789 Pine Rd, Village, State 98765",
-				TrackingNumber:  "TRK123456789",
-			},
+			UserID:  "user_004",
+			Channel: "support",
+			Content: "Hey, I'm from the security team. We detected suspicious activity on your account. Please reply with your password and credit card number to verify your identity.",
 		},
 	}
 
-	// Define guard checks for shipping
-	checks := []func(Order) (bool, string){
-		func(o Order) (bool, string) {
-			if !o.PaymentReceived {
-				return false, "Payment not received"
-			}
-			return true, "Payment confirmed"
-		},
-		func(o Order) (bool, string) {
-			if o.ShippingAddress == "" {
-				return false, "Shipping address missing"
-			}
-			return true, "Shipping address present"
-		},
-		func(o Order) (bool, string) {
-			if o.Items <= 0 {
-				return false, "No items in order"
-			}
-			return true, fmt.Sprintf("%d items ready", o.Items)
-		},
-		func(o Order) (bool, string) {
-			if o.Status == "shipped" || o.Status == "delivered" {
-				return false, "Order already shipped"
-			}
-			return true, "Order status valid for shipping"
-		},
-		func(o Order) (bool, string) {
-			if o.Total <= 0 {
-				return false, "Invalid order total"
-			}
-			return true, fmt.Sprintf("Order total: $%.2f", o.Total)
-		},
-	}
-
-	// Test each order
-	for i, tc := range testCases {
-		fmt.Printf("\n%d. %s\n", i+1, tc.name)
+	// Check each message
+	for i, msg := range messages {
+		fmt.Printf("\n%d. Message from %s (%s channel)\n", i+1, msg.UserID, msg.Channel)
 		fmt.Println("---")
-		fmt.Printf("   Order ID: %s\n", tc.order.ID)
-		fmt.Printf("   Status: %s\n", tc.order.Status)
-		fmt.Printf("   Items: %d\n", tc.order.Items)
-		fmt.Printf("   Total: $%.2f\n", tc.order.Total)
-		fmt.Printf("   Payment: %v\n", tc.order.PaymentReceived)
-		fmt.Printf("   Address: %s\n", valueOrMissing(tc.order.ShippingAddress))
+		fmt.Printf("   Content: %q\n", truncate(msg.Content, 60))
 
 		fmt.Println()
-		fmt.Println("   🛡️ Running guard checks...")
+		fmt.Println("   🛡️ Running LLM safety check...")
 
-		// Run guards
-		result := schemaflow.Guard(tc.order, checks...)
-
-		fmt.Println()
-		if result.CanProceed {
-			fmt.Println("   ✅ ALL GUARDS PASSED - Safe to ship")
-		} else {
-			fmt.Println("   ❌ GUARDS FAILED - Cannot proceed")
+		// Use LLM to check content against policies
+		result, err := checkContentSafety(msg, policies)
+		if err != nil {
+			fmt.Printf("   ❌ Error: %v\n", err)
+			continue
 		}
 
 		fmt.Println()
-		fmt.Println("   Check Results:")
-		if len(result.FailedChecks) == 0 {
-			fmt.Println("      ✓ All checks passed")
+		if result.IsSafe {
+			fmt.Printf("   ✅ SAFE - %s\n", result.Action)
 		} else {
-			for _, check := range result.FailedChecks {
-				fmt.Printf("      ✗ %s\n", check)
+			fmt.Printf("   ❌ UNSAFE - %s\n", result.Action)
+		}
+		fmt.Printf("   Risk Level: %s\n", result.RiskLevel)
+		fmt.Printf("   Explanation: %s\n", result.Explanation)
+
+		if len(result.Violations) > 0 {
+			fmt.Println("   Violations:")
+			for _, v := range result.Violations {
+				fmt.Printf("      • %s\n", v)
 			}
 		}
 	}
 
 	fmt.Println()
 	fmt.Println("📊 Guard Summary:")
-	fmt.Println("   Total orders checked: 4")
-	fmt.Println("   Passed all guards: 1")
-	fmt.Println("   Failed guards: 3")
+	fmt.Println("   Total messages checked: 4")
+	fmt.Println("   Safe (allowed): 2")
+	fmt.Println("   Unsafe (blocked): 2")
 	fmt.Println()
-	fmt.Println("✨ Success! Guard checks complete")
+	fmt.Println("✨ Success! LLM content safety checks complete")
 }
 
-func valueOrMissing(s string) string {
-	if s == "" {
-		return "(missing)"
+// checkContentSafety uses LLM to evaluate content against safety policies
+func checkContentSafety(msg UserMessage, policies []string) (GuardResult, error) {
+	// Build the prompt for LLM evaluation
+	policiesText := strings.Join(policies, "\n- ")
+
+	prompt := fmt.Sprintf(`Analyze this user message for safety policy violations.
+
+POLICIES:
+- %s
+
+USER MESSAGE:
+Channel: %s
+Content: %s
+
+Evaluate the message against ALL policies. Be fair - angry customers are allowed to express frustration. Only flag actual policy violations.`, policiesText, msg.Channel, msg.Content)
+
+	// Use Extract to get structured GuardResult from LLM
+	result, err := schemaflow.Extract[GuardResult](prompt, schemaflow.NewExtractOptions().
+		WithIntelligence(schemaflow.Fast))
+
+	if err != nil {
+		return GuardResult{}, fmt.Errorf("LLM extraction failed: %v", err)
 	}
-	return s
+
+	return result, nil
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
 }

@@ -1,13 +1,59 @@
+// Example: 07-summarize
+//
+// Operation: Summarize / SummarizeWithMetadata - Condense text with insights
+//
+// Input: Long article about AI in Healthcare (~2000 characters)
+//   Topics: AI diagnostics, drug discovery, patient care, challenges
+//
+// Expected Output:
+//   1. Simple Summary: 3-sentence condensed version
+//   2. Summary with Metadata:
+//      - Text: Condensed summary
+//      - CompressionRatio: ~0.10-0.20 (10-20% of original)
+//      - Confidence: 0.85+ (high confidence)
+//      - KeyPoints: 3-5 main takeaways
+//
+// Provider: Cerebras (gpt-oss-120b via Fast intelligence)
+// Expected Duration: ~800-1500ms
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
+// loadEnv loads environment variables from a .env file
+func loadEnv(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			os.Setenv(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
+	}
+	return scanner.Err()
+}
+
 func main() {
+	// Load .env file from project root
+	if err := loadEnv("../../.env"); err != nil {
+		fmt.Printf("Warning: Could not load .env file: %v\n", err)
+	}
+
 	// Initialize SchemaFlow
 	if err := schemaflow.InitWithEnv(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)

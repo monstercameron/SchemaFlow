@@ -2,210 +2,286 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-// JobCandidate represents a job applicant
-type JobCandidate struct {
-	Name             string   `json:"name"`
-	YearsExp         int      `json:"years_experience"`
-	Education        string   `json:"education"`
-	Skills           []string `json:"skills"`
-	Location         string   `json:"location"`
-	SalaryExpect     int      `json:"salary_expectation"`
-	NoticePeriod     int      `json:"notice_period_days"`
-	RemotePreference string   `json:"remote_preference"`
+// loadEnv loads environment variables from .env files
+func loadEnv() {
+	if err := godotenv.Load(); err == nil {
+		return
+	}
+	dir, _ := os.Getwd()
+	for i := 0; i < 3; i++ {
+		envPath := filepath.Join(dir, ".env")
+		if err := godotenv.Load(envPath); err == nil {
+			return
+		}
+		dir = filepath.Dir(dir)
+	}
 }
 
-// LoanApplication represents a loan request
-type LoanApplication struct {
-	ApplicantName   string  `json:"applicant_name"`
-	Amount          float64 `json:"amount"`
-	Purpose         string  `json:"purpose"`
-	Income          float64 `json:"annual_income"`
-	CreditScore     int     `json:"credit_score"`
-	DebtToIncome    float64 `json:"debt_to_income"`
-	EmploymentYears int     `json:"employment_years"`
-	Collateral      string  `json:"collateral"`
+// ============================================================
+// USE CASE 1: Vendor Selection (Procurement)
+// ============================================================
+
+// VendorProposal from RFP responses
+type VendorProposal struct {
+	VendorName     string  `json:"vendor_name"`
+	PricePerUnit   float64 `json:"price_per_unit"`
+	DeliveryDays   int     `json:"delivery_days"`
+	QualityRating  float64 `json:"quality_rating"`
+	MinOrderQty    int     `json:"min_order_qty"`
+	PaymentTerms   string  `json:"payment_terms"`
+	YearsInBiz     int     `json:"years_in_business"`
+	HasCertISO9001 bool    `json:"has_iso9001"`
+}
+
+// ============================================================
+// USE CASE 2: Cloud Provider Selection
+// ============================================================
+
+// CloudQuote from different cloud providers
+type CloudQuote struct {
+	Provider          string  `json:"provider"`
+	MonthlyCost       float64 `json:"monthly_cost"`
+	UptimeGuarantee   float64 `json:"uptime_guarantee_pct"`
+	DataCenterRegions int     `json:"data_center_regions"`
+	SupportTier       string  `json:"support_tier"`
+	ComplianceCerts   []string `json:"compliance_certs"`
+	ContractMonths    int     `json:"contract_months"`
+}
+
+// ============================================================
+// USE CASE 3: Insurance Claim Decision
+// ============================================================
+
+// InsuranceClaim for adjudication
+type InsuranceClaim struct {
+	ClaimID       string  `json:"claim_id"`
+	ClaimantName  string  `json:"claimant_name"`
+	ClaimAmount   float64 `json:"claim_amount"`
+	PolicyType    string  `json:"policy_type"`
+	IncidentDate  string  `json:"incident_date"`
+	FiledDate     string  `json:"filed_date"`
+	Documentation string  `json:"documentation"`
+	PriorClaims   int     `json:"prior_claims_12mo"`
+	PolicyActive  bool    `json:"policy_active"`
 }
 
 func main() {
-	// Initialize SchemaFlow
+	loadEnv()
+
 	if err := schemaflow.InitWithEnv(); err != nil {
-		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		fmt.Printf("Init failed: %v\n", err)
 		return
 	}
 
 	fmt.Println("=== Arbitrate Example ===")
+	fmt.Println("Rule-based decisions with full audit trail")
 
-	// Example 1: Job candidate selection
-	fmt.Println("\n--- Example 1: Candidate Selection ---")
+	// ============================================================
+	// USE CASE 1: Vendor Selection
+	// Scenario: Select best vendor from RFP responses for manufacturing parts
+	// ============================================================
+	fmt.Println("\n--- Use Case 1: Vendor Selection (RFP) ---")
 
-	candidates := []JobCandidate{
+	vendors := []VendorProposal{
 		{
-			Name:             "Alice Chen",
-			YearsExp:         5,
-			Education:        "Master's CS",
-			Skills:           []string{"Go", "Python", "Kubernetes", "AWS"},
-			Location:         "San Francisco",
-			SalaryExpect:     180000,
-			NoticePeriod:     14,
-			RemotePreference: "hybrid",
+			VendorName:     "Acme Manufacturing",
+			PricePerUnit:   11.50,  // Under $12 now
+			DeliveryDays:   10,
+			QualityRating:  4.2,
+			MinOrderQty:    1000,
+			PaymentTerms:   "Net 30",
+			YearsInBiz:     25,
+			HasCertISO9001: true,
 		},
 		{
-			Name:             "Bob Smith",
-			YearsExp:         8,
-			Education:        "Bachelor's CS",
-			Skills:           []string{"Java", "Spring", "Docker", "GCP"},
-			Location:         "Austin",
-			SalaryExpect:     165000,
-			NoticePeriod:     30,
-			RemotePreference: "remote",
+			VendorName:     "QuickParts Inc",
+			PricePerUnit:   10.75,
+			DeliveryDays:   7,
+			QualityRating:  3.8,  // Below 4.0
+			MinOrderQty:    500,
+			PaymentTerms:   "Net 15",
+			YearsInBiz:     8,
+			HasCertISO9001: false,  // No ISO
 		},
 		{
-			Name:             "Carol Johnson",
-			YearsExp:         3,
-			Education:        "PhD CS",
-			Skills:           []string{"Go", "Rust", "ML", "AWS", "Kubernetes"},
-			Location:         "New York",
-			SalaryExpect:     200000,
-			NoticePeriod:     60,
-			RemotePreference: "office",
+			VendorName:     "GlobalSupply Co",
+			PricePerUnit:   11.25,
+			DeliveryDays:   21,  // Too slow
+			QualityRating:  4.5,
+			MinOrderQty:    1200,
+			PaymentTerms:   "Net 45",
+			YearsInBiz:     15,
+			HasCertISO9001: true,
 		},
 	}
 
-	rules := []string{
-		"Must have at least 3 years of experience",
-		"Must know Go or Python",
-		"Prefer candidates with Kubernetes experience",
-		"Salary expectation must be under $190,000",
-		"Notice period should be under 30 days",
-		"Remote or hybrid preference is a plus",
+	vendorRules := []string{
+		"Price per unit must be under $12.00",
+		"Delivery time must be 14 days or less",
+		"Quality rating must be 4.0 or higher",
+		"Must have ISO 9001 certification",
+		"Minimum order quantity must be 1500 or less",
 	}
 
-	result, err := schemaflow.Arbitrate[JobCandidate](candidates, schemaflow.ArbitrateOptions{
-		Rules:           rules,
-		RequireAllRules: false, // Best effort, not all rules must pass
-		Steering:        "We need someone who can start quickly and knows our stack (Go, K8s)",
+	vendorResult, err := schemaflow.Arbitrate[VendorProposal](vendors, schemaflow.ArbitrateOptions{
+		Rules:           vendorRules,
+		Weights:         []float64{0.25, 0.20, 0.25, 0.15, 0.15},
+		RequireAllRules: false,
+		Intelligence:    types.Smart,
+		Steering:        "Quality and reliability are top priorities. Price is important but not at expense of quality.",
 	})
-
 	if err != nil {
-		schemaflow.GetLogger().Error("Arbitration failed", "error", err)
-		return
-	}
-
-	fmt.Printf("Winner: %s\n", result.Winner.Name)
-	fmt.Printf("Winner Score: %.0f%%\n\n", result.Scores[result.WinnerIndex]*100)
-
-	fmt.Println("Evaluation Summary:")
-	for _, eval := range result.Evaluations {
-		candidate := candidates[eval.Index]
-		fmt.Printf("\n  %s (Score: %.0f%%)\n", candidate.Name, eval.TotalScore*100)
-
-		passed := 0
-		failed := 0
-		for _, r := range eval.RuleResults {
-			if r.Passed {
-				passed++
-			} else {
-				failed++
-			}
-		}
-		fmt.Printf("  Rules: %d passed, %d failed\n", passed, failed)
-
-		fmt.Println("  Rule Details:")
-		for _, rule := range eval.RuleResults {
-			status := "✓"
-			if !rule.Passed {
-				status = "✗"
-			}
-			fmt.Printf("    %s %s\n", status, rule.Rule)
-			if rule.Reasoning != "" {
-				fmt.Printf("      → %s\n", rule.Reasoning)
-			}
-		}
-	}
-
-	fmt.Printf("\nReasoning: %s\n", result.Reasoning)
-
-	// Example 2: Loan approval with strict rules
-	fmt.Println("\n--- Example 2: Loan Approval (Strict) ---")
-
-	loanApplications := []LoanApplication{
-		{
-			ApplicantName:   "John Doe",
-			Amount:          50000,
-			Purpose:         "Home Improvement",
-			Income:          95000,
-			CreditScore:     720,
-			DebtToIncome:    0.28,
-			EmploymentYears: 5,
-			Collateral:      "Home equity",
-		},
-		{
-			ApplicantName:   "Jane Wilson",
-			Amount:          75000,
-			Purpose:         "Business Expansion",
-			Income:          120000,
-			CreditScore:     680,
-			DebtToIncome:    0.42,
-			EmploymentYears: 3,
-			Collateral:      "None",
-		},
-		{
-			ApplicantName:   "Mike Brown",
-			Amount:          30000,
-			Purpose:         "Debt Consolidation",
-			Income:          65000,
-			CreditScore:     750,
-			DebtToIncome:    0.35,
-			EmploymentYears: 8,
-			Collateral:      "Vehicle",
-		},
-	}
-
-	loanRules := []string{
-		"Credit score must be at least 650",
-		"Debt-to-income ratio must be under 0.40",
-		"Loan amount must not exceed 60% of annual income",
-		"Must have at least 2 years of employment",
-		"Collateral required for loans over $50,000",
-	}
-
-	loanResult, err := schemaflow.Arbitrate[LoanApplication](loanApplications, schemaflow.ArbitrateOptions{
-		Rules:           loanRules,
-		RequireAllRules: true, // All rules must pass
-	})
-
-	if err != nil {
-		schemaflow.GetLogger().Error("Loan arbitration failed", "error", err)
-		return
-	}
-
-	fmt.Println("Loan Evaluation Results:")
-	for _, eval := range loanResult.Evaluations {
-		app := loanApplications[eval.Index]
-		status := "APPROVED"
-		if eval.Disqualified {
-			status = "DENIED"
-		}
-		fmt.Printf("\n  %s - %s (Score: %.0f%%)\n",
-			app.ApplicantName, status, eval.TotalScore*100)
-		fmt.Printf("  Loan: $%.0f for %s\n", app.Amount, app.Purpose)
-
-		for _, rule := range eval.RuleResults {
-			if !rule.Passed {
-				fmt.Printf("    ✗ FAILED: %s\n", rule.Rule)
-				fmt.Printf("      Reason: %s\n", rule.Reasoning)
-			}
-		}
-	}
-
-	if loanResult.Winner.ApplicantName != "" {
-		fmt.Printf("\nBest Candidate: %s\n", loanResult.Winner.ApplicantName)
+		fmt.Printf("Vendor arbitration failed: %v\n", err)
 	} else {
-		fmt.Println("\nNo candidates passed all requirements")
+		fmt.Printf("Winner: %s (Score: %.0f%%)\n\n", vendorResult.Winner.VendorName, vendorResult.Scores[vendorResult.WinnerIndex]*100)
+		fmt.Println("Vendor Scores:")
+		for i, v := range vendors {
+			score := vendorResult.Scores[i]
+			fmt.Printf("  %s: %.0f%%\n", v.VendorName, score*100)
+		}
+		fmt.Printf("\nDecision: %s\n", vendorResult.Reasoning)
+		fmt.Printf("Confidence: %.0f%%\n", vendorResult.Confidence*100)
+	}
+
+	// ============================================================
+	// USE CASE 2: Cloud Provider Selection
+	// Scenario: Select cloud provider for enterprise migration
+	// ============================================================
+	fmt.Println("\n--- Use Case 2: Cloud Provider Selection ---")
+
+	cloudQuotes := []CloudQuote{
+		{
+			Provider:          "AWS",
+			MonthlyCost:       45000,
+			UptimeGuarantee:   99.99,
+			DataCenterRegions: 25,
+			SupportTier:       "Enterprise",
+			ComplianceCerts:   []string{"HIPAA", "SOC2"},
+			ContractMonths:    36,
+		},
+		{
+			Provider:          "Azure",
+			MonthlyCost:       42000,
+			UptimeGuarantee:   99.95,
+			DataCenterRegions: 20,
+			SupportTier:       "Business",  // Not enterprise!
+			ComplianceCerts:   []string{"HIPAA", "SOC2"},
+			ContractMonths:    24,
+		},
+	}
+
+	cloudRules := []string{
+		"Uptime must be at least 99.95%",
+		"Must have HIPAA certification",
+		"Cost under $50,000 monthly",
+		"Must have Enterprise support tier",
+	}
+
+	cloudResult, err := schemaflow.Arbitrate[CloudQuote](cloudQuotes, schemaflow.ArbitrateOptions{
+		Rules:           cloudRules,
+		RequireAllRules: true, // Healthcare company - HIPAA is mandatory
+		Intelligence:    types.Smart,
+		Steering:        "We are a healthcare company so HIPAA is non-negotiable. Cost efficiency matters but compliance comes first.",
+	})
+	if err != nil {
+		fmt.Printf("Cloud arbitration failed: %v\n", err)
+	} else {
+		fmt.Printf("Selected Provider: %s\n", cloudResult.Winner.Provider)
+		fmt.Printf("Monthly Cost: $%.0f\n", cloudResult.Winner.MonthlyCost)
+		fmt.Printf("Uptime SLA: %.2f%%\n", cloudResult.Winner.UptimeGuarantee)
+		fmt.Println("\nEvaluation Details:")
+		for _, eval := range cloudResult.Evaluations {
+			provider := cloudQuotes[eval.Index].Provider
+			status := "✓ QUALIFIED"
+			if eval.Disqualified {
+				status = "✗ DISQUALIFIED"
+			}
+			fmt.Printf("  %s: %s (Score: %.0f%%)\n", provider, status, eval.TotalScore*100)
+			if eval.Disqualified {
+				fmt.Printf("    Reason: %s\n", eval.DisqualifyReason)
+			}
+		}
+		fmt.Printf("\nReasoning: %s\n", cloudResult.Reasoning)
+	}
+
+	// ============================================================
+	// USE CASE 3: Insurance Claim Decision
+	// Scenario: Adjudicate multiple claims with policy rules
+	// ============================================================
+	fmt.Println("\n--- Use Case 3: Insurance Claim Adjudication ---")
+
+	claims := []InsuranceClaim{
+		{
+			ClaimID:       "CLM-001",
+			ClaimantName:  "Robert Chen",
+			ClaimAmount:   15000,
+			PolicyType:    "Auto",
+			IncidentDate:  "2024-11-15",
+			FiledDate:     "2024-11-18",
+			Documentation: "Police report, photos, certified repair estimate",
+			PriorClaims:   0,
+			PolicyActive:  true,
+		},
+		{
+			ClaimID:       "CLM-002",
+			ClaimantName:  "Sarah Miller",
+			ClaimAmount:   8500,
+			PolicyType:    "Auto",
+			IncidentDate:  "2024-10-01",
+			FiledDate:     "2024-11-25",
+			Documentation: "Self-reported only",
+			PriorClaims:   3,
+			PolicyActive:  true,
+		},
+	}
+
+	claimRules := []string{
+		"Policy must be active",
+		"Filed within 30 days of incident",
+		"Must have third-party documentation",
+	}
+
+	claimResult, err := schemaflow.Arbitrate[InsuranceClaim](claims, schemaflow.ArbitrateOptions{
+		Rules:           claimRules,
+		RequireAllRules: true,
+		Intelligence:    types.Smart,
+		Steering:        "Approve claims that pass all rules. Deny otherwise.",
+	})
+	if err != nil {
+		fmt.Printf("Claim arbitration failed: %v\n", err)
+	} else {
+		fmt.Println("Claim Adjudication Results:")
+		for _, eval := range claimResult.Evaluations {
+			claim := claims[eval.Index]
+			status := "APPROVED"
+			if eval.Disqualified {
+				status = "DENIED"
+			}
+			fmt.Printf("\n  %s - %s ($%.0f) - %s\n",
+				claim.ClaimID, claim.ClaimantName, claim.ClaimAmount, status)
+			// Show failed rules
+			for _, r := range eval.RuleResults {
+				if !r.Passed {
+					fmt.Printf("    ✗ %s\n", r.Rule)
+					if r.Reasoning != "" {
+						fmt.Printf("      → %s\n", r.Reasoning)
+					}
+				}
+			}
+		}
+		if claimResult.Winner.ClaimID != "" {
+			fmt.Printf("\nPriority Claim: %s (best documentation, fastest processing)\n",
+				claimResult.Winner.ClaimID)
+		}
+		fmt.Printf("Confidence: %.0f%%\n", claimResult.Confidence*100)
 	}
 
 	fmt.Println("\n=== Arbitrate Example Complete ===")

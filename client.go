@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/SchemaFlow/internal/llm"
+	"github.com/monstercameron/SchemaFlow/internal/ops"
 	"github.com/monstercameron/SchemaFlow/internal/telemetry"
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -105,6 +106,8 @@ func (client *Client) WithProvider(providerName string) *Client {
 		client.logger.Warn("Failed to create provider, using default", "provider", providerName, "error", err)
 	} else {
 		client.provider = provider
+		// Also set the default provider for ops package
+		ops.SetDefaultProvider(provider)
 		client.logger.Info("Provider configured", "provider", providerName)
 	}
 

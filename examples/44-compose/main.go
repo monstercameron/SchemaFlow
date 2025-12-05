@@ -2,199 +2,283 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
-// CompanyProfile is the target composed object
-type CompanyProfile struct {
-	Name         string   `json:"name"`
-	LegalName    string   `json:"legal_name"`
-	Industry     string   `json:"industry"`
-	Founded      int      `json:"founded"`
-	Employees    int      `json:"employees"`
-	Revenue      float64  `json:"revenue"`
-	Website      string   `json:"website"`
-	Headquarters string   `json:"headquarters"`
-	CEO          string   `json:"ceo"`
-	Description  string   `json:"description"`
-	Products     []string `json:"products"`
-	Competitors  []string `json:"competitors"`
-	StockTicker  string   `json:"stock_ticker"`
-	MarketCap    float64  `json:"market_cap"`
+// loadEnv loads environment variables from .env files
+func loadEnv() {
+	if err := godotenv.Load(); err == nil {
+		return
+	}
+	dir, _ := os.Getwd()
+	for i := 0; i < 3; i++ {
+		envPath := filepath.Join(dir, ".env")
+		if err := godotenv.Load(envPath); err == nil {
+			return
+		}
+		dir = filepath.Dir(dir)
+	}
+}
+
+// ============================================================
+// USE CASE 1: Customer 360 Profile (CRM + Support + Analytics)
+// ============================================================
+
+// Customer360 - unified customer view
+type Customer360 struct {
+	CustomerID     string   `json:"customer_id"`
+	FullName       string   `json:"full_name"`
+	Email          string   `json:"email"`
+	Phone          string   `json:"phone"`
+	AccountStatus  string   `json:"account_status"`
+	TotalSpend     float64  `json:"total_spend"`
+	OrderCount     int      `json:"order_count"`
+	AvgOrderValue  float64  `json:"avg_order_value"`
+	SupportTickets int      `json:"support_tickets"`
+	NPS            int      `json:"nps_score"`
+	Segment        string   `json:"customer_segment"`
+	Tags           []string `json:"tags"`
+}
+
+// ============================================================
+// USE CASE 2: Investment Research Report
+// ============================================================
+
+// InvestmentReport - composed from multiple research sources
+type InvestmentReport struct {
+	Ticker        string  `json:"ticker"`
+	CompanyName   string  `json:"company_name"`
+	Sector        string  `json:"sector"`
+	CurrentPrice  float64 `json:"current_price"`
+	TargetPrice   float64 `json:"target_price"`
+	Rating        string  `json:"rating"`
+	MarketCap     float64 `json:"market_cap_billions"`
+	PE            float64 `json:"pe_ratio"`
+	Revenue       float64 `json:"revenue_billions"`
+	GrowthRate    float64 `json:"yoy_growth_pct"`
+	Thesis        string  `json:"investment_thesis"`
+	Risks         string  `json:"key_risks"`
+}
+
+// ============================================================
+// USE CASE 3: Product Catalog Entry
+// ============================================================
+
+// ProductCatalog - assembled from multiple systems
+type ProductCatalog struct {
+	SKU            string   `json:"sku"`
+	Name           string   `json:"name"`
+	Description    string   `json:"description"`
+	Category       string   `json:"category"`
+	Price          float64  `json:"price"`
+	Cost           float64  `json:"cost"`
+	Margin         float64  `json:"margin_pct"`
+	StockLevel     int      `json:"stock_level"`
+	Warehouse      string   `json:"warehouse"`
+	Supplier       string   `json:"supplier"`
+	LeadTimeDays   int      `json:"lead_time_days"`
+	Tags           []string `json:"tags"`
 }
 
 func main() {
-	// Initialize SchemaFlow
+	loadEnv()
+
 	if err := schemaflow.InitWithEnv(); err != nil {
-		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
+		fmt.Printf("Init failed: %v\n", err)
 		return
 	}
 
 	fmt.Println("=== Compose Example ===")
+	fmt.Println("Building complex objects from multiple parts/sources")
 
-	// Example 1: Compose company profile from multiple sources
-	fmt.Println("\n--- Example 1: Company Profile from Multiple Sources ---")
+	// ============================================================
+	// USE CASE 1: Customer 360 Profile
+	// Scenario: Combine data from CRM, support, and analytics systems
+	// ============================================================
+	fmt.Println("\n--- Use Case 1: Customer 360 Profile ---")
 
-	// Data from LinkedIn/website
-	webSource := map[string]any{
-		"name":         "Acme Technologies",
-		"website":      "https://acme.tech",
-		"description":  "Leading provider of innovative tech solutions",
-		"employees":    "500-1000", // Approximate
-		"industry":     "Technology",
-		"headquarters": "San Francisco, CA",
+	// From CRM system
+	crmData := map[string]any{
+		"customer_id":    "CUST-88421",
+		"full_name":      "Sarah Johnson",
+		"email":          "sarah.j@email.com",
+		"phone":          "+1-555-234-5678",
+		"account_status": "premium",
 	}
 
-	// Data from SEC filings
-	secSource := map[string]any{
-		"legal_name":   "Acme Technologies, Inc.",
-		"founded":      2015,
-		"revenue":      125000000,
-		"employees":    847, // Exact count
-		"stock_ticker": "ACME",
-		"market_cap":   2500000000,
-		"ceo":          "Jane Smith",
+	// From e-commerce/orders system
+	ordersData := map[string]any{
+		"customer_id":    "CUST-88421",
+		"total_spend":    12450.00,
+		"order_count":    47,
+		"avg_order_value": 264.89,
 	}
 
-	// Data from product database
-	productSource := map[string]any{
-		"products": []string{
-			"AcmeCloud Platform",
-			"AcmeAI Assistant",
-			"AcmeSecure",
-			"AcmeAnalytics",
-		},
+	// From support system
+	supportData := map[string]any{
+		"customer_id":     "CUST-88421",
+		"support_tickets": 3,
+		"nps_score":       9,
+		"tags":            []string{"loyal", "tech-savvy"},
 	}
 
-	// Data from market research
-	marketSource := map[string]any{
-		"competitors": []string{
-			"TechCorp",
-			"InnovateLabs",
-			"FutureSoft",
-		},
-		"industry":  "Enterprise Software", // More specific
-		"employees": "approximately 800",   // Different estimate
+	// From analytics/segmentation
+	analyticsData := map[string]any{
+		"customer_id":      "CUST-88421",
+		"customer_segment": "VIP",
+		"tags":             []string{"high-value", "early-adopter"}, // Overlaps with support!
 	}
 
-	parts := []any{webSource, secSource, productSource, marketSource}
+	custParts := []any{crmData, ordersData, supportData, analyticsData}
 
-	result, err := schemaflow.Assemble[CompanyProfile](parts, schemaflow.ComposeOptions{
+	custResult, err := schemaflow.Assemble[Customer360](custParts, schemaflow.ComposeOptions{
 		MergeStrategy: "smart",
-		FillGaps:      false,
-		Validate:      true,
-		Steering:      "Prefer SEC data for official figures. Use most specific industry classification.",
+		Intelligence:  types.Smart,
+		Steering:      "Combine all tags from different sources. Use CRM as primary for contact info.",
 	})
-
 	if err != nil {
-		schemaflow.GetLogger().Error("Composition failed", "error", err)
-		return
+		fmt.Printf("Customer 360 composition failed: %v\n", err)
+	} else {
+		fmt.Printf("Sources: CRM, Orders, Support, Analytics\n\n")
+		fmt.Printf("Composed Customer 360:\n")
+		fmt.Printf("  ID: %s\n", custResult.Composed.CustomerID)
+		fmt.Printf("  Name: %s\n", custResult.Composed.FullName)
+		fmt.Printf("  Email: %s\n", custResult.Composed.Email)
+		fmt.Printf("  Phone: %s\n", custResult.Composed.Phone)
+		fmt.Printf("  Status: %s\n", custResult.Composed.AccountStatus)
+		fmt.Printf("  Total Spend: $%.2f\n", custResult.Composed.TotalSpend)
+		fmt.Printf("  Order Count: %d\n", custResult.Composed.OrderCount)
+		fmt.Printf("  Avg Order: $%.2f\n", custResult.Composed.AvgOrderValue)
+		fmt.Printf("  Support Tickets: %d\n", custResult.Composed.SupportTickets)
+		fmt.Printf("  NPS Score: %d\n", custResult.Composed.NPS)
+		fmt.Printf("  Segment: %s\n", custResult.Composed.Segment)
+		fmt.Printf("  Tags: %v\n", custResult.Composed.Tags)
+		fmt.Printf("\nConflicts Resolved: %d\n", custResult.ConflictsResolved)
+		fmt.Printf("Completeness: %.0f%%\n", custResult.Completeness*100)
 	}
 
-	fmt.Printf("Composed Company Profile:\n")
-	fmt.Printf("  Name: %s\n", result.Composed.Name)
-	fmt.Printf("  Legal Name: %s\n", result.Composed.LegalName)
-	fmt.Printf("  Industry: %s\n", result.Composed.Industry)
-	fmt.Printf("  Founded: %d\n", result.Composed.Founded)
-	fmt.Printf("  Employees: %d\n", result.Composed.Employees)
-	fmt.Printf("  Revenue: $%.0f\n", result.Composed.Revenue)
-	fmt.Printf("  Website: %s\n", result.Composed.Website)
-	fmt.Printf("  Headquarters: %s\n", result.Composed.Headquarters)
-	fmt.Printf("  CEO: %s\n", result.Composed.CEO)
-	fmt.Printf("  Stock Ticker: %s\n", result.Composed.StockTicker)
-	fmt.Printf("  Market Cap: $%.0f\n", result.Composed.MarketCap)
-	fmt.Printf("  Products: %v\n", result.Composed.Products)
-	fmt.Printf("  Competitors: %v\n", result.Composed.Competitors)
+	// ============================================================
+	// USE CASE 2: Investment Research Report
+	// Scenario: Combine analyst reports, market data, financials
+	// ============================================================
+	fmt.Println("\n--- Use Case 2: Investment Research Report ---")
 
-	fmt.Printf("\nField Sources:\n")
-	for _, fs := range result.FieldSources {
-		method := fs.Method
-		if fs.Conflicts {
-			method += " (conflict resolved)"
-		}
-		fmt.Printf("  %s: sources %v (%s)\n", fs.Field, fs.Sources, method)
-		if fs.Resolution != "" {
-			fmt.Printf("    → %s\n", fs.Resolution)
-		}
+	// From market data feed
+	marketData := map[string]any{
+		"ticker":              "NVDA",
+		"company_name":        "NVIDIA Corporation",
+		"current_price":       142.50,
+		"market_cap_billions": 3500.0,
 	}
 
-	fmt.Printf("\nConflicts Resolved: %d\n", result.ConflictsResolved)
-	fmt.Printf("Completeness: %.0f%%\n", result.Completeness*100)
-
-	if len(result.UnusedParts) > 0 {
-		fmt.Printf("Unused Part Indices: %v\n", result.UnusedParts)
+	// From analyst report
+	analystReport := map[string]any{
+		"ticker":            "NVDA",
+		"rating":            "Strong Buy",
+		"target_price":      175.00,
+		"investment_thesis": "Dominant position in AI/ML accelerators with expanding data center TAM",
+		"key_risks":         "Customer concentration, China export restrictions, cyclical demand",
 	}
 
-	// Example 2: Compose document from sections
-	fmt.Println("\n\n--- Example 2: Document Composition ---")
-
-	type Document struct {
-		Title        string   `json:"title"`
-		Abstract     string   `json:"abstract"`
-		Introduction string   `json:"introduction"`
-		Methods      string   `json:"methods"`
-		Results      string   `json:"results"`
-		Discussion   string   `json:"discussion"`
-		Conclusion   string   `json:"conclusion"`
-		References   []string `json:"references"`
-		Authors      []string `json:"authors"`
+	// From financial statements
+	financials := map[string]any{
+		"ticker":          "NVDA",
+		"sector":          "Technology",
+		"revenue_billions": 60.9,
+		"yoy_growth_pct":  122.0,
+		"pe_ratio":        65.5,
 	}
 
-	section1 := map[string]any{
-		"title":   "Impact of AI on Software Development",
-		"authors": []string{"Dr. Alice Johnson", "Prof. Bob Williams"},
-	}
+	investParts := []any{marketData, analystReport, financials}
 
-	section2 := map[string]any{
-		"abstract":     "This study examines how AI tools are transforming modern software development practices...",
-		"introduction": "The software development industry has witnessed significant changes with the advent of AI-powered tools...",
-	}
-
-	section3 := map[string]any{
-		"methods": "We conducted a survey of 500 developers across 50 companies...",
-		"results": "78% of developers reported increased productivity when using AI coding assistants...",
-	}
-
-	section4 := map[string]any{
-		"discussion": "Our findings suggest that AI tools are most effective for boilerplate code generation...",
-		"conclusion": "AI-powered development tools represent a paradigm shift in how software is created...",
-		"references": []string{
-			"Smith et al., 2023, AI in Software Engineering",
-			"Jones, 2024, The Future of Coding",
-		},
-	}
-
-	docParts := []any{section1, section2, section3, section4}
-
-	docResult, err := schemaflow.Assemble[Document](docParts, schemaflow.ComposeOptions{
-		MergeStrategy: "combine",
-		Template:      "Academic research paper structure",
+	investResult, err := schemaflow.Assemble[InvestmentReport](investParts, schemaflow.ComposeOptions{
+		MergeStrategy: "smart",
+		Intelligence:  types.Smart,
+		Steering:      "Market data is real-time and most current for price. Analyst report for qualitative assessment.",
 	})
-
 	if err != nil {
-		schemaflow.GetLogger().Error("Document composition failed", "error", err)
-		return
+		fmt.Printf("Investment report composition failed: %v\n", err)
+	} else {
+		fmt.Printf("Sources: Market Data, Analyst Report, Financials\n\n")
+		fmt.Printf("Composed Investment Report:\n")
+		fmt.Printf("  Ticker: %s - %s\n", investResult.Composed.Ticker, investResult.Composed.CompanyName)
+		fmt.Printf("  Sector: %s\n", investResult.Composed.Sector)
+		fmt.Printf("  Current Price: $%.2f\n", investResult.Composed.CurrentPrice)
+		fmt.Printf("  Target Price: $%.2f\n", investResult.Composed.TargetPrice)
+		fmt.Printf("  Rating: %s\n", investResult.Composed.Rating)
+		fmt.Printf("  Market Cap: $%.1fB\n", investResult.Composed.MarketCap)
+		fmt.Printf("  P/E Ratio: %.1f\n", investResult.Composed.PE)
+		fmt.Printf("  Revenue: $%.1fB\n", investResult.Composed.Revenue)
+		fmt.Printf("  YoY Growth: %.0f%%\n", investResult.Composed.GrowthRate)
+		fmt.Printf("  Thesis: %s\n", investResult.Composed.Thesis)
+		fmt.Printf("  Risks: %s\n", investResult.Composed.Risks)
+		fmt.Printf("\nCompleteness: %.0f%%\n", investResult.Completeness*100)
 	}
 
-	fmt.Printf("Composed Document:\n")
-	fmt.Printf("  Title: %s\n", docResult.Composed.Title)
-	fmt.Printf("  Authors: %v\n", docResult.Composed.Authors)
-	fmt.Printf("  Abstract: %s...\n", truncate(docResult.Composed.Abstract, 60))
-	fmt.Printf("  Introduction: %s...\n", truncate(docResult.Composed.Introduction, 60))
-	fmt.Printf("  Methods: %s...\n", truncate(docResult.Composed.Methods, 60))
-	fmt.Printf("  Results: %s...\n", truncate(docResult.Composed.Results, 60))
-	fmt.Printf("  Discussion: %s...\n", truncate(docResult.Composed.Discussion, 60))
-	fmt.Printf("  Conclusion: %s...\n", truncate(docResult.Composed.Conclusion, 60))
-	fmt.Printf("  References: %d items\n", len(docResult.Composed.References))
-	fmt.Printf("\nCompleteness: %.0f%%\n", docResult.Completeness*100)
+	// ============================================================
+	// USE CASE 3: Product Catalog Entry
+	// Scenario: Combine PIM, inventory, and procurement data
+	// ============================================================
+	fmt.Println("\n--- Use Case 3: Product Catalog Entry ---")
+
+	// From Product Information Management (PIM)
+	pimData := map[string]any{
+		"sku":         "ELEC-LAPTOP-001",
+		"name":        "ProBook 15 Laptop",
+		"description": "15.6\" business laptop with Intel i7, 16GB RAM, 512GB SSD",
+		"category":    "Electronics > Computers > Laptops",
+		"tags":        []string{"business", "portable", "high-performance"},
+	}
+
+	// From inventory/warehouse system
+	inventoryData := map[string]any{
+		"sku":         "ELEC-LAPTOP-001",
+		"stock_level": 145,
+		"warehouse":   "Warehouse East",
+	}
+
+	// From procurement/supplier system
+	procurementData := map[string]any{
+		"sku":            "ELEC-LAPTOP-001",
+		"cost":           650.00,
+		"price":          899.99,
+		"supplier":       "TechDistributor Inc.",
+		"lead_time_days": 14,
+	}
+
+	productParts := []any{pimData, inventoryData, procurementData}
+
+	productResult, err := schemaflow.Assemble[ProductCatalog](productParts, schemaflow.ComposeOptions{
+		MergeStrategy: "smart",
+		FillGaps:      true, // Calculate margin if not provided
+		Intelligence:  types.Smart,
+		Steering:      "Calculate margin_pct from price and cost: ((price-cost)/price)*100",
+	})
+	if err != nil {
+		fmt.Printf("Product catalog composition failed: %v\n", err)
+	} else {
+		fmt.Printf("Sources: PIM, Inventory, Procurement\n\n")
+		fmt.Printf("Composed Product Catalog Entry:\n")
+		fmt.Printf("  SKU: %s\n", productResult.Composed.SKU)
+		fmt.Printf("  Name: %s\n", productResult.Composed.Name)
+		fmt.Printf("  Description: %s\n", productResult.Composed.Description)
+		fmt.Printf("  Category: %s\n", productResult.Composed.Category)
+		fmt.Printf("  Price: $%.2f\n", productResult.Composed.Price)
+		fmt.Printf("  Cost: $%.2f\n", productResult.Composed.Cost)
+		fmt.Printf("  Margin: %.1f%%\n", productResult.Composed.Margin)
+		fmt.Printf("  Stock: %d units\n", productResult.Composed.StockLevel)
+		fmt.Printf("  Warehouse: %s\n", productResult.Composed.Warehouse)
+		fmt.Printf("  Supplier: %s\n", productResult.Composed.Supplier)
+		fmt.Printf("  Lead Time: %d days\n", productResult.Composed.LeadTimeDays)
+		fmt.Printf("  Tags: %v\n", productResult.Composed.Tags)
+		fmt.Printf("\nGaps Filled: %v\n", productResult.GapsFilled)
+		fmt.Printf("Completeness: %.0f%%\n", productResult.Completeness*100)
+	}
 
 	fmt.Println("\n=== Compose Example Complete ===")
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n]
 }
