@@ -2,6 +2,7 @@ package pricing
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -185,8 +186,9 @@ func TestExportCostReport(t *testing.T) {
 
 	cost := CalculateCost(usage, "gpt-5-nano-2025-08-07", "openai")
 	metadata := &types.ResultMetadata{
-		RequestID: "test-003",
-		Operation: "generate",
+		RequestID:     "test-003",
+		CorrelationID: "corr-003",
+		Operation:     "generate",
 	}
 
 	TrackCost(cost, metadata)
@@ -220,6 +222,9 @@ func TestExportCostReport(t *testing.T) {
 					t.Fatal("expected JSON report to contain tracked records")
 				}
 			}
+			if tt.format == "csv" && !tt.wantErr && !strings.HasPrefix(report, "Timestamp,RequestID,CorrelationID,") {
+				t.Fatalf("expected CSV report to include correlation id column, got %q", report)
+			}
 		})
 	}
 }
@@ -247,11 +252,12 @@ func TestGetCostSummaryAndRequestCosts(t *testing.T) {
 		}
 		cost := CalculateCost(usage, record.model, record.provider)
 		TrackCost(cost, &types.ResultMetadata{
-			RequestID:  record.requestID,
-			Model:      record.model,
-			Provider:   record.provider,
-			EndTime:    now,
-			TokenUsage: usage,
+			RequestID:     record.requestID,
+			CorrelationID: "corr-batch",
+			Model:         record.model,
+			Provider:      record.provider,
+			EndTime:       now,
+			TokenUsage:    usage,
 		})
 	}
 
@@ -278,7 +284,15 @@ func TestGetCostSummaryAndRequestCosts(t *testing.T) {
 	if !ok {
 		t.Fatal("expected req-2 to be found")
 	}
+	if request.CorrelationID != "corr-batch" {
+		t.Fatalf("expected req-2 correlation id corr-batch, got %q", request.CorrelationID)
+	}
 	if request.TokenUsage.TotalTokens != 300 {
 		t.Fatalf("expected req-2 total tokens 300, got %d", request.TokenUsage.TotalTokens)
+	}
+
+	filtered := GetRequestCosts(now.Add(-time.Minute), map[string]string{"correlation_id": "corr-batch"})
+	if len(filtered) != 2 {
+		t.Fatalf("expected 2 correlation-filtered requests, got %d", len(filtered))
 	}
 }

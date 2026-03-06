@@ -80,6 +80,12 @@ func (r commonRequest[Self, Opt]) RequestID(requestID string) Self {
 	}))
 }
 
+func (r commonRequest[Self, Opt]) CorrelationID(correlationID string) Self {
+	return r.lift(r.mutate(r.opts, func(common CommonOptions) CommonOptions {
+		return common.WithCorrelationID(correlationID)
+	}))
+}
+
 type opRequest[Self any, Opt any] struct {
 	opts   Opt
 	lift   func(Opt) Self
@@ -160,13 +166,22 @@ func (r opRequest[Self, Opt]) RequestID(requestID string) Self {
 	}))
 }
 
+func (r opRequest[Self, Opt]) CorrelationID(correlationID string) Self {
+	return r.lift(r.mutate(r.opts, func(op types.OpOptions) types.OpOptions {
+		op.CorrelationID = correlationID
+		return op
+	}))
+}
+
 type directRequest[Self any, Opt any] struct {
-	opts            Opt
-	lift            func(Opt) Self
-	setSteering     func(Opt, string) Opt
-	setMode         func(Opt, Mode) Opt
-	setIntelligence func(Opt, Speed) Opt
-	setContext      func(Opt, context.Context) Opt
+	opts             Opt
+	lift             func(Opt) Self
+	setSteering      func(Opt, string) Opt
+	setMode          func(Opt, Mode) Opt
+	setIntelligence  func(Opt, Speed) Opt
+	setContext       func(Opt, context.Context) Opt
+	setRequestID     func(Opt, string) Opt
+	setCorrelationID func(Opt, string) Opt
 }
 
 func (r directRequest[Self, Opt]) WithOptions(opts Opt) Self {
@@ -227,4 +242,18 @@ func (r directRequest[Self, Opt]) Context(ctx context.Context) Self {
 		return r.lift(r.opts)
 	}
 	return r.lift(r.setContext(r.opts, ctx))
+}
+
+func (r directRequest[Self, Opt]) RequestID(requestID string) Self {
+	if r.setRequestID == nil {
+		return r.lift(r.opts)
+	}
+	return r.lift(r.setRequestID(r.opts, requestID))
+}
+
+func (r directRequest[Self, Opt]) CorrelationID(correlationID string) Self {
+	if r.setCorrelationID == nil {
+		return r.lift(r.opts)
+	}
+	return r.lift(r.setCorrelationID(r.opts, correlationID))
 }

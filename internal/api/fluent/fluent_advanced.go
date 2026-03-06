@@ -31,6 +31,14 @@ func newNegotiateRequest[T any](constraints any, opts NegotiateOptions) Negotiat
 				current.Context = ctx
 				return current
 			},
+			setRequestID: func(current NegotiateOptions, requestID string) NegotiateOptions {
+				current.RequestID = requestID
+				return current
+			},
+			setCorrelationID: func(current NegotiateOptions, correlationID string) NegotiateOptions {
+				current.CorrelationID = correlationID
+				return current
+			},
 		},
 		constraints: constraints,
 	}
@@ -82,6 +90,14 @@ func newAdversarialNegotiationRequest[T any](ctx AdversarialContext[T], opts Adv
 				current.Context = context
 				return current
 			},
+			setRequestID: func(current AdversarialOptions, requestID string) AdversarialOptions {
+				current.RequestID = requestID
+				return current
+			},
+			setCorrelationID: func(current AdversarialOptions, correlationID string) AdversarialOptions {
+				current.CorrelationID = correlationID
+				return current
+			},
 		},
 		context: ctx,
 	}
@@ -131,6 +147,14 @@ func newResolveRequest[T any](sources []T, opts ResolveOptions) ResolveRequest[T
 				current.Context = ctx
 				return current
 			},
+			setRequestID: func(current ResolveOptions, requestID string) ResolveOptions {
+				current.RequestID = requestID
+				return current
+			},
+			setCorrelationID: func(current ResolveOptions, correlationID string) ResolveOptions {
+				current.CorrelationID = correlationID
+				return current
+			},
 		},
 		sources: sources,
 	}
@@ -178,6 +202,14 @@ func newDeriveRequest[T any, U any](input T, opts DeriveOptions) DeriveRequest[T
 			},
 			setContext: func(current DeriveOptions, ctx context.Context) DeriveOptions {
 				current.Context = ctx
+				return current
+			},
+			setRequestID: func(current DeriveOptions, requestID string) DeriveOptions {
+				current.RequestID = requestID
+				return current
+			},
+			setCorrelationID: func(current DeriveOptions, correlationID string) DeriveOptions {
+				current.CorrelationID = correlationID
 				return current
 			},
 		},
@@ -230,6 +262,14 @@ func newConformRequest[T any](input T, standard string, opts ConformOptions) Con
 				current.Context = ctx
 				return current
 			},
+			setRequestID: func(current ConformOptions, requestID string) ConformOptions {
+				current.RequestID = requestID
+				return current
+			},
+			setCorrelationID: func(current ConformOptions, correlationID string) ConformOptions {
+				current.CorrelationID = correlationID
+				return current
+			},
 		},
 		input:    input,
 		standard: standard,
@@ -280,6 +320,14 @@ func newInterpolateRequest[T any](items []T, opts InterpolateOptions) Interpolat
 				current.Context = ctx
 				return current
 			},
+			setRequestID: func(current InterpolateOptions, requestID string) InterpolateOptions {
+				current.RequestID = requestID
+				return current
+			},
+			setCorrelationID: func(current InterpolateOptions, correlationID string) InterpolateOptions {
+				current.CorrelationID = correlationID
+				return current
+			},
 		},
 		items: items,
 	}
@@ -321,6 +369,14 @@ func newArbitrateRequest[T any](options []T, opts ArbitrateOptions) ArbitrateReq
 			},
 			setContext: func(current ArbitrateOptions, ctx context.Context) ArbitrateOptions {
 				current.Context = ctx
+				return current
+			},
+			setRequestID: func(current ArbitrateOptions, requestID string) ArbitrateOptions {
+				current.RequestID = requestID
+				return current
+			},
+			setCorrelationID: func(current ArbitrateOptions, correlationID string) ArbitrateOptions {
+				current.CorrelationID = correlationID
 				return current
 			},
 		},
@@ -372,6 +428,14 @@ func newProjectRequest[T any, U any](input T, opts ProjectOptions) ProjectReques
 				current.Context = ctx
 				return current
 			},
+			setRequestID: func(current ProjectOptions, requestID string) ProjectOptions {
+				current.RequestID = requestID
+				return current
+			},
+			setCorrelationID: func(current ProjectOptions, correlationID string) ProjectOptions {
+				current.CorrelationID = correlationID
+				return current
+			},
 		},
 		input: input,
 	}
@@ -419,6 +483,14 @@ func newAuditRequest[T any](input T, opts AuditOptions) AuditRequest[T] {
 			},
 			setContext: func(current AuditOptions, ctx context.Context) AuditOptions {
 				current.Context = ctx
+				return current
+			},
+			setRequestID: func(current AuditOptions, requestID string) AuditOptions {
+				current.RequestID = requestID
+				return current
+			},
+			setCorrelationID: func(current AuditOptions, correlationID string) AuditOptions {
+				current.CorrelationID = correlationID
 				return current
 			},
 		},
@@ -476,6 +548,14 @@ func newAssembleRequest[T any](parts []any, opts ComposeOptions) AssembleRequest
 				current.Context = ctx
 				return current
 			},
+			setRequestID: func(current ComposeOptions, requestID string) ComposeOptions {
+				current.RequestID = requestID
+				return current
+			},
+			setCorrelationID: func(current ComposeOptions, correlationID string) ComposeOptions {
+				current.CorrelationID = correlationID
+				return current
+			},
 		},
 		parts: parts,
 	}
@@ -517,6 +597,14 @@ func newPivotRequest[T any, U any](input T, opts PivotOptions) PivotRequest[T, U
 			},
 			setContext: func(current PivotOptions, ctx context.Context) PivotOptions {
 				current.Context = ctx
+				return current
+			},
+			setRequestID: func(current PivotOptions, requestID string) PivotOptions {
+				current.RequestID = requestID
+				return current
+			},
+			setCorrelationID: func(current PivotOptions, correlationID string) PivotOptions {
+				current.CorrelationID = correlationID
 				return current
 			},
 		},

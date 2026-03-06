@@ -33,7 +33,9 @@ type Person struct {
 }
 
 func main() {
-    schemaflow.Init("")
+    if err := schemaflow.InitWithEnv(); err != nil {
+        panic(err)
+    }
 
     person, err := schemaflow.Extracting[Person]("John is 30 years old").
         Strict().

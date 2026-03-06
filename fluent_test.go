@@ -28,6 +28,7 @@ func TestExtractingBuilderAppliesCommonAndOperationOptions(t *testing.T) {
 		Threshold(0.9).
 		Context(ctx).
 		RequestID("req-123").
+		CorrelationID("corr-123").
 		Partial(false).
 		SchemaHints(map[string]string{"name": "Full legal name"}).
 		Configure(func(opts ExtractOptions) ExtractOptions {
@@ -52,6 +53,9 @@ func TestExtractingBuilderAppliesCommonAndOperationOptions(t *testing.T) {
 	}
 	if seen.CommonOptions.RequestID != "req-123" {
 		t.Fatalf("unexpected request id: %q", seen.CommonOptions.RequestID)
+	}
+	if seen.CommonOptions.CorrelationID != "corr-123" {
+		t.Fatalf("unexpected correlation id: %q", seen.CommonOptions.CorrelationID)
 	}
 	if seen.AllowPartial {
 		t.Fatal("expected partial extraction to be disabled")
@@ -288,6 +292,8 @@ func TestDirectStyleBuildersExposeUnifiedControls(t *testing.T) {
 	_ = Resolving([]string{"a", "b"}).
 		Strategy("merge").
 		Smart().
+		RequestID("resolve-1").
+		CorrelationID("corr-resolve").
 		Steer("prefer the most complete record").
 		Configure(func(opts ResolveOptions) ResolveOptions {
 			resolveOpts = opts
@@ -295,6 +301,9 @@ func TestDirectStyleBuildersExposeUnifiedControls(t *testing.T) {
 		})
 	if resolveOpts.Strategy != "merge" {
 		t.Fatalf("unexpected resolve strategy: %q", resolveOpts.Strategy)
+	}
+	if resolveOpts.RequestID != "resolve-1" || resolveOpts.CorrelationID != "corr-resolve" {
+		t.Fatalf("unexpected resolve tracking fields: %#v", resolveOpts)
 	}
 	if resolveOpts.Intelligence != Smart || resolveOpts.Steering != "prefer the most complete record" {
 		t.Fatalf("unexpected resolve direct options: %#v", resolveOpts)

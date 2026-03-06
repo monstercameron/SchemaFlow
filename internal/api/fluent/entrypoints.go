@@ -65,6 +65,11 @@ func (r ExtractRequest[T]) RequestID(requestID string) ExtractRequest[T] {
 	return r
 }
 
+func (r ExtractRequest[T]) CorrelationID(correlationID string) ExtractRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithCorrelationID(correlationID)
+	return r
+}
+
 func (r ExtractRequest[T]) Partial(allow bool) ExtractRequest[T] {
 	r.opts = r.opts.WithAllowPartial(allow)
 	return r
@@ -135,6 +140,21 @@ func (r TransformRequest[T, U]) Merge(strategy string) TransformRequest[T, U] {
 	return r
 }
 
+func (r TransformRequest[T, U]) Context(ctx context.Context) TransformRequest[T, U] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithContext(ctx)
+	return r
+}
+
+func (r TransformRequest[T, U]) RequestID(requestID string) TransformRequest[T, U] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithRequestID(requestID)
+	return r
+}
+
+func (r TransformRequest[T, U]) CorrelationID(correlationID string) TransformRequest[T, U] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithCorrelationID(correlationID)
+	return r
+}
+
 func (r TransformRequest[T, U]) Run() (U, error) {
 	return Transform[T, U](r.input, r.opts)
 }
@@ -200,6 +220,21 @@ func (r GenerateRequest[T]) Style(style string) GenerateRequest[T] {
 	return r
 }
 
+func (r GenerateRequest[T]) Context(ctx context.Context) GenerateRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithContext(ctx)
+	return r
+}
+
+func (r GenerateRequest[T]) RequestID(requestID string) GenerateRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithRequestID(requestID)
+	return r
+}
+
+func (r GenerateRequest[T]) CorrelationID(correlationID string) GenerateRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithCorrelationID(correlationID)
+	return r
+}
+
 func (r GenerateRequest[T]) Run() (T, error) {
 	return Generate[T](r.prompt, r.opts)
 }
@@ -247,6 +282,21 @@ func (r ChooseRequest[T]) Fast() ChooseRequest[T] {
 
 func (r ChooseRequest[T]) Quick() ChooseRequest[T] {
 	r.opts = r.opts.WithIntelligence(Quick)
+	return r
+}
+
+func (r ChooseRequest[T]) Context(ctx context.Context) ChooseRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithContext(ctx)
+	return r
+}
+
+func (r ChooseRequest[T]) RequestID(requestID string) ChooseRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithRequestID(requestID)
+	return r
+}
+
+func (r ChooseRequest[T]) CorrelationID(correlationID string) ChooseRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithCorrelationID(correlationID)
 	return r
 }
 
@@ -310,6 +360,21 @@ func (r FilterRequest[T]) Quick() FilterRequest[T] {
 	return r
 }
 
+func (r FilterRequest[T]) Context(ctx context.Context) FilterRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithContext(ctx)
+	return r
+}
+
+func (r FilterRequest[T]) RequestID(requestID string) FilterRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithRequestID(requestID)
+	return r
+}
+
+func (r FilterRequest[T]) CorrelationID(correlationID string) FilterRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithCorrelationID(correlationID)
+	return r
+}
+
 func (r FilterRequest[T]) KeepMatching(keep bool) FilterRequest[T] {
 	r.opts.KeepMatching = keep
 	return r
@@ -367,6 +432,21 @@ func (r SortRequest[T]) Fast() SortRequest[T] {
 
 func (r SortRequest[T]) Quick() SortRequest[T] {
 	r.opts = r.opts.WithIntelligence(Quick)
+	return r
+}
+
+func (r SortRequest[T]) Context(ctx context.Context) SortRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithContext(ctx)
+	return r
+}
+
+func (r SortRequest[T]) RequestID(requestID string) SortRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithRequestID(requestID)
+	return r
+}
+
+func (r SortRequest[T]) CorrelationID(correlationID string) SortRequest[T] {
+	r.opts.CommonOptions = r.opts.CommonOptions.WithCorrelationID(correlationID)
 	return r
 }
 

@@ -5,8 +5,10 @@
 //
 //	import "github.com/monstercameron/schemaflow"
 //
-//	// Initialize with API key
-//	schemaflow.Init("your-api-key")
+//	// Initialize from environment
+//	if err := schemaflow.InitWithEnv(); err != nil {
+//	    panic(err)
+//	}
 //
 //	// Extract structured data from unstructured input
 //	person, err := schemaflow.Extract[Person](jsonInput, schemaflow.NewExtractOptions())
@@ -17,6 +19,7 @@ import (
 
 	"github.com/monstercameron/schemaflow/internal/llm"
 	"github.com/monstercameron/schemaflow/internal/ops"
+	"github.com/monstercameron/schemaflow/internal/requesttracking"
 	telemetry "github.com/monstercameron/schemaflow/internal/telemetry"
 	"github.com/monstercameron/schemaflow/internal/types"
 )
@@ -55,6 +58,18 @@ type (
 
 	// CompletionResponse is the low-level provider response shape.
 	CompletionResponse = llm.CompletionResponse
+
+	// RequestTrackingConfig configures request/correlation tracking.
+	RequestTrackingConfig = requesttracking.Config
+
+	// RequestTrackingMetadata contains resolved request and correlation IDs.
+	RequestTrackingMetadata = requesttracking.Metadata
+
+	// RequestIDStrategy controls how request IDs are generated.
+	RequestIDStrategy = requesttracking.IDStrategy
+
+	// CorrelationStrategy controls how correlation IDs are resolved.
+	CorrelationStrategy = requesttracking.CorrelationStrategy
 )
 
 // Result wraps an operation result with metadata.
@@ -245,6 +260,20 @@ const (
 	LogWarn  = telemetry.WarnLevel
 	LogError = telemetry.ErrorLevel
 	LogFatal = telemetry.FatalLevel
+)
+
+// Request tracking constants.
+const (
+	RequestIDAuto      = requesttracking.IDStrategyAuto
+	RequestIDUUID      = requesttracking.IDStrategyUUID
+	RequestIDTimestamp = requesttracking.IDStrategyTimestamp
+	RequestIDTrace     = requesttracking.IDStrategyTrace
+	RequestIDNone      = requesttracking.IDStrategyNone
+
+	CorrelationInherit  = requesttracking.CorrelationStrategyInherit
+	CorrelationRequest  = requesttracking.CorrelationStrategyRequest
+	CorrelationGenerate = requesttracking.CorrelationStrategyGenerate
+	CorrelationNone     = requesttracking.CorrelationStrategyNone
 )
 
 // Redact strategy constants

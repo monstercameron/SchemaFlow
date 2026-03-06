@@ -31,10 +31,12 @@ type InterpolateOptions struct {
 	Constraints []string
 
 	// Common options
-	Steering     string
-	Mode         types.Mode
-	Intelligence types.Speed
-	Context      context.Context
+	Steering      string
+	Mode          types.Mode
+	Intelligence  types.Speed
+	Context       context.Context
+	RequestID     string
+	CorrelationID string
 }
 
 // FilledItem describes an interpolated value
@@ -240,9 +242,11 @@ Rules:
 
 	// Build OpOptions for LLM call
 	opOpts := types.OpOptions{
-		Mode:         opt.Mode,
-		Intelligence: opt.Intelligence,
-		Context:      ctx,
+		Mode:          opt.Mode,
+		Intelligence:  opt.Intelligence,
+		Context:       ctx,
+		RequestID:     opt.RequestID,
+		CorrelationID: opt.CorrelationID,
 	}
 
 	response, err := callLLM(ctx, systemPrompt, userPrompt, opOpts)

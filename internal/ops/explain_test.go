@@ -84,7 +84,7 @@ func TestAnalyzeDataForExplanation(t *testing.T) {
 			name:      "complex struct",
 			data:      types.OpOptions{Mode: types.Strict, Intelligence: types.Smart},
 			wantType:  "types.OpOptions",
-			wantCount: 6,
+			wantCount: 7,
 			wantErr:   false,
 		},
 		{

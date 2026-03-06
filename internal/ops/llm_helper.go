@@ -10,8 +10,8 @@ import (
 	"github.com/monstercameron/schemaflow/internal/config"
 	"github.com/monstercameron/schemaflow/internal/llm"
 	"github.com/monstercameron/schemaflow/internal/logger"
+	"github.com/monstercameron/schemaflow/internal/requesttracking"
 	"github.com/monstercameron/schemaflow/internal/types"
-	"github.com/monstercameron/schemaflow/internal/utils"
 	"github.com/monstercameron/schemaflow/pricing"
 	"github.com/monstercameron/schemaflow/telemetry"
 )
@@ -70,13 +70,15 @@ func CallLLM(ctx context.Context, provider llm.Provider, systemPrompt, userPromp
 	}
 
 	start := time.Now()
-	requestID := opts.RequestID
-	if requestID == "" {
-		requestID = utils.GenerateRequestID()
-	}
+	ctx, tracking := requesttracking.Ensure(ctx, opts.RequestID, opts.CorrelationID)
+	requestID := tracking.RequestID
+	correlationID := tracking.CorrelationID
+	opts.RequestID = requestID
+	opts.CorrelationID = correlationID
 
 	log.Debug("LLM request started",
 		"requestID", requestID,
+		"correlationID", correlationID,
 		"provider", provider.Name(),
 		"model", model,
 		"responseFormat", responseFormat,
@@ -114,6 +116,7 @@ func CallLLM(ctx context.Context, provider llm.Provider, systemPrompt, userPromp
 		if attempt == attempts || !isRetryableLLMError(err) {
 			log.Error("LLM request failed",
 				"requestID", requestID,
+				"correlationID", correlationID,
 				"provider", provider.Name(),
 				"model", model,
 				"responseFormat", responseFormat,
@@ -128,6 +131,7 @@ func CallLLM(ctx context.Context, provider llm.Provider, systemPrompt, userPromp
 		delay := retryDelay(retryBackoff, attempt)
 		log.Warn("LLM request retry scheduled",
 			"requestID", requestID,
+			"correlationID", correlationID,
 			"provider", provider.Name(),
 			"model", model,
 			"responseFormat", responseFormat,
@@ -155,16 +159,19 @@ func CallLLM(ctx context.Context, provider llm.Provider, systemPrompt, userPromp
 	usage := resp.Usage
 	cost := pricing.CalculateCost(&usage, actualModel, actualProvider)
 	metadata := &types.ResultMetadata{
-		RequestID:    requestID,
-		StartTime:    start,
-		EndTime:      time.Now(),
-		Duration:     time.Since(start),
-		Model:        actualModel,
-		Provider:     actualProvider,
-		Mode:         opts.Mode,
-		Intelligence: opts.Intelligence,
-		TokenUsage:   &usage,
-		CostInfo:     cost,
+		RequestID:     requestID,
+		CorrelationID: correlationID,
+		TraceID:       telemetry.GetTraceID(ctx),
+		SpanID:        telemetry.GetSpanID(ctx),
+		StartTime:     start,
+		EndTime:       time.Now(),
+		Duration:      time.Since(start),
+		Model:         actualModel,
+		Provider:      actualProvider,
+		Mode:          opts.Mode,
+		Intelligence:  opts.Intelligence,
+		TokenUsage:    &usage,
+		CostInfo:      cost,
 		Custom: map[string]any{
 			"response_format": responseFormat,
 		},
@@ -175,6 +182,7 @@ func CallLLM(ctx context.Context, provider llm.Provider, systemPrompt, userPromp
 
 	log.Info("LLM request completed",
 		"requestID", requestID,
+		"correlationID", correlationID,
 		"provider", actualProvider,
 		"model", actualModel,
 		"responseFormat", responseFormat,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/monstercameron/schemaflow/internal/requesttracking"
 	"github.com/monstercameron/schemaflow/internal/types"
 )
 
@@ -605,6 +606,8 @@ func TestIsLegacyOption(t *testing.T) {
 }
 
 func TestOptionsToOpOptions(t *testing.T) {
+	requesttracking.Configure(requesttracking.DefaultConfig())
+
 	// Test that specialized options can convert back to OpOptions
 	extractOpts := NewExtractOptions().
 		WithSteering("test").

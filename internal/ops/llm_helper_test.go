@@ -9,6 +9,7 @@ import (
 
 	"github.com/monstercameron/schemaflow/internal/config"
 	"github.com/monstercameron/schemaflow/internal/llm"
+	"github.com/monstercameron/schemaflow/internal/requesttracking"
 	"github.com/monstercameron/schemaflow/internal/types"
 	"github.com/monstercameron/schemaflow/pricing"
 	"github.com/monstercameron/schemaflow/telemetry"
@@ -169,6 +170,12 @@ func TestCallLLMTracksTokensAndCosts(t *testing.T) {
 	t.Cleanup(telemetry.ResetMetrics)
 	pricing.ResetCostTracking()
 	t.Cleanup(pricing.ResetCostTracking)
+	requesttracking.Configure(requesttracking.Config{
+		Enabled:               true,
+		RequestIDStrategy:     requesttracking.IDStrategyUUID,
+		CorrelationIDStrategy: requesttracking.CorrelationStrategyInherit,
+	})
+	t.Cleanup(func() { requesttracking.Configure(requesttracking.DefaultConfig()) })
 	t.Setenv("SCHEMAFLOW_METRICS", "")
 	originalMetrics := config.IsMetricsEnabled()
 	t.Cleanup(func() { config.SetMetricsEnabled(originalMetrics) })
@@ -193,9 +200,10 @@ func TestCallLLMTracksTokensAndCosts(t *testing.T) {
 		`You are a concise assistant.`,
 		`Summarize this text.`,
 		types.OpOptions{
-			Intelligence: types.Fast,
-			Mode:         types.TransformMode,
-			RequestID:    "req-123",
+			Intelligence:  types.Fast,
+			Mode:          types.TransformMode,
+			RequestID:     "req-123",
+			CorrelationID: "corr-789",
 		},
 	)
 	if err != nil {
@@ -232,6 +240,9 @@ func TestCallLLMTracksTokensAndCosts(t *testing.T) {
 	if !ok {
 		t.Fatal("expected request cost record to exist")
 	}
+	if record.CorrelationID != "corr-789" {
+		t.Fatalf("expected correlation id corr-789, got %q", record.CorrelationID)
+	}
 	if record.TokenUsage.TotalTokens != 150 {
 		t.Fatalf("expected request total tokens 150, got %d", record.TokenUsage.TotalTokens)
 	}
@@ -245,6 +256,49 @@ func TestCallLLMTracksTokensAndCosts(t *testing.T) {
 	}
 	if summary.AverageCostPerRequest <= 0 {
 		t.Fatalf("expected positive average cost per request, got %v", summary.AverageCostPerRequest)
+	}
+}
+
+func TestCallLLMInheritsTrackingFromContext(t *testing.T) {
+	pricing.ResetCostTracking()
+	t.Cleanup(pricing.ResetCostTracking)
+	requesttracking.Configure(requesttracking.Config{
+		Enabled:               true,
+		RequestIDStrategy:     requesttracking.IDStrategyNone,
+		CorrelationIDStrategy: requesttracking.CorrelationStrategyInherit,
+	})
+	t.Cleanup(func() { requesttracking.Configure(requesttracking.DefaultConfig()) })
+
+	provider := &captureProvider{
+		resp: llm.CompletionResponse{
+			Content:  "ok",
+			Model:    "gpt-5-mini",
+			Provider: "openai",
+		},
+	}
+
+	ctx := requesttracking.WithMetadata(context.Background(), requesttracking.Metadata{
+		RequestID:     "ctx-req",
+		CorrelationID: "ctx-corr",
+	})
+
+	_, err := CallLLM(
+		ctx,
+		provider,
+		`You are a concise assistant.`,
+		`Summarize this text.`,
+		types.OpOptions{Intelligence: types.Fast, Mode: types.TransformMode},
+	)
+	if err != nil {
+		t.Fatalf("CallLLM() error = %v", err)
+	}
+
+	record, ok := pricing.GetRequestCost("ctx-req")
+	if !ok {
+		t.Fatal("expected inherited request cost record to exist")
+	}
+	if record.CorrelationID != "ctx-corr" {
+		t.Fatalf("expected inherited correlation id ctx-corr, got %q", record.CorrelationID)
 	}
 }
 

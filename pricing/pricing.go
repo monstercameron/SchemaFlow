@@ -198,14 +198,15 @@ var (
 
 // CostRecord represents a single cost entry
 type CostRecord struct {
-	Timestamp  time.Time
-	RequestID  string
-	Operation  string
-	Model      string
-	Provider   string
-	TokenUsage types.TokenUsage
-	Cost       types.CostInfo
-	Tags       map[string]string
+	Timestamp     time.Time
+	RequestID     string
+	CorrelationID string
+	Operation     string
+	Model         string
+	Provider      string
+	TokenUsage    types.TokenUsage
+	Cost          types.CostInfo
+	Tags          map[string]string
 }
 
 // CalculateCost calculates the cost of an LLM operation
@@ -273,12 +274,13 @@ func TrackCost(cost *types.CostInfo, metadata *types.ResultMetadata) {
 
 	// Create cost record
 	record := CostRecord{
-		Timestamp: time.Now(),
-		RequestID: metadata.RequestID,
-		Operation: metadata.Operation,
-		Model:     metadata.Model,
-		Provider:  metadata.Provider,
-		Cost:      *cost,
+		Timestamp:     time.Now(),
+		RequestID:     metadata.RequestID,
+		CorrelationID: metadata.CorrelationID,
+		Operation:     metadata.Operation,
+		Model:         metadata.Model,
+		Provider:      metadata.Provider,
+		Cost:          *cost,
 	}
 	if !metadata.EndTime.IsZero() {
 		record.Timestamp = metadata.EndTime
@@ -407,14 +409,15 @@ func ExportCostReport(since time.Time, format string) (string, error) {
 
 	switch format {
 	case "csv":
-		report = "Timestamp,RequestID,Operation,Model,Provider,PromptTokens,CompletionTokens,TotalTokens,Cost\n"
+		report = "Timestamp,RequestID,CorrelationID,Operation,Model,Provider,PromptTokens,CompletionTokens,TotalTokens,Cost\n"
 		for _, record := range costHistory {
 			if record.Timestamp.Before(since) {
 				continue
 			}
-			report += fmt.Sprintf("%s,%s,%s,%s,%s,%d,%d,%d,%.4f\n",
+			report += fmt.Sprintf("%s,%s,%s,%s,%s,%s,%d,%d,%d,%.4f\n",
 				record.Timestamp.Format(time.RFC3339),
 				record.RequestID,
+				record.CorrelationID,
 				record.Operation,
 				record.Model,
 				record.Provider,
@@ -496,6 +499,14 @@ func getWeekKey(t time.Time) string {
 func matchesFilters(record CostRecord, filters map[string]string) bool {
 	for key, value := range filters {
 		switch key {
+		case "request_id":
+			if record.RequestID != value {
+				return false
+			}
+		case "correlation_id":
+			if record.CorrelationID != value {
+				return false
+			}
 		case "model":
 			if record.Model != value {
 				return false

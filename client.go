@@ -1,6 +1,7 @@
 package schemaflow
 
 import (
+	"context"
 	"os"
 	"strings"
 	"sync"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/monstercameron/schemaflow/internal/llm"
 	"github.com/monstercameron/schemaflow/internal/ops"
+	"github.com/monstercameron/schemaflow/internal/requesttracking"
 	"github.com/monstercameron/schemaflow/internal/telemetry"
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -137,6 +139,12 @@ func (client *Client) WithDebug(enabled bool) *Client {
 	return client
 }
 
+// WithRequestTracking configures global request and correlation tracking behavior.
+func (client *Client) WithRequestTracking(cfg requesttracking.Config) *Client {
+	requesttracking.Configure(cfg)
+	return client
+}
+
 // Global configuration
 var (
 	defaultClient *Client
@@ -236,6 +244,46 @@ func GetLogEntries() []telemetry.LogEntry {
 // ResetLogEntries clears captured log history.
 func ResetLogEntries() {
 	telemetry.GetLogger().ResetEntries()
+}
+
+// ConfigureRequestTracking replaces the global request tracking configuration.
+func ConfigureRequestTracking(cfg requesttracking.Config) {
+	requesttracking.Configure(cfg)
+}
+
+// GetRequestTrackingConfig returns the active request tracking configuration.
+func GetRequestTrackingConfig() requesttracking.Config {
+	return requesttracking.GetConfig()
+}
+
+// WithRequestID returns a context carrying the given request ID.
+func WithRequestID(ctx context.Context, requestID string) context.Context {
+	return requesttracking.WithRequestID(ctx, requestID)
+}
+
+// WithCorrelationID returns a context carrying the given correlation ID.
+func WithCorrelationID(ctx context.Context, correlationID string) context.Context {
+	return requesttracking.WithCorrelationID(ctx, correlationID)
+}
+
+// WithRequestTrackingMetadata returns a context carrying request tracking metadata.
+func WithRequestTrackingMetadata(ctx context.Context, metadata requesttracking.Metadata) context.Context {
+	return requesttracking.WithMetadata(ctx, metadata)
+}
+
+// RequestTrackingFromContext returns request tracking metadata from context.
+func RequestTrackingFromContext(ctx context.Context) requesttracking.Metadata {
+	return requesttracking.FromContext(ctx)
+}
+
+// InjectRequestTracking writes tracking headers into a carrier map.
+func InjectRequestTracking(ctx context.Context, carrier map[string]string) {
+	requesttracking.Inject(ctx, carrier)
+}
+
+// ExtractRequestTracking reads tracking headers from a carrier map into context.
+func ExtractRequestTracking(ctx context.Context, carrier map[string]string) context.Context {
+	return requesttracking.Extract(ctx, carrier)
 }
 
 func normalizeProviderName(name string) string {

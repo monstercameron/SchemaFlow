@@ -89,6 +89,9 @@ type OpOptions struct {
 
 	// RequestID for tracing
 	RequestID string
+
+	// CorrelationID groups related requests across call chains.
+	CorrelationID string
 }
 
 // Case represents a pattern matching case for the Match function.
@@ -173,10 +176,11 @@ type MemoryStats struct {
 // ResultMetadata contains detailed information about an operation's execution
 type ResultMetadata struct {
 	// Request identification and tracing
-	RequestID    string `json:"request_id"`
-	TraceID      string `json:"trace_id"`
-	SpanID       string `json:"span_id"`
-	ParentSpanID string `json:"parent_span_id,omitempty"`
+	RequestID     string `json:"request_id"`
+	CorrelationID string `json:"correlation_id,omitempty"`
+	TraceID       string `json:"trace_id"`
+	SpanID        string `json:"span_id"`
+	ParentSpanID  string `json:"parent_span_id,omitempty"`
 
 	// Timing information
 	StartTime time.Time     `json:"start_time"`

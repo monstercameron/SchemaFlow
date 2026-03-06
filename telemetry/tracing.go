@@ -183,6 +183,9 @@ func StartSpan(ctx context.Context, operation string, opts types.OpOptions) (con
 	if opts.RequestID != "" {
 		span.SetAttributes(attribute.String("schemaflow.request_id", opts.RequestID))
 	}
+	if opts.CorrelationID != "" {
+		span.SetAttributes(attribute.String("schemaflow.correlation_id", opts.CorrelationID))
+	}
 
 	// Add steering if present
 	if opts.Steering != "" {

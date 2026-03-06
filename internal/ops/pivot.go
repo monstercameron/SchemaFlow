@@ -28,10 +28,12 @@ type PivotOptions struct {
 	Flatten bool
 
 	// Common options
-	Steering     string
-	Mode         types.Mode
-	Intelligence types.Speed
-	Context      context.Context
+	Steering      string
+	Mode          types.Mode
+	Intelligence  types.Speed
+	Context       context.Context
+	RequestID     string
+	CorrelationID string
 }
 
 // PivotMapping describes how data was restructured
@@ -260,9 +262,11 @@ Preserve data semantics. Document any data loss.`,
 
 	// Build OpOptions for LLM call
 	opOpts := types.OpOptions{
-		Mode:         opt.Mode,
-		Intelligence: opt.Intelligence,
-		Context:      ctx,
+		Mode:          opt.Mode,
+		Intelligence:  opt.Intelligence,
+		Context:       ctx,
+		RequestID:     opt.RequestID,
+		CorrelationID: opt.CorrelationID,
 	}
 
 	response, err := callLLM(ctx, systemPrompt, userPrompt, opOpts)

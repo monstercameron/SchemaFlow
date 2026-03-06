@@ -32,10 +32,12 @@ type NegotiateOptions struct {
 	Strategy string
 
 	// Common options
-	Steering     string
-	Mode         types.Mode
-	Intelligence types.Speed
-	Context      gocontext.Context
+	Steering      string
+	Mode          types.Mode
+	Intelligence  types.Speed
+	Context       gocontext.Context
+	RequestID     string
+	CorrelationID string
 }
 
 // Tradeoff describes what was sacrificed to gain something else
@@ -220,9 +222,11 @@ Rules:
 
 	// Build OpOptions for LLM call
 	opOpts := types.OpOptions{
-		Mode:         opt.Mode,
-		Intelligence: opt.Intelligence,
-		Context:      ctx,
+		Mode:          opt.Mode,
+		Intelligence:  opt.Intelligence,
+		Context:       ctx,
+		RequestID:     opt.RequestID,
+		CorrelationID: opt.CorrelationID,
 	}
 
 	response, err := callLLM(ctx, systemPrompt, userPrompt, opOpts)
@@ -430,9 +434,11 @@ type AdversarialOptions struct {
 	Strategy string
 
 	// Common options
-	Steering     string
-	Intelligence types.Speed
-	Context      gocontext.Context
+	Steering      string
+	Intelligence  types.Speed
+	Context       gocontext.Context
+	RequestID     string
+	CorrelationID string
 }
 
 // NegotiateAdversarial conducts a two-party adversarial negotiation.
@@ -550,9 +556,11 @@ Rules:
 
 	// Build OpOptions for LLM call
 	opOpts := types.OpOptions{
-		Mode:         types.TransformMode,
-		Intelligence: opt.Intelligence,
-		Context:      ctx,
+		Mode:          types.TransformMode,
+		Intelligence:  opt.Intelligence,
+		Context:       ctx,
+		RequestID:     opt.RequestID,
+		CorrelationID: opt.CorrelationID,
 	}
 
 	response, err := callLLM(ctx, systemPrompt, userPrompt, opOpts)

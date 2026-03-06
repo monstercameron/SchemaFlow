@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/schemaflow/internal/llm"
+	"github.com/monstercameron/schemaflow/internal/requesttracking"
 )
 
 type stubProvider struct {
@@ -72,5 +73,53 @@ func TestWithProviderInstance(t *testing.T) {
 	}
 	if client.provider.Name() != "instance-provider" {
 		t.Fatalf("expected instance-provider, got %s", client.provider.Name())
+	}
+}
+
+func TestRequestTrackingHelpers(t *testing.T) {
+	original := GetRequestTrackingConfig()
+	t.Cleanup(func() { ConfigureRequestTracking(original) })
+
+	ConfigureRequestTracking(RequestTrackingConfig{
+		Enabled:               true,
+		RequestIDStrategy:     RequestIDUUID,
+		CorrelationIDStrategy: CorrelationGenerate,
+		RequestIDHeader:       "X-Test-Request-ID",
+		CorrelationIDHeader:   "X-Test-Correlation-ID",
+	})
+
+	cfg := GetRequestTrackingConfig()
+	if cfg.RequestIDHeader != "X-Test-Request-ID" {
+		t.Fatalf("unexpected request tracking config: %#v", cfg)
+	}
+
+	ctx := WithRequestID(context.Background(), "req-1")
+	ctx = WithCorrelationID(ctx, "corr-1")
+	metadata := RequestTrackingFromContext(ctx)
+	if metadata.RequestID != "req-1" || metadata.CorrelationID != "corr-1" {
+		t.Fatalf("unexpected tracking metadata: %#v", metadata)
+	}
+
+	carrier := map[string]string{}
+	InjectRequestTracking(ctx, carrier)
+	if carrier["X-Test-Request-ID"] != "req-1" || carrier["X-Test-Correlation-ID"] != "corr-1" {
+		t.Fatalf("unexpected tracking carrier: %#v", carrier)
+	}
+
+	extracted := RequestTrackingFromContext(ExtractRequestTracking(context.Background(), carrier))
+	if extracted.RequestID != "req-1" || extracted.CorrelationID != "corr-1" {
+		t.Fatalf("unexpected extracted metadata: %#v", extracted)
+	}
+
+	client := NewClient("").WithRequestTracking(requesttracking.Config{
+		Enabled:               false,
+		RequestIDStrategy:     requesttracking.IDStrategyNone,
+		CorrelationIDStrategy: requesttracking.CorrelationStrategyNone,
+	})
+	if client == nil {
+		t.Fatal("expected client")
+	}
+	if GetRequestTrackingConfig().Enabled {
+		t.Fatal("expected request tracking to be disabled")
 	}
 }

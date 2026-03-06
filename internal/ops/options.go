@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/monstercameron/schemaflow/internal/requesttracking"
 	"github.com/monstercameron/schemaflow/internal/types"
-	"github.com/monstercameron/schemaflow/internal/utils"
 )
 
 // BaseOptions defines the common interface for all operation options
@@ -18,6 +18,7 @@ type BaseOptions interface {
 	GetIntelligence() types.Speed
 	GetContext() context.Context
 	GetRequestID() string
+	GetCorrelationID() string
 	Validate() error
 	toOpOptions() types.OpOptions
 }
@@ -40,7 +41,8 @@ type CommonOptions struct {
 	Context context.Context
 
 	// Internal fields
-	RequestID string
+	RequestID     string
+	CorrelationID string
 }
 
 // NewCommonOptions creates reusable default common options.
@@ -84,6 +86,11 @@ func (c CommonOptions) GetRequestID() string {
 	return c.RequestID
 }
 
+// GetCorrelationID returns the correlation ID.
+func (c CommonOptions) GetCorrelationID() string {
+	return c.CorrelationID
+}
+
 // Validate performs basic validation on common options
 func (c CommonOptions) Validate() error {
 	if c.Threshold < 0 || c.Threshold > 1 {
@@ -94,17 +101,15 @@ func (c CommonOptions) Validate() error {
 
 // toOpOptions converts to legacy OpOptions for backward compatibility
 func (c CommonOptions) toOpOptions() types.OpOptions {
-	requestID := c.RequestID
-	if requestID == "" {
-		requestID = utils.GenerateRequestID()
-	}
+	ctx, tracking := requesttracking.Ensure(c.GetContext(), c.RequestID, c.CorrelationID)
 	return types.OpOptions{
-		Steering:     c.Steering,
-		Threshold:    c.Threshold,
-		Mode:         c.Mode,
-		Intelligence: c.Intelligence,
-		Context:      c.Context,
-		RequestID:    requestID,
+		Steering:      c.Steering,
+		Threshold:     c.Threshold,
+		Mode:          c.Mode,
+		Intelligence:  c.Intelligence,
+		Context:       ctx,
+		RequestID:     tracking.RequestID,
+		CorrelationID: tracking.CorrelationID,
 	}
 }
 
@@ -141,6 +146,12 @@ func (c CommonOptions) WithContext(ctx context.Context) CommonOptions {
 // WithRequestID sets the request ID for tracing.
 func (c CommonOptions) WithRequestID(requestID string) CommonOptions {
 	c.RequestID = requestID
+	return c
+}
+
+// WithCorrelationID sets the correlation ID for grouping related requests.
+func (c CommonOptions) WithCorrelationID(correlationID string) CommonOptions {
+	c.CorrelationID = correlationID
 	return c
 }
 
