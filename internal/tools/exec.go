@@ -61,18 +61,24 @@ func executeShell(ctx context.Context, params map[string]any) (Result, error) {
 	err := cmd.Run()
 	duration := time.Since(start)
 
+	if ctx.Err() == context.DeadlineExceeded {
+		exitCode := -1
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		}
+		return NewResultWithMeta(map[string]any{
+			"stdout":    stdout.String(),
+			"stderr":    stderr.String(),
+			"exit_code": exitCode,
+			"error":     "command timed out",
+			"duration":  duration.Seconds(),
+		}, map[string]any{"timed_out": true}), nil
+	}
+
 	exitCode := 0
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
-		} else if ctx.Err() == context.DeadlineExceeded {
-			return NewResultWithMeta(map[string]any{
-				"stdout":    stdout.String(),
-				"stderr":    stderr.String(),
-				"exit_code": -1,
-				"error":     "command timed out",
-				"duration":  duration.Seconds(),
-			}, map[string]any{"timed_out": true}), nil
 		} else {
 			return ErrorResultFromError(fmt.Errorf("command failed: %w", err)), nil
 		}

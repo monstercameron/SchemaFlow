@@ -3,7 +3,7 @@ set -euo pipefail
 
 OUTPUT_DIR="${1:-dist/smarttodo-demo}"
 mkdir -p "$OUTPUT_DIR"
-cp -R web/smarttodo-demo/. "$OUTPUT_DIR/"
+cp -R examples/smarttodo/web/. "$OUTPUT_DIR/"
 cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" "$OUTPUT_DIR/"
 (
   cd examples/smarttodo
