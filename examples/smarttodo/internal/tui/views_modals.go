@@ -1,13 +1,16 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/localization"
+)
 
 func (m Model) quitConfirmViewRender() string {
 	background := m.listViewRender()
 
 	message := lipgloss.JoinVertical(
 		lipgloss.Left,
-		lipgloss.NewStyle().Foreground(textColor).Bold(true).Render("Quit Smart Todo?"),
+		lipgloss.NewStyle().Foreground(textColor).Bold(true).Render(localization.HeaderQuitConfirm),
 		lipgloss.NewStyle().Foreground(mutedColor).Render("The current session will close and pending UI state will be discarded."),
 		"",
 		renderStatusLine(44, "warning", "Enter confirms. Esc returns to the board."),

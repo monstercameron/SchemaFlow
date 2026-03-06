@@ -93,7 +93,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	schemaflow.GetLogger().Info("Smart Todo closed successfully")
+	schemaflow.GetLogger().Info("SchemaFlow CommandDeck closed successfully")
 }
 
 func loadNearestEnv() {

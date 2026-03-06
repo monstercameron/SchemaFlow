@@ -5,7 +5,7 @@ package localization
 
 const (
 	// Application name
-	AppName = "Smart Todo"
+	AppName = "SchemaFlow CommandDeck"
 
 	// Headers
 	HeaderTakingBreak   = "Taking a Break"
@@ -14,10 +14,10 @@ const (
 	HeaderAISuggestion  = "AI Suggestion"
 	HeaderNewTask       = "New Task"
 	HeaderEditTask      = "Edit Task"
-	HeaderQuitConfirm   = "Quit Smart Todo?"
+	HeaderQuitConfirm   = "Quit SchemaFlow CommandDeck?"
 	HeaderSubtasks      = "Subtasks"
 	HeaderTaskDetails   = "Task Details"
-	HeaderSetup         = "Smart Todo Setup"
+	HeaderSetup         = "SchemaFlow CommandDeck Setup"
 	HeaderDailySchedule = "Daily Schedule"
 
 	// Welcome/Setup

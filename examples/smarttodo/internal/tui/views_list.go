@@ -13,7 +13,7 @@ import (
 func (m Model) listViewRender() string {
 	header := renderShellHeader(
 		m.width,
-		"Smart Todo",
+		localization.AppName,
 		fmt.Sprintf("%s | %s", fallbackLabel(m.listTitle, "Focused task board"), fallbackLabel(m.userName, "anonymous")),
 		[]string{
 			lipgloss.NewStyle().Foreground(primaryColor).Render(time.Now().Format("Mon Jan 2")),

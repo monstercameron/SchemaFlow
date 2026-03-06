@@ -54,3 +54,8 @@ require (
 
 replace github.com/monstercameron/schemaflow => ../../
 
+replace github.com/charmbracelet/bubbletea => ./wasmdeps/bubbletea
+
+replace github.com/atotto/clipboard => ./wasmdeps/clipboard
+
+replace github.com/containerd/console => ./wasmdeps/console

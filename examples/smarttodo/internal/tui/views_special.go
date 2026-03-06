@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/localization"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/models"
 )
 
 func (m Model) splashViewRender() string {
-	title := "Smart Todo"
+	title := localization.AppName
 	subtitle := "AI-assisted capture, prioritization, and review for a serious working queue."
 	if m.userName != "" {
 		subtitle = fmt.Sprintf("Welcome back, %s. %s", m.userName, fallbackLabel(m.listTitle, "Your board is ready."))
@@ -72,7 +73,7 @@ func (m Model) closingViewRender() string {
 
 	body := lipgloss.JoinVertical(
 		lipgloss.Center,
-		lipgloss.NewStyle().Foreground(textColor).Bold(true).Render("Closing Smart Todo"),
+		lipgloss.NewStyle().Foreground(textColor).Bold(true).Render("Closing " + localization.AppName),
 		lipgloss.NewStyle().Foreground(mutedColor).Render(messages[idx]),
 		"",
 		renderProgressBar(m.closingProgress),
