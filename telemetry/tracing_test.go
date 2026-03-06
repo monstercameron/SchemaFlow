@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 func TestStartSpan(t *testing.T) {

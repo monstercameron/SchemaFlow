@@ -49,24 +49,24 @@ func (d *Database) createTables() error {
 		cost REAL DEFAULT 0
 	);
 	`
-	
+
 	if _, err := d.db.Exec(todosQuery); err != nil {
 		return err
 	}
-	
+
 	// Create indexes
 	indexQueries := []string{
 		`CREATE INDEX IF NOT EXISTS idx_completed ON todos(completed)`,
 		`CREATE INDEX IF NOT EXISTS idx_priority ON todos(priority)`,
 		`CREATE INDEX IF NOT EXISTS idx_deadline ON todos(deadline)`,
 	}
-	
+
 	for _, query := range indexQueries {
 		if _, err := d.db.Exec(query); err != nil {
 			return err
 		}
 	}
-	
+
 	// Create user preferences table
 	prefsQuery := `
 	CREATE TABLE IF NOT EXISTS user_prefs (
@@ -78,7 +78,7 @@ func (d *Database) createTables() error {
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	`
-	
+
 	_, err := d.db.Exec(prefsQuery)
 	return err
 }
@@ -172,7 +172,7 @@ func (d *Database) GetPendingTodos() ([]*models.SmartTodo, error) {
 		if depsStr.Valid && depsStr.String != "" {
 			todo.Dependencies = splitString(depsStr.String, ",")
 		}
-		
+
 		if tasksStr.Valid && tasksStr.String != "" && tasksStr.String != "[]" {
 			todo.TasksFromJSON(tasksStr.String)
 		}
@@ -242,7 +242,7 @@ func (d *Database) GetAllTodos() ([]*models.SmartTodo, error) {
 		if depsStr.Valid && depsStr.String != "" {
 			todo.Dependencies = splitString(depsStr.String, ",")
 		}
-		
+
 		if tasksStr.Valid && tasksStr.String != "" && tasksStr.String != "[]" {
 			todo.TasksFromJSON(tasksStr.String)
 		}
@@ -278,7 +278,7 @@ func (d *Database) UpdateDeadline(id string, newDeadline *time.Time) error {
 		s := newDeadline.Format(time.RFC3339)
 		deadlineStr = &s
 	}
-	
+
 	query := `UPDATE todos SET deadline = ? WHERE id = ?`
 	idInt, _ := strconv.Atoi(id)
 	_, err := d.db.Exec(query, deadlineStr, idInt)
@@ -303,7 +303,7 @@ func (d *Database) UpdateTodo(todo *models.SmartTodo) error {
 	if len(todo.Dependencies) > 0 {
 		deps = joinStrings(todo.Dependencies, ",")
 	}
-	
+
 	tasksJSON := "[]"
 	if len(todo.Tasks) > 0 {
 		tasksJSON = todo.TasksToJSON()
@@ -363,7 +363,7 @@ func (d *Database) GetTodoByID(id int) (*models.SmartTodo, error) {
 	if depsStr.Valid && depsStr.String != "" {
 		todo.Dependencies = splitString(depsStr.String, ",")
 	}
-	
+
 	if tasksStr.Valid && tasksStr.String != "" && tasksStr.String != "[]" {
 		todo.TasksFromJSON(tasksStr.String)
 	}
@@ -437,7 +437,7 @@ func (d *Database) Close() error {
 // User preferences methods
 func (d *Database) GetUserPrefs() (string, string, error) {
 	query := `SELECT user_name, list_title FROM user_prefs WHERE id = 1`
-	
+
 	var userName, listTitle sql.NullString
 	err := d.db.QueryRow(query).Scan(&userName, &listTitle)
 	if err == sql.ErrNoRows {
@@ -446,14 +446,14 @@ func (d *Database) GetUserPrefs() (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	
+
 	return userName.String, listTitle.String, nil
 }
 
 // Check if deadlines need updating (once per day)
 func (d *Database) NeedsDeadlineUpdate() (bool, error) {
 	query := `SELECT last_deadline_update FROM user_prefs WHERE id = 1`
-	
+
 	var lastUpdate sql.NullString
 	err := d.db.QueryRow(query).Scan(&lastUpdate)
 	if err == sql.ErrNoRows {
@@ -463,23 +463,23 @@ func (d *Database) NeedsDeadlineUpdate() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	
+
 	if !lastUpdate.Valid {
 		// Never updated
 		return true, nil
 	}
-	
+
 	// Parse the date and check if it's today
 	lastUpdateTime, err := time.Parse("2006-01-02", lastUpdate.String)
 	if err != nil {
 		return true, nil // If we can't parse, update to be safe
 	}
-	
+
 	// Check if it's a new day
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	lastUpdateDay := time.Date(lastUpdateTime.Year(), lastUpdateTime.Month(), lastUpdateTime.Day(), 0, 0, 0, 0, lastUpdateTime.Location())
-	
+
 	return !today.Equal(lastUpdateDay), nil
 }
 
@@ -492,7 +492,7 @@ func (d *Database) MarkDeadlinesUpdated() error {
 		last_deadline_update = DATE('now'),
 		updated_at = CURRENT_TIMESTAMP
 	`
-	
+
 	_, err := d.db.Exec(query)
 	return err
 }
@@ -503,20 +503,20 @@ func (d *Database) UpdateTaskStatus(todoID string, taskIndex int, completed bool
 	if err != nil {
 		return err
 	}
-	
+
 	// Get the todo first
 	todo, err := d.GetTodoByID(idInt)
 	if err != nil {
 		return err
 	}
-	
+
 	// Update the task status
 	if taskIndex >= 0 && taskIndex < len(todo.Tasks) {
 		todo.Tasks[taskIndex].Completed = completed
 		// Update the todo with new tasks
 		return d.UpdateTodo(todo)
 	}
-	
+
 	return fmt.Errorf("task index out of range")
 }
 
@@ -529,19 +529,19 @@ func (d *Database) GetTodosForDeadlineUpdate() ([]*models.SmartTodo, error) {
 	WHERE completed = 0 AND deadline IS NOT NULL
 	ORDER BY created_at DESC
 	`
-	
+
 	rows, err := d.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var todos []*models.SmartTodo
 	for rows.Next() {
 		todo := &models.SmartTodo{}
 		var deadlineStr, depsStr, tasksStr sql.NullString
 		var createdAt string
-		
+
 		err := rows.Scan(
 			&todo.ID,
 			&todo.Title,
@@ -558,20 +558,20 @@ func (d *Database) GetTodosForDeadlineUpdate() ([]*models.SmartTodo, error) {
 		if err != nil {
 			return nil, err
 		}
-		
+
 		if deadlineStr.Valid {
 			deadline, _ := time.Parse(time.RFC3339, deadlineStr.String)
 			todo.Deadline = &deadline
 		}
-		
+
 		if depsStr.Valid && depsStr.String != "" {
 			todo.Dependencies = splitString(depsStr.String, ",")
 		}
-		
+
 		todo.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
 		todos = append(todos, todo)
 	}
-	
+
 	return todos, nil
 }
 
@@ -584,7 +584,7 @@ func (d *Database) SaveUserPrefs(userName, listTitle string) error {
 		list_title = excluded.list_title,
 		updated_at = CURRENT_TIMESTAMP
 	`
-	
+
 	_, err := d.db.Exec(query, userName, listTitle)
 	return err
 }

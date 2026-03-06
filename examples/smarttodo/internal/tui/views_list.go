@@ -16,7 +16,7 @@ func (m Model) listViewRender() string {
 	if m.userName != "" {
 		leftSection = fmt.Sprintf("%s • %s", localization.T(localization.AppName), m.userName)
 	}
-	
+
 	// Add filter indicator if active
 	if m.list.SettingFilter() {
 		filterIndicator := lipgloss.NewStyle().
@@ -25,12 +25,11 @@ func (m Model) listViewRender() string {
 			Render(" 🔍 FILTER MODE")
 		leftSection += filterIndicator
 	}
-	
+
 	// Add today's date
 	today := time.Now().Format("Monday, January 2, 2006")
 	rightSection := today
-	
-	
+
 	// Create professional bordered header
 	// Top line of header
 	// Ensure header width is safe
@@ -39,11 +38,11 @@ func (m Model) listViewRender() string {
 		headerWidth = 40
 	}
 	headerTop := "╭" + strings.Repeat("─", headerWidth) + "╮"
-	
+
 	// Main header content line
 	leftPart := lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(leftSection)
 	rightPart := lipgloss.NewStyle().Foreground(secondaryColor).Render(rightSection)
-	
+
 	// Calculate spacing safely
 	leftWidth := lipgloss.Width(leftPart)
 	rightWidth := lipgloss.Width(rightPart)
@@ -52,9 +51,9 @@ func (m Model) listViewRender() string {
 		spacerWidth = 1
 	}
 	spacer := strings.Repeat(" ", spacerWidth)
-	
+
 	headerMainLine := fmt.Sprintf("│ %s%s%s │", leftPart, spacer, rightPart)
-	
+
 	// Status line with location and progress info
 	var locationDisplay string
 	if m.selectedTodo != nil && m.selectedTodo.Context != "" {
@@ -62,7 +61,7 @@ func (m Model) listViewRender() string {
 	} else {
 		locationDisplay = localization.T(localization.StatusLocation, localization.T(localization.LocationHome))
 	}
-	
+
 	// Count today's tasks
 	completedToday := 0
 	totalToday := 0
@@ -74,34 +73,34 @@ func (m Model) listViewRender() string {
 			}
 		}
 	}
-	
+
 	tasksDisplay := localization.T(localization.StatusTasks, completedToday, totalToday)
 	streakDisplay := localization.T(localization.StatusStreak, 3) // TODO: Calculate actual streak
-	
+
 	statusParts := fmt.Sprintf("%s   %s   %s", locationDisplay, tasksDisplay, streakDisplay)
-	statusLine := fmt.Sprintf("│ %s%*s │", 
+	statusLine := fmt.Sprintf("│ %s%*s │",
 		lipgloss.NewStyle().Foreground(mutedColor).Render(statusParts),
 		m.width-lipgloss.Width(statusParts)-4, "")
-	
+
 	// Bottom line of header
 	headerBottom := "╰" + strings.Repeat("─", headerWidth) + "╯"
-	
+
 	headerContent := lipgloss.NewStyle().Foreground(mutedColor).Render(headerTop) + "\n" +
 		headerMainLine + "\n" +
 		statusLine + "\n" +
 		lipgloss.NewStyle().Foreground(mutedColor).Render(headerBottom)
-	
+
 	// Stats bar with beautiful formatting
 	statsBar := m.renderEnhancedStatsBar()
-	
+
 	// Todo list with adjusted height
 	// Calculate available height more accurately
-	headerLines := 4    // Header box
-	statsLines := 2     // Stats bar
+	headerLines := 4      // Header box
+	statsLines := 2       // Stats bar
 	bottomPanelLines := 9 // Keyboard shortcuts and activity log
-	statusLines := 1    // Status message
-	spacing := 2         // Vertical spacing
-	
+	statusLines := 1      // Status message
+	spacing := 2          // Vertical spacing
+
 	listHeight := m.height - (headerLines + statsLines + bottomPanelLines + statusLines + spacing)
 	if listHeight < 5 {
 		listHeight = 5
@@ -109,7 +108,7 @@ func (m Model) listViewRender() string {
 	if listHeight > 50 {
 		listHeight = 50 // Cap max height for readability
 	}
-	
+
 	// Ensure list width doesn't cause overflow
 	listWidth := m.width - 4
 	if listWidth < 60 {
@@ -117,22 +116,22 @@ func (m Model) listViewRender() string {
 	}
 	m.list.SetSize(listWidth, listHeight)
 	listContent := m.list.View()
-	
+
 	// Create inline keyboard shortcuts and activity log (50/50 split)
 	// Ensure minimum width for both panels
 	halfWidth := (m.width - 6) / 2
 	if halfWidth < 35 {
 		halfWidth = 35
 	}
-	
+
 	// Keyboard shortcuts (left side)
 	keyboardShortcuts := []string{
 		lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(localization.T(localization.ShortcutsTitle)),
 		"",
-		lipgloss.NewStyle().Foreground(successColor).Render(localization.T(localization.ShortcutAdd)) + " " + localization.T(localization.ActionAdd) + "  " + 
+		lipgloss.NewStyle().Foreground(successColor).Render(localization.T(localization.ShortcutAdd)) + " " + localization.T(localization.ActionAdd) + "  " +
 			lipgloss.NewStyle().Foreground(secondaryColor).Render(localization.T(localization.ShortcutSuggest)) + " " + localization.T(localization.ActionSuggest),
 		lipgloss.NewStyle().Foreground(successColor).Render(localization.T(localization.ShortcutComplete)) + "  " + localization.T(localization.ActionComplete) + "  " +
-			lipgloss.NewStyle().Foreground(secondaryColor).Render(localization.T(localization.ShortcutStats)) + " " + localization.T(localization.ActionStats), 
+			lipgloss.NewStyle().Foreground(secondaryColor).Render(localization.T(localization.ShortcutStats)) + " " + localization.T(localization.ActionStats),
 		lipgloss.NewStyle().Foreground(successColor).Render(localization.T(localization.ShortcutSubtasks)) + "      " + localization.T(localization.ActionSubtasks) + "  " +
 			lipgloss.NewStyle().Foreground(mutedColor).Render(localization.T(localization.ShortcutEdit)) + " " + localization.T(localization.ActionEdit),
 		lipgloss.NewStyle().Foreground(mutedColor).Render(localization.T(localization.ShortcutNavigate)) + "    " + localization.T(localization.ActionNavigate) + "  " +
@@ -140,7 +139,7 @@ func (m Model) listViewRender() string {
 		lipgloss.NewStyle().Foreground(mutedColor).Render(localization.T(localization.ShortcutDetails)) + "      " + localization.T(localization.ActionDetails) + "   " +
 			lipgloss.NewStyle().Foreground(errorColor).Render(localization.T(localization.ShortcutQuit)) + "    " + localization.T(localization.ActionQuit),
 	}
-	
+
 	keyHelpBox := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(mutedColor).
@@ -148,23 +147,23 @@ func (m Model) listViewRender() string {
 		Width(halfWidth).
 		Height(9).
 		Render(strings.Join(keyboardShortcuts, "\n"))
-	
-	// Activity log (right side) 
+
+	// Activity log (right side)
 	activityLogs := []string{
 		lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(localization.T(localization.ActivityLogTitle)),
 		"",
 	}
-	
+
 	// Add cost tracking at the top if available
 	if m.processor != nil && m.processor.TotalCost > 0 {
 		costLine := fmt.Sprintf("💰 $%.4f | Fast:%d | Smart:%d",
 			m.processor.TotalCost,
 			m.processor.FastCalls,
 			m.processor.SmartCalls)
-		activityLogs = append(activityLogs, 
+		activityLogs = append(activityLogs,
 			lipgloss.NewStyle().Foreground(warningColor).Render(costLine))
 	}
-	
+
 	// Add the actual logs, truncating long lines
 	if len(m.consoleLogs) == 0 {
 		activityLogs = append(activityLogs, lipgloss.NewStyle().Foreground(mutedColor).Render(localization.T(localization.ActivityNoRecent)))
@@ -182,13 +181,13 @@ func (m Model) listViewRender() string {
 			activityLogs = append(activityLogs, log)
 		}
 	}
-	
+
 	// Ensure we don't exceed the height
 	maxLogLines := 7
 	if len(activityLogs) > maxLogLines {
 		activityLogs = append(activityLogs[:2], activityLogs[len(activityLogs)-(maxLogLines-2):]...)
 	}
-	
+
 	activityBox := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(mutedColor).
@@ -196,14 +195,14 @@ func (m Model) listViewRender() string {
 		Width(halfWidth).
 		Height(9).
 		Render(strings.Join(activityLogs, "\n"))
-	
+
 	// Join keyboard and activity side by side (no gap)
 	bottomPanel := lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		keyHelpBox,
 		activityBox,
 	)
-	
+
 	// Status message with animation
 	var statusMsgLine string
 	if m.statusMsg != "" {
@@ -222,7 +221,7 @@ func (m Model) listViewRender() string {
 			Padding(0, 2).
 			Render(statusStyle.Render("▶ " + m.statusMsg))
 	}
-	
+
 	// Compose the full view with proper spacing
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -232,7 +231,7 @@ func (m Model) listViewRender() string {
 		statusMsgLine,
 		bottomPanel,
 	)
-	
+
 	// Use Top alignment for better layout
 	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, content)
 }

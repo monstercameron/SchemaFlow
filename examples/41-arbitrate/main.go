@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	schemaflow "github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // loadEnv loads environment variables from .env files
@@ -47,13 +47,13 @@ type VendorProposal struct {
 
 // CloudQuote from different cloud providers
 type CloudQuote struct {
-	Provider          string  `json:"provider"`
-	MonthlyCost       float64 `json:"monthly_cost"`
-	UptimeGuarantee   float64 `json:"uptime_guarantee_pct"`
-	DataCenterRegions int     `json:"data_center_regions"`
-	SupportTier       string  `json:"support_tier"`
+	Provider          string   `json:"provider"`
+	MonthlyCost       float64  `json:"monthly_cost"`
+	UptimeGuarantee   float64  `json:"uptime_guarantee_pct"`
+	DataCenterRegions int      `json:"data_center_regions"`
+	SupportTier       string   `json:"support_tier"`
 	ComplianceCerts   []string `json:"compliance_certs"`
-	ContractMonths    int     `json:"contract_months"`
+	ContractMonths    int      `json:"contract_months"`
 }
 
 // ============================================================
@@ -93,7 +93,7 @@ func main() {
 	vendors := []VendorProposal{
 		{
 			VendorName:     "Acme Manufacturing",
-			PricePerUnit:   11.50,  // Under $12 now
+			PricePerUnit:   11.50, // Under $12 now
 			DeliveryDays:   10,
 			QualityRating:  4.2,
 			MinOrderQty:    1000,
@@ -105,16 +105,16 @@ func main() {
 			VendorName:     "QuickParts Inc",
 			PricePerUnit:   10.75,
 			DeliveryDays:   7,
-			QualityRating:  3.8,  // Below 4.0
+			QualityRating:  3.8, // Below 4.0
 			MinOrderQty:    500,
 			PaymentTerms:   "Net 15",
 			YearsInBiz:     8,
-			HasCertISO9001: false,  // No ISO
+			HasCertISO9001: false, // No ISO
 		},
 		{
 			VendorName:     "GlobalSupply Co",
 			PricePerUnit:   11.25,
-			DeliveryDays:   21,  // Too slow
+			DeliveryDays:   21, // Too slow
 			QualityRating:  4.5,
 			MinOrderQty:    1200,
 			PaymentTerms:   "Net 45",
@@ -172,7 +172,7 @@ func main() {
 			MonthlyCost:       42000,
 			UptimeGuarantee:   99.95,
 			DataCenterRegions: 20,
-			SupportTier:       "Business",  // Not enterprise!
+			SupportTier:       "Business", // Not enterprise!
 			ComplianceCerts:   []string{"HIPAA", "SOC2"},
 			ContractMonths:    24,
 		},

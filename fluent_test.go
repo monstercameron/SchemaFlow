@@ -202,3 +202,61 @@ func TestCollectionOptionTypesExposeCommonBuilders(t *testing.T) {
 		t.Fatalf("sort options lost common builder state: %#v", sortOpts)
 	}
 }
+
+func TestExtendedBuildersExposeFluentConfiguration(t *testing.T) {
+	classifyReq := Classifying[string, string]("refund requested").
+		Categories("billing", "support").
+		Smart().
+		Steer("prefer the most actionable label")
+	if len(classifyReq.opts.Categories) != 2 {
+		t.Fatalf("expected categories to be captured, got %#v", classifyReq.opts.Categories)
+	}
+	if classifyReq.opts.CommonOptions.Intelligence != Smart {
+		t.Fatalf("expected smart intelligence, got %v", classifyReq.opts.CommonOptions.Intelligence)
+	}
+
+	parseReq := Parsing[map[string]any]("name|john").
+		AllowLLMFallback(true).
+		AutoFix(true).
+		Quick().
+		RequestID("parse-1")
+	if !parseReq.opts.AllowLLMFallback || !parseReq.opts.AutoFix {
+		t.Fatalf("expected parse flags to be enabled: %#v", parseReq.opts)
+	}
+	if parseReq.opts.OpOptions.Intelligence != Quick || parseReq.opts.OpOptions.RequestID != "parse-1" {
+		t.Fatalf("expected parse op options to be updated: %#v", parseReq.opts.OpOptions)
+	}
+
+	questionReq := Asking[string, string]("quarterly report", "What changed?").
+		Strict().
+		Steer("answer briefly")
+	if questionReq.opts.Question != "What changed?" {
+		t.Fatalf("unexpected question: %q", questionReq.opts.Question)
+	}
+	if questionReq.opts.CommonOptions.Mode != Strict || questionReq.opts.CommonOptions.Steering != "answer briefly" {
+		t.Fatalf("unexpected question common options: %#v", questionReq.opts.CommonOptions)
+	}
+}
+
+func TestDirectStyleBuildersExposeUnifiedControls(t *testing.T) {
+	resolveReq := Resolving([]string{"a", "b"}).
+		Strategy("merge").
+		Smart().
+		Steer("prefer the most complete record")
+	if resolveReq.opts.Strategy != "merge" {
+		t.Fatalf("unexpected resolve strategy: %q", resolveReq.opts.Strategy)
+	}
+	if resolveReq.opts.Intelligence != Smart || resolveReq.opts.Steering != "prefer the most complete record" {
+		t.Fatalf("unexpected resolve direct options: %#v", resolveReq.opts)
+	}
+
+	projectReq := Projecting[map[string]any, map[string]any](map[string]any{"id": 1}).
+		Exclude("secret", "token").
+		Fast()
+	if len(projectReq.opts.Exclude) != 2 {
+		t.Fatalf("expected projected exclude fields, got %#v", projectReq.opts.Exclude)
+	}
+	if projectReq.opts.Intelligence != Fast {
+		t.Fatalf("expected fast intelligence, got %v", projectReq.opts.Intelligence)
+	}
+}

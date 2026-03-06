@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/telemetry"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/telemetry"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // RedactSpan represents a span of characters to redact
@@ -22,11 +22,11 @@ type RedactSpan struct {
 
 // RedactLLMResult contains the redaction result with detailed span information
 type RedactLLMResult struct {
-	Text       string            `json:"text"`       // The redacted text
-	Original   string            `json:"original"`   // The original text
-	Spans      []RedactSpan      `json:"spans"`      // List of redacted spans
-	Categories map[string]int    `json:"categories"` // Count per category
-	Metadata   map[string]any    `json:"metadata"`   // Additional metadata
+	Text       string         `json:"text"`       // The redacted text
+	Original   string         `json:"original"`   // The original text
+	Spans      []RedactSpan   `json:"spans"`      // List of redacted spans
+	Categories map[string]int `json:"categories"` // Count per category
+	Metadata   map[string]any `json:"metadata"`   // Additional metadata
 }
 
 // RedactLLMOptions configures the LLM-powered Redact operation
@@ -336,11 +336,11 @@ func applyRedactions(text string, spans []RedactSpan, opts RedactLLMOptions) str
 // maskText applies the masking strategy to sensitive text
 func maskText(text string, opts RedactLLMOptions) string {
 	textLen := len(text)
-	
+
 	// Calculate how many characters to mask
 	showFirst := opts.ShowFirst
 	showLast := opts.ShowLast
-	
+
 	// Ensure we don't show more than the text length
 	if showFirst+showLast >= textLen {
 		// If showing first+last would reveal everything, just mask all

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	schemaflow "github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // loadEnv loads environment variables from .env files

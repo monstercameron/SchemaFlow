@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	"github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/internal/ops"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/internal/ops"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 func loadEnv() {
@@ -112,21 +112,21 @@ func main() {
 	fmt.Println("--- Use Case 2: Risk Assessment (Boolean Answer) ---")
 
 	type FinancialMetrics struct {
-		DebtToEquity   float64 `json:"debt_to_equity_ratio"`
-		CurrentRatio   float64 `json:"current_ratio"`
-		QuickRatio     float64 `json:"quick_ratio"`
-		InterestCover  float64 `json:"interest_coverage"`
-		ProfitMargin   float64 `json:"profit_margin_percent"`
-		RevenueGrowth  float64 `json:"revenue_growth_percent"`
+		DebtToEquity  float64 `json:"debt_to_equity_ratio"`
+		CurrentRatio  float64 `json:"current_ratio"`
+		QuickRatio    float64 `json:"quick_ratio"`
+		InterestCover float64 `json:"interest_coverage"`
+		ProfitMargin  float64 `json:"profit_margin_percent"`
+		RevenueGrowth float64 `json:"revenue_growth_percent"`
 	}
 
 	input2 := FinancialMetrics{
-		DebtToEquity:  2.8,   // High leverage
-		CurrentRatio:  0.9,   // Below 1 = liquidity concern
-		QuickRatio:    0.6,   // Low quick ratio
-		InterestCover: 1.2,   // Barely covering interest
+		DebtToEquity:  2.8, // High leverage
+		CurrentRatio:  0.9, // Below 1 = liquidity concern
+		QuickRatio:    0.6, // Low quick ratio
+		InterestCover: 1.2, // Barely covering interest
 		ProfitMargin:  3.5,
-		RevenueGrowth: -2.0,  // Declining revenue
+		RevenueGrowth: -2.0, // Declining revenue
 	}
 
 	fmt.Println("INPUT: FinancialMetrics{")

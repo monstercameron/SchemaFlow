@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	schemaflow "github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // loadEnv loads environment variables from .env files
@@ -58,17 +58,17 @@ type CustomerLTVFeatures struct {
 
 // PropertyListing - basic listing data
 type PropertyListing struct {
-	Address    string  `json:"address"`
-	City       string  `json:"city"`
-	ZipCode    string  `json:"zip_code"`
-	SqFt       int     `json:"sq_ft"`
-	Bedrooms   int     `json:"bedrooms"`
-	Bathrooms  float64 `json:"bathrooms"`
-	YearBuilt  int     `json:"year_built"`
-	ListPrice  int     `json:"list_price"`
-	LotAcres   float64 `json:"lot_acres"`
-	HasGarage  bool    `json:"has_garage"`
-	HasPool    bool    `json:"has_pool"`
+	Address   string  `json:"address"`
+	City      string  `json:"city"`
+	ZipCode   string  `json:"zip_code"`
+	SqFt      int     `json:"sq_ft"`
+	Bedrooms  int     `json:"bedrooms"`
+	Bathrooms float64 `json:"bathrooms"`
+	YearBuilt int     `json:"year_built"`
+	ListPrice int     `json:"list_price"`
+	LotAcres  float64 `json:"lot_acres"`
+	HasGarage bool    `json:"has_garage"`
+	HasPool   bool    `json:"has_pool"`
 }
 
 // PropertyFeatures - derived features for pricing model
@@ -88,12 +88,12 @@ type PropertyFeatures struct {
 
 // ResumeBasic - parsed resume text
 type ResumeBasic struct {
-	Name        string `json:"name"`
-	Title       string `json:"current_title"`
-	Experience  string `json:"experience_summary"`
-	Education   string `json:"education"`
-	YearsExp    int    `json:"years_experience"`
-	Industry    string `json:"industry"`
+	Name       string `json:"name"`
+	Title      string `json:"current_title"`
+	Experience string `json:"experience_summary"`
+	Education  string `json:"education"`
+	YearsExp   int    `json:"years_experience"`
+	Industry   string `json:"industry"`
 }
 
 // CandidateProfile - derived hiring features

@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/monstercameron/SchemaFlow/internal/types"
-	"github.com/monstercameron/SchemaFlow/internal/utils"
+	"github.com/monstercameron/schemaflow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/utils"
 )
 
 // BaseOptions defines the common interface for all operation options

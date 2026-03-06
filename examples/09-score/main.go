@@ -25,7 +25,7 @@ import (
 	"os"
 	"strings"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	schemaflow "github.com/monstercameron/schemaflow"
 )
 
 // CodeSnippet represents a code submission

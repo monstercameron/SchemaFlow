@@ -3,8 +3,8 @@ package utils
 import (
 	"testing"
 
-	"github.com/monstercameron/SchemaFlow/internal/config"
-	"github.com/monstercameron/SchemaFlow/telemetry"
+	"github.com/monstercameron/schemaflow/internal/config"
+	"github.com/monstercameron/schemaflow/telemetry"
 )
 
 func TestRecordMetricDelegatesToTelemetry(t *testing.T) {

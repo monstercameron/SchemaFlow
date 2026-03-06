@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // GenerateTypeSchema creates a human-readable schema description for a Go type

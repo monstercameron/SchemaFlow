@@ -8,7 +8,7 @@ import (
 	"os"
 	stdstrings "strings"
 
-	"github.com/monstercameron/SchemaFlow/internal/tools"
+	"github.com/monstercameron/schemaflow/internal/tools"
 )
 
 func main() {

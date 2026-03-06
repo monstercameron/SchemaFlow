@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	"github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/internal/ops"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/internal/ops"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 func loadEnv() {

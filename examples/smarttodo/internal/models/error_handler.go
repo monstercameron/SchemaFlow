@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	schemaflow "github.com/monstercameron/schemaflow"
 )
 
 // ErrorSeverity defines the severity of errors

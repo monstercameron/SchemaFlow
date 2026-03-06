@@ -20,7 +20,7 @@ func (t todoItem) Title() string {
 	if t.todo.Completed {
 		checkbox = "☑"
 	}
-	
+
 	// Urgency indicator
 	var urgency string
 	switch t.todo.Priority {
@@ -33,28 +33,28 @@ func (t todoItem) Title() string {
 	default:
 		urgency = "⚪"
 	}
-	
+
 	return fmt.Sprintf("%s %s %s", checkbox, urgency, t.todo.Title)
 }
 
 func (t todoItem) Description() string {
 	var lines []string
-	
+
 	// First line: metadata (category, effort, deadline, dependencies)
 	details := []string{}
-	
+
 	// Category
 	if t.todo.Category != "" && t.todo.Category != "pending" {
 		icon := getCategoryEmoji(t.todo.Category)
 		details = append(details, fmt.Sprintf("%s %s", icon, t.todo.Category))
 	}
-	
+
 	// Effort
 	if t.todo.Effort != "" {
 		effortEmoji := getEffortEmoji(t.todo.Effort)
 		details = append(details, fmt.Sprintf("%s %s", effortEmoji, t.todo.Effort))
 	}
-	
+
 	// Deadline
 	if t.todo.Deadline != nil {
 		daysUntil := int(time.Until(*t.todo.Deadline).Hours() / 24)
@@ -72,24 +72,24 @@ func (t todoItem) Description() string {
 		}
 		details = append(details, deadlineStr)
 	}
-	
+
 	// Dependencies
 	if len(t.todo.Dependencies) > 0 {
 		details = append(details, fmt.Sprintf("🔗 %d deps", len(t.todo.Dependencies)))
 	}
-	
+
 	// Add metadata line if we have any details
 	if len(details) > 0 {
 		lines = append(lines, " "+strings.Join(details, " • "))
 	}
-	
+
 	// Tasks/Subtasks - show each on its own line
 	if len(t.todo.Tasks) > 0 {
 		// Show completion progress
 		completedCount := 0
 		var uncompletedTasks []models.Task
 		var completedTasks []models.Task
-		
+
 		for _, task := range t.todo.Tasks {
 			if task.Completed {
 				completedCount++
@@ -98,10 +98,10 @@ func (t todoItem) Description() string {
 				uncompletedTasks = append(uncompletedTasks, task)
 			}
 		}
-		
+
 		// Combine uncompleted first, then completed
 		sortedTasks := append(uncompletedTasks, completedTasks...)
-		
+
 		// Add progress indicator
 		progressStr := fmt.Sprintf(" [%d/%d]", completedCount, len(t.todo.Tasks))
 		if completedCount == len(t.todo.Tasks) {
@@ -111,46 +111,46 @@ func (t todoItem) Description() string {
 		} else {
 			progressStr = lipgloss.NewStyle().Foreground(mutedColor).Render(progressStr)
 		}
-		
+
 		lines = append(lines, fmt.Sprintf(" Tasks%s:", progressStr))
-		
+
 		// Show up to 3 tasks (sorted order)
 		showCount := len(sortedTasks)
 		if showCount > 3 {
 			showCount = 3
 		}
-		
+
 		for i := 0; i < showCount; i++ {
 			task := sortedTasks[i]
 			checkbox := "☐"
 			if task.Completed {
 				checkbox = "☑"
 			}
-			
+
 			taskText := task.Text
 			// Allow much wider text (60-80% of typical terminal width)
 			if len(taskText) > 70 {
 				taskText = taskText[:67] + "..."
 			}
-			
+
 			if task.Completed {
 				// Use ANSI codes for proper strikethrough
 				taskText = formatCompletedText(taskText, true)
 				taskText = lipgloss.NewStyle().Foreground(mutedColor).Render(taskText)
 			}
-			
+
 			lines = append(lines, fmt.Sprintf("   %s %s", checkbox, taskText))
 		}
-		
+
 		if len(sortedTasks) > 3 {
 			lines = append(lines, fmt.Sprintf("   ... +%d more", len(sortedTasks)-3))
 		}
 	}
-	
+
 	if len(lines) == 0 {
 		return ""
 	}
-	
+
 	return strings.Join(lines, "\n")
 }
 

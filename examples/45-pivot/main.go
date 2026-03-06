@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	schemaflow "github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // loadEnv loads environment variables from .env files
@@ -39,12 +39,12 @@ type SalesRecord struct {
 
 // RepQuarterly - pivoted quarterly view per rep
 type RepQuarterly struct {
-	Rep       string  `json:"sales_rep"`
-	Jan       float64 `json:"jan_revenue"`
-	Feb       float64 `json:"feb_revenue"`
-	Mar       float64 `json:"mar_revenue"`
-	Q1Total   float64 `json:"q1_total"`
-	TotalDeals int    `json:"total_deals"`
+	Rep        string  `json:"sales_rep"`
+	Jan        float64 `json:"jan_revenue"`
+	Feb        float64 `json:"feb_revenue"`
+	Mar        float64 `json:"mar_revenue"`
+	Q1Total    float64 `json:"q1_total"`
+	TotalDeals int     `json:"total_deals"`
 }
 
 // ============================================================
@@ -74,17 +74,17 @@ type NestedOrder struct {
 
 // FlatOrder - flattened for data warehouse
 type FlatOrder struct {
-	OrderID         string  `json:"order_id"`
-	CustomerID      string  `json:"customer_id"`
-	CustomerName    string  `json:"customer_name"`
-	CustomerEmail   string  `json:"customer_email"`
-	ShipAddress     string  `json:"ship_address"`
-	ShipCity        string  `json:"ship_city"`
-	ShipZip         string  `json:"ship_zip"`
-	ShipMethod      string  `json:"ship_method"`
-	PaymentMethod   string  `json:"payment_method"`
-	PaymentAmount   float64 `json:"payment_amount"`
-	PaymentStatus   string  `json:"payment_status"`
+	OrderID       string  `json:"order_id"`
+	CustomerID    string  `json:"customer_id"`
+	CustomerName  string  `json:"customer_name"`
+	CustomerEmail string  `json:"customer_email"`
+	ShipAddress   string  `json:"ship_address"`
+	ShipCity      string  `json:"ship_city"`
+	ShipZip       string  `json:"ship_zip"`
+	ShipMethod    string  `json:"ship_method"`
+	PaymentMethod string  `json:"payment_method"`
+	PaymentAmount float64 `json:"payment_amount"`
+	PaymentStatus string  `json:"payment_status"`
 }
 
 // ============================================================
@@ -100,11 +100,11 @@ type SurveyResponse struct {
 
 // RespondentSurvey - one row per respondent
 type RespondentSurvey struct {
-	RespondentID    string `json:"respondent_id"`
-	Satisfaction    string `json:"satisfaction"`
-	Recommendation  string `json:"would_recommend"`
-	Feedback        string `json:"open_feedback"`
-	OverallScore    string `json:"overall_score"`
+	RespondentID   string `json:"respondent_id"`
+	Satisfaction   string `json:"satisfaction"`
+	Recommendation string `json:"would_recommend"`
+	Feedback       string `json:"open_feedback"`
+	OverallScore   string `json:"overall_score"`
 }
 
 func main() {

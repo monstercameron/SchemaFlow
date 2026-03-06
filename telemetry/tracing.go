@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/logger"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/logger"
+	"github.com/monstercameron/schemaflow/internal/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"

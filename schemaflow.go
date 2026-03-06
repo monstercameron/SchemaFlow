@@ -3,7 +3,7 @@
 //
 // Example usage:
 //
-//	import "github.com/monstercameron/SchemaFlow"
+//	import "github.com/monstercameron/schemaflow"
 //
 //	// Initialize with API key
 //	schemaflow.Init("your-api-key")
@@ -15,10 +15,10 @@ package schemaflow
 import (
 	"context"
 
-	"github.com/monstercameron/SchemaFlow/internal/llm"
-	"github.com/monstercameron/SchemaFlow/internal/ops"
-	telemetry "github.com/monstercameron/SchemaFlow/internal/telemetry"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/llm"
+	"github.com/monstercameron/schemaflow/internal/ops"
+	telemetry "github.com/monstercameron/schemaflow/internal/telemetry"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // Re-export types for public API
@@ -271,7 +271,8 @@ const (
 	SuggestHybrid     = ops.SuggestHybrid
 )
 
-// Option constructors - re-export from internal/ops
+// Legacy option constructors retained for backward compatibility.
+// New integrations should prefer the fluent request builders in `fluent*.go`.
 var (
 	NewExtractOptions   = ops.NewExtractOptions
 	NewTransformOptions = ops.NewTransformOptions
@@ -326,7 +327,8 @@ var (
 	ListProviders           = llm.ListProviders
 )
 
-// Core operations - re-export from internal/ops
+// Legacy direct-call operations retained for backward compatibility.
+// New integrations should prefer the fluent request builders in `fluent*.go`.
 
 // Extract converts unstructured data into strongly-typed Go structs.
 //

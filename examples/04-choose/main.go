@@ -23,7 +23,7 @@ import (
 	"os"
 	"strings"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	schemaflow "github.com/monstercameron/schemaflow"
 )
 
 // Product represents a product in the catalog

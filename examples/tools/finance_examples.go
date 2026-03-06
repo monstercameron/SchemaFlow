@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/monstercameron/SchemaFlow/internal/tools"
+	"github.com/monstercameron/schemaflow/internal/tools"
 )
 
 func runFinanceExamples(ctx context.Context) {

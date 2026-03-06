@@ -60,4 +60,3 @@ func truncateText(text string, maxWidth int) string {
 
 	return result
 }
-

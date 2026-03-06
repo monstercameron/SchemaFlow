@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/config"
-	"github.com/monstercameron/SchemaFlow/internal/logger"
+	"github.com/monstercameron/schemaflow/internal/config"
+	"github.com/monstercameron/schemaflow/internal/logger"
 )
 
 // MetricEvent represents a single metric observation before aggregation.

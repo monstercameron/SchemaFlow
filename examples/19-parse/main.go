@@ -11,8 +11,8 @@ package main
 import (
 	"fmt"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/examples/internal/exampleutil"
+	schemaflow "github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/examples/internal/exampleutil"
 )
 
 type Person struct {

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 func loadEnv() {

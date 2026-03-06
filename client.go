@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/llm"
-	"github.com/monstercameron/SchemaFlow/internal/ops"
-	"github.com/monstercameron/SchemaFlow/internal/telemetry"
+	"github.com/monstercameron/schemaflow/internal/llm"
+	"github.com/monstercameron/schemaflow/internal/ops"
+	"github.com/monstercameron/schemaflow/internal/telemetry"
 	openai "github.com/sashabaranov/go-openai"
 )
 

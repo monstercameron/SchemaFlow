@@ -19,18 +19,18 @@ type SmartTodo struct {
 	ID           string     `json:"id"`
 	Title        string     `json:"title"`
 	Description  string     `json:"description"`
-	Priority     string     `json:"priority"`      // high, medium, low
-	Category     string     `json:"category"`      // work, personal, urgent, etc.
-	Location     string     `json:"location"`      // Where task should be done
+	Priority     string     `json:"priority"` // high, medium, low
+	Category     string     `json:"category"` // work, personal, urgent, etc.
+	Location     string     `json:"location"` // Where task should be done
 	Deadline     *time.Time `json:"deadline"`
-	Effort       string     `json:"effort"`        // minimal, low, medium, high, massive
-	Dependencies []string   `json:"dependencies"`  // IDs of todos this depends on
-	Context      string     `json:"context"`       // AI-generated context advice
-	Tasks        []Task     `json:"tasks"`         // Subtasks with completion status
+	Effort       string     `json:"effort"`       // minimal, low, medium, high, massive
+	Dependencies []string   `json:"dependencies"` // IDs of todos this depends on
+	Context      string     `json:"context"`      // AI-generated context advice
+	Tasks        []Task     `json:"tasks"`        // Subtasks with completion status
 	Completed    bool       `json:"completed"`
 	CreatedAt    time.Time  `json:"created_at"`
 	CompletedAt  *time.Time `json:"completed_at"`
-	Cost         float64    `json:"cost"`          // API cost for this todo
+	Cost         float64    `json:"cost"` // API cost for this todo
 }
 
 // TasksToJSON serializes tasks to JSON string for database storage
@@ -38,7 +38,7 @@ func (t *SmartTodo) TasksToJSON() string {
 	if len(t.Tasks) == 0 {
 		return "[]"
 	}
-	
+
 	data, err := json.Marshal(t.Tasks)
 	if err != nil {
 		return "[]"
@@ -52,7 +52,7 @@ func (t *SmartTodo) TasksFromJSON(jsonStr string) error {
 	if jsonStr == "" || jsonStr == "[]" {
 		return nil
 	}
-	
+
 	return json.Unmarshal([]byte(jsonStr), &t.Tasks)
 }
 
@@ -61,14 +61,14 @@ func (t *SmartTodo) TaskCompletionPercent() int {
 	if len(t.Tasks) == 0 {
 		return 0
 	}
-	
+
 	completed := 0
 	for _, task := range t.Tasks {
 		if task.Completed {
 			completed++
 		}
 	}
-	
+
 	return (completed * 100) / len(t.Tasks)
 }
 
@@ -127,11 +127,11 @@ func (t *SmartTodo) String() string {
 	if t.Completed {
 		status = "[✓]"
 	}
-	
+
 	deadline := ""
 	if t.Deadline != nil {
 		deadline = fmt.Sprintf(" (Due: %s)", t.Deadline.Format("Jan 2"))
 	}
-	
+
 	return fmt.Sprintf("%s %s - %s%s", status, t.Title, t.Priority, deadline)
 }

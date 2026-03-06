@@ -5,9 +5,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/monstercameron/SchemaFlow/examples/internal/exampleutil"
-	"github.com/monstercameron/SchemaFlow/internal/ops"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/examples/internal/exampleutil"
+	"github.com/monstercameron/schemaflow/internal/ops"
+	"github.com/monstercameron/schemaflow/internal/types"
 	"log"
 )
 

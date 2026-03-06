@@ -24,7 +24,7 @@ func (m Model) calendarViewRender() string {
 
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	
+
 	// Initialize slots
 	var slots []timeSlot
 	for hour := startHour; hour <= endHour; hour++ {
@@ -39,12 +39,12 @@ func (m Model) calendarViewRender() string {
 		if todo.Completed {
 			continue // Skip completed todos
 		}
-		
+
 		if todo.Deadline != nil {
 			// Check if deadline is today
-			if todo.Deadline.Year() == today.Year() && 
-			   todo.Deadline.Month() == today.Month() && 
-			   todo.Deadline.Day() == today.Day() {
+			if todo.Deadline.Year() == today.Year() &&
+				todo.Deadline.Month() == today.Month() &&
+				todo.Deadline.Day() == today.Day() {
 				// Find the appropriate slot
 				for i := range slots {
 					if i < len(slots)-1 {
@@ -90,7 +90,7 @@ func (m Model) calendarViewRender() string {
 		}
 
 		timeStr := slot.time.Format("3:04 PM")
-		
+
 		// Style based on current time
 		var timeStyle lipgloss.Style
 		if i == currentSlotIndex {
@@ -127,7 +127,7 @@ func (m Model) calendarViewRender() string {
 				}
 
 				line += " │ " + todoStyle.Render(title)
-				
+
 				// Add category icon
 				if todo.Category != "" {
 					line += " " + lipgloss.NewStyle().Foreground(mutedColor).Render(fmt.Sprintf("[%s]", todo.Category))
@@ -143,14 +143,14 @@ func (m Model) calendarViewRender() string {
 
 		// Add separator every hour
 		if slot.time.Minute() == 30 && i < len(slots)-1 {
-			calendarLines = append(calendarLines, lipgloss.NewStyle().Foreground(mutedColor).Render("        ├" + strings.Repeat("─", 70)))
+			calendarLines = append(calendarLines, lipgloss.NewStyle().Foreground(mutedColor).Render("        ├"+strings.Repeat("─", 70)))
 		}
 	}
 
 	// Create scrollable content (show 20 slots at a time)
 	visibleSlots := 20
 	startIndex := 0
-	
+
 	// Auto-scroll to current time
 	if currentSlotIndex >= 0 {
 		startIndex = currentSlotIndex - visibleSlots/2
@@ -171,7 +171,7 @@ func (m Model) calendarViewRender() string {
 	}
 
 	visibleLines := calendarLines[startIndex:endIndex]
-	
+
 	calendarContent := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(mutedColor).
@@ -184,9 +184,9 @@ func (m Model) calendarViewRender() string {
 	overdueCount := 0
 	for _, todo := range m.todos {
 		if !todo.Completed && todo.Deadline != nil {
-			if todo.Deadline.Year() == today.Year() && 
-			   todo.Deadline.Month() == today.Month() && 
-			   todo.Deadline.Day() == today.Day() {
+			if todo.Deadline.Year() == today.Year() &&
+				todo.Deadline.Month() == today.Month() &&
+				todo.Deadline.Day() == today.Day() {
 				todayCount++
 			}
 			if todo.Deadline.Before(now) {
@@ -197,7 +197,7 @@ func (m Model) calendarViewRender() string {
 
 	statsLine := lipgloss.NewStyle().
 		Foreground(mutedColor).
-		Render(fmt.Sprintf("Tasks Today: %d | Overdue: %d | Time: %s", 
+		Render(fmt.Sprintf("Tasks Today: %d | Overdue: %d | Time: %s",
 			todayCount, overdueCount, now.Format("3:04 PM")))
 
 	// Instructions

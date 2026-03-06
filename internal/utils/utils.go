@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/telemetry"
+	"github.com/monstercameron/schemaflow/telemetry"
 )
 
 var requestIDCounter uint64

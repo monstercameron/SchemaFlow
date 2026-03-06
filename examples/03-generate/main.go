@@ -33,7 +33,7 @@ import (
 	"os"
 	"strings"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	schemaflow "github.com/monstercameron/schemaflow"
 )
 
 // TestUserSpec defines the specification for generating test users (input type)

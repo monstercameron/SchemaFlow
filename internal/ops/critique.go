@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/SchemaFlow/internal/config"
-	"github.com/monstercameron/SchemaFlow/internal/logger"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/config"
+	"github.com/monstercameron/schemaflow/internal/logger"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // CritiqueOptions configures the Critique operation

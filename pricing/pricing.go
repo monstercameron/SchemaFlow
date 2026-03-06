@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/logger"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/logger"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // PricingModel defines the cost structure for a specific model

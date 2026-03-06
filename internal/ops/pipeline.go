@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/logger"
+	"github.com/monstercameron/schemaflow/internal/logger"
 )
 
 // Pipeline represents a chain of operations that process data sequentially

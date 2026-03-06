@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/llm"
+	"github.com/monstercameron/schemaflow/internal/llm"
 )
 
 type stubProvider struct {

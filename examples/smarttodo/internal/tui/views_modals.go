@@ -65,4 +65,3 @@ func (m Model) quitConfirmViewRender() string {
 
 	return overlay
 }
-

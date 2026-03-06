@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/monstercameron/SchemaFlow/internal/tools"
+	"github.com/monstercameron/schemaflow/internal/tools"
 )
 
 func runAIExamples(ctx context.Context) {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/schemaflow"
 )
 
 // GenerateAIQuote generates a motivational quote using AI

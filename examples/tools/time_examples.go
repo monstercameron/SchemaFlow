@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/tools"
+	"github.com/monstercameron/schemaflow/internal/tools"
 )
 
 func runTimeExamples(ctx context.Context) {

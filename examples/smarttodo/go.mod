@@ -7,7 +7,7 @@ require (
 	github.com/charmbracelet/bubbletea v0.25.0
 	github.com/charmbracelet/lipgloss v0.10.0
 	github.com/mattn/go-sqlite3 v1.14.22
-	github.com/monstercameron/SchemaFlow v0.0.0
+	github.com/monstercameron/schemaflow v0.0.0
 )
 
 require (
@@ -52,4 +52,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/monstercameron/SchemaFlow => ../../
+replace github.com/monstercameron/schemaflow => ../../
+

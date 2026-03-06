@@ -32,10 +32,10 @@ var ChartTool = &Tool{
 
 // CurrencyTool converts between currencies (stub - requires exchange rate API)
 var CurrencyTool = &Tool{
-	Name:        "currency",
-	Description: "Convert between currencies (stub - requires exchange rate API)",
-	Category:    CategoryFinance,
-	IsStub:      true,
+	Name:         "currency",
+	Description:  "Convert between currencies (stub - requires exchange rate API)",
+	Category:     CategoryFinance,
+	IsStub:       true,
 	RequiresAuth: true,
 	Parameters: ObjectSchema(map[string]ParameterSchema{
 		"amount": NumberParam("Amount to convert"),
@@ -59,10 +59,10 @@ var CurrencyTool = &Tool{
 
 // StockTool fetches stock information (stub - requires financial data API)
 var StockTool = &Tool{
-	Name:        "stock",
-	Description: "Fetch stock information (stub - requires financial data API)",
-	Category:    CategoryFinance,
-	IsStub:      true,
+	Name:         "stock",
+	Description:  "Fetch stock information (stub - requires financial data API)",
+	Category:     CategoryFinance,
+	IsStub:       true,
 	RequiresAuth: true,
 	Parameters: ObjectSchema(map[string]ParameterSchema{
 		"symbol": StringParam("Stock symbol (e.g., 'AAPL')"),

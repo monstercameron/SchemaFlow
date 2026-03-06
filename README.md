@@ -17,7 +17,7 @@ It gives you:
 ## Quick Start
 
 ```bash
-go get github.com/monstercameron/SchemaFlow
+go get github.com/monstercameron/schemaflow
 ```
 
 ```bash
@@ -30,7 +30,7 @@ package main
 import (
     "fmt"
 
-    schemaflow "github.com/monstercameron/SchemaFlow"
+    schemaflow "github.com/monstercameron/schemaflow"
 )
 
 type Person struct {
@@ -50,9 +50,9 @@ func main() {
 }
 ```
 
-## Fluent API
+## Public API
 
-New integrations should prefer the fluent builders.
+New integrations should use the fluent request-builder stack.
 
 ```go
 person, err := schemaflow.Extracting[Person](rawText).
@@ -69,56 +69,74 @@ best, err := schemaflow.Choosing(products).
 urgent, err := schemaflow.FilterBy(tasks, "high priority tasks due today")
 ```
 
-The original function-based API remains supported:
+The fluent layer covers the typed LLM surface.
 
-```go
-person, err := schemaflow.Extract[Person](rawText, schemaflow.NewExtractOptions())
-summary, err := schemaflow.Summarize(text, schemaflow.NewSummarizeOptions())
-result, err := schemaflow.Verify(claim, schemaflow.NewVerifyOptions())
-```
+### Structured builders
+- `Extracting[T](input)`
+- `Transforming[T, U](input)`
+- `Generating[T](prompt)`
+- `Inferring[T](input)`
+- `Parsing[T](input)`
+- `Enriching[T, U](input)`
+- `EnrichingInPlace[T](input)`
+- `Normalizing[T](input)`
+- `NormalizingText(input)`
+- `NormalizingBatch[T](items)`
+- `Projecting[T, U](input)`
+- `Pivoting[T, U](input)`
 
-## Core Operations
+### Text builders
+- `Summarizing(input)`
+- `Rewriting(input)`
+- `Translating(input)`
+- `Expanding(input)`
+- `Completing(input)`
+- `CompletingField[T](input, fieldName)`
+- `Redacting[T](input)`
+- `LLMRedacting(input)`
 
-### Structured data
-- `Extract[T]`
-- `Transform[T, U]`
-- `Generate[T]`
-- `Infer[T]`
-- `Parse[T]`
-- `Enrich[T, U]`
-- `Normalize[T]`
-- `Project[T, U]`
-- `Pivot[T, U]`
+### Evaluation builders
+- `Classifying[T, C](input)`
+- `Scoring[T](input)`
+- `Comparing[T](left, right)`
+- `CheckingSimilarity[T](left, right)`
+- `Validating[T](input)`
+- `Asking[T, A](input, question)`
+- `Explaining(input)`
+- `Verifying(input)`
+- `VerifyingClaim(claim)`
 
-### Text and analysis
-- `Summarize`
-- `Rewrite`
-- `Translate`
-- `Expand`
-- `Classify`
-- `Score`
-- `Compare`
-- `Similar`
-- `Critique`
-- `Explain`
-- `Verify`
-- `Question`
-
-### Collections and decisions
-- `Choose`
-- `Filter`
-- `Sort`
-- `Rank`
-- `Cluster`
-- `SemanticMatch`
-- `MatchOne`
-- `Decide`
-- `Guard`
-- `Resolve`
-- `Negotiate`
-- `Arbitrate`
+### Collection and synthesis builders
+- `Choosing[T](items)`
+- `Filtering[T](items)`
+- `Sorting[T](items)`
+- `Ranking[T](items)`
+- `Clustering[T](items)`
+- `Matching[S, T](sources, targets)`
+- `MatchingOne[S, T](source, targets)`
+- `Annotating[T](input)`
+- `Compressing[T](input)`
+- `CompressingText(input)`
+- `Decomposing[T](input)`
+- `DecomposingInto[T, U](input)`
+- `Critiquing[T](input)`
+- `Synthesizing[T](sources)`
+- `Predicting[T](input)`
+- `Negotiating[T](constraints)`
+- `NegotiatingAdversarially[T](context)`
+- `Resolving[T](sources)`
+- `Deriving[T, U](input)`
+- `Conforming[T](input, standard)`
+- `Interpolating[T](items)`
+- `Arbitrating[T](options)`
+- `Auditing[T](input)`
+- `Assembling[T](parts)`
 
 See [docs/reference/API.md](docs/reference/API.md) for the full surface.
+
+Compatibility note:
+- the older `Extract(...)` / `New*Options()` style remains available for existing callers
+- it is no longer the primary documented API
 
 ## Reliability Defaults
 
@@ -201,7 +219,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/monstercameron/SchemaFlow/pricing"
+    "github.com/monstercameron/schemaflow/pricing"
 )
 
 summary := pricing.GetCostSummary(time.Now().Add(-1*time.Hour), map[string]string{
@@ -275,7 +293,7 @@ package main
 import (
     "fmt"
 
-    schemaflow "github.com/monstercameron/SchemaFlow"
+    schemaflow "github.com/monstercameron/schemaflow"
 )
 
 type Ticket struct {
@@ -325,7 +343,7 @@ func ProcessTickets(raw []string) error {
 
 - [API reference](docs/reference/API.md)
 - [`examples/`](examples/)
-- [Production backlog](docs/notes/PRODUCTION_TODO.md)
+- [Production backlog](docs/engineering/backlog/PRODUCTION_TODO.md)
 
 ## Why SchemaFlow
 
@@ -334,3 +352,5 @@ func ProcessTickets(raw []string) error {
 3. It gives you typed outputs for semantic operations.
 4. It includes observability and cost analysis primitives out of the box.
 5. It keeps provider choice and intelligence mapping configurable.
+
+

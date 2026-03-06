@@ -24,7 +24,7 @@ import (
 	"os"
 	"strings"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	schemaflow "github.com/monstercameron/schemaflow"
 )
 
 // SupportTicket represents a customer support ticket

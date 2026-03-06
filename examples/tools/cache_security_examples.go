@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/monstercameron/SchemaFlow/internal/tools"
+	"github.com/monstercameron/schemaflow/internal/tools"
 )
 
 func runCacheSecurityExamples(ctx context.Context) {

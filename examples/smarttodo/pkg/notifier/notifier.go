@@ -5,14 +5,14 @@ import (
 	"os/exec"
 	"runtime"
 	"time"
-	
+
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/models"
 )
 
 // Notifier handles system notifications
 type Notifier struct {
-	enabled   bool
-	isMacOS   bool
+	enabled bool
+	isMacOS bool
 }
 
 // NewNotifier creates a new notifier
@@ -28,14 +28,14 @@ func (n *Notifier) Notify(title, message string) error {
 	if !n.enabled {
 		return nil
 	}
-	
+
 	if n.isMacOS {
 		// Use macOS Notification Center with osascript
 		// This will show in Notification Center and respect Do Not Disturb
 		script := fmt.Sprintf(`display notification "%s" with title "Smart Todo" subtitle "%s" sound name "Glass"`, message, title)
 		return exec.Command("osascript", "-e", script).Run()
 	}
-	
+
 	// Fallback to terminal bell for other systems
 	fmt.Print("\a")
 	return nil
@@ -46,7 +46,7 @@ func (n *Notifier) NotifyWithAction(title, message, action string) error {
 	if !n.enabled || !n.isMacOS {
 		return n.Notify(title, message)
 	}
-	
+
 	// Use terminal-notifier if available for action buttons
 	if _, err := exec.LookPath("terminal-notifier"); err == nil {
 		return exec.Command("terminal-notifier",
@@ -58,7 +58,7 @@ func (n *Notifier) NotifyWithAction(title, message, action string) error {
 			"-appIcon", "https://cdn-icons-png.flaticon.com/512/4697/4697260.png",
 		).Run()
 	}
-	
+
 	// Fall back to regular notification
 	return n.Notify(title, message)
 }
@@ -68,7 +68,7 @@ func (n *Notifier) NotifyUrgent(todo *models.SmartTodo) error {
 	if todo.Deadline == nil {
 		return nil
 	}
-	
+
 	timeUntil := time.Until(*todo.Deadline)
 	if timeUntil <= time.Hour && timeUntil > 0 {
 		minutes := int(timeUntil.Minutes())
@@ -90,7 +90,7 @@ func (n *Notifier) NotifyOverdue(todos []*models.SmartTodo) error {
 			}
 		}
 	}
-	
+
 	if overdue > 0 {
 		return n.Notify(
 			"📅 Overdue Tasks",

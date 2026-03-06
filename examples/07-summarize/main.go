@@ -23,7 +23,7 @@ import (
 	"os"
 	"strings"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	schemaflow "github.com/monstercameron/schemaflow"
 )
 
 // loadEnv loads environment variables from a .env file

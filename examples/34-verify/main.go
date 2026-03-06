@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	"github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/internal/ops"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/internal/ops"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 func loadEnv() {
@@ -58,9 +58,9 @@ func main() {
 			{ClaimID: "SLA-003", Statement: "No security incidents occurred in Q4", Source: "Vendor Report"},
 		},
 		Reference: map[string]any{
-			"actual_uptime_q4_2024":        99.7,
-			"contracted_uptime_guarantee":  99.9,
-			"security_incidents_q4_2024":   2,
+			"actual_uptime_q4_2024":       99.7,
+			"contracted_uptime_guarantee": 99.9,
+			"security_incidents_q4_2024":  2,
 		},
 	}
 
@@ -129,13 +129,13 @@ func main() {
 			"Led team of 12 engineers on search infrastructure",
 		},
 		BackgroundCheck: map[string]any{
-			"education_school":     "MIT",
-			"education_degree":     "BS Computer Science",
-			"graduation_year":      2019,
-			"employer":             "Google",
-			"title":                "Software Engineer",
-			"employment_years":     5,
-			"team_size_managed":    4,
+			"education_school":  "MIT",
+			"education_degree":  "BS Computer Science",
+			"graduation_year":   2019,
+			"employer":          "Google",
+			"title":             "Software Engineer",
+			"employment_years":  5,
+			"team_size_managed": 4,
 		},
 	}
 

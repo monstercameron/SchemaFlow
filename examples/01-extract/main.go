@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	schemaflow "github.com/monstercameron/schemaflow"
 )
 
 // Email represents a structured email extracted from unstructured text

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	schemaflow "github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // loadEnv loads environment variables from .env files
@@ -63,30 +63,30 @@ type PublicOrderResponse struct {
 
 // DBTransaction - raw database record
 type DBTransaction struct {
-	TxnID          string  `json:"txn_id"`
-	UserID         string  `json:"user_id"`
-	Amount         float64 `json:"amount"`
-	Currency       string  `json:"currency"`
-	Timestamp      string  `json:"timestamp"`
-	MerchantName   string  `json:"merchant_name"`
-	MerchantMCC    string  `json:"merchant_mcc"`
-	CardLast4      string  `json:"card_last4"`
-	CardBIN        string  `json:"card_bin"`
-	IPAddress      string  `json:"ip_address"`
-	DeviceID       string  `json:"device_id"`
-	ResponseCode   string  `json:"response_code"`
-	AuthCode       string  `json:"auth_code"`
+	TxnID        string  `json:"txn_id"`
+	UserID       string  `json:"user_id"`
+	Amount       float64 `json:"amount"`
+	Currency     string  `json:"currency"`
+	Timestamp    string  `json:"timestamp"`
+	MerchantName string  `json:"merchant_name"`
+	MerchantMCC  string  `json:"merchant_mcc"`
+	CardLast4    string  `json:"card_last4"`
+	CardBIN      string  `json:"card_bin"`
+	IPAddress    string  `json:"ip_address"`
+	DeviceID     string  `json:"device_id"`
+	ResponseCode string  `json:"response_code"`
+	AuthCode     string  `json:"auth_code"`
 }
 
 // AnalyticsEvent - for analytics pipeline
 type AnalyticsEvent struct {
-	EventID       string  `json:"event_id"`
-	UserHash      string  `json:"user_hash"`
-	AmountUSD     float64 `json:"amount_usd"`
-	MerchantType  string  `json:"merchant_type"`
-	EventDate     string  `json:"event_date"`
-	DayOfWeek     string  `json:"day_of_week"`
-	IsApproved    bool    `json:"is_approved"`
+	EventID      string  `json:"event_id"`
+	UserHash     string  `json:"user_hash"`
+	AmountUSD    float64 `json:"amount_usd"`
+	MerchantType string  `json:"merchant_type"`
+	EventDate    string  `json:"event_date"`
+	DayOfWeek    string  `json:"day_of_week"`
+	IsApproved   bool    `json:"is_approved"`
 }
 
 // ============================================================
@@ -95,30 +95,30 @@ type AnalyticsEvent struct {
 
 // LegacyEmployee - old HR system
 type LegacyEmployee struct {
-	EmpNo        string `json:"emp_no"`
-	Fname        string `json:"fname"`
-	Lname        string `json:"lname"`
-	Mi           string `json:"mi"`
-	Dept         string `json:"dept"`
-	Title        string `json:"title"`
-	HireDate     string `json:"hire_date"`
-	TermDate     string `json:"term_date"`
-	Salary       int    `json:"salary"`
-	Bonus        int    `json:"bonus"`
-	MgrEmpNo     string `json:"mgr_emp_no"`
-	CostCenter   string `json:"cost_center"`
+	EmpNo      string `json:"emp_no"`
+	Fname      string `json:"fname"`
+	Lname      string `json:"lname"`
+	Mi         string `json:"mi"`
+	Dept       string `json:"dept"`
+	Title      string `json:"title"`
+	HireDate   string `json:"hire_date"`
+	TermDate   string `json:"term_date"`
+	Salary     int    `json:"salary"`
+	Bonus      int    `json:"bonus"`
+	MgrEmpNo   string `json:"mgr_emp_no"`
+	CostCenter string `json:"cost_center"`
 }
 
 // ModernEmployee - new HR platform schema
 type ModernEmployee struct {
-	EmployeeID   string `json:"employee_id"`
-	FullName     string `json:"full_name"`
-	Department   string `json:"department"`
-	JobTitle     string `json:"job_title"`
-	StartDate    string `json:"start_date"`
-	IsActive     bool   `json:"is_active"`
-	TotalComp    int    `json:"total_compensation"`
-	ManagerID    string `json:"manager_id"`
+	EmployeeID string `json:"employee_id"`
+	FullName   string `json:"full_name"`
+	Department string `json:"department"`
+	JobTitle   string `json:"job_title"`
+	StartDate  string `json:"start_date"`
+	IsActive   bool   `json:"is_active"`
+	TotalComp  int    `json:"total_compensation"`
+	ManagerID  string `json:"manager_id"`
 }
 
 func main() {

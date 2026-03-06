@@ -3,7 +3,7 @@ package ops
 import (
 	"context"
 
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 type Person struct {

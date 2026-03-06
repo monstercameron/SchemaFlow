@@ -1,19 +1,19 @@
 package tui
 
 import (
-	"strings"
 	"github.com/charmbracelet/lipgloss"
+	"strings"
 )
 
 // renderModalOverlay creates a proper modal overlay with dimmed background
 func renderModalOverlay(background, modal string, width, height int) string {
 	// Create a semi-transparent overlay effect by dimming the background
 	dimmedBg := dimBackground(background)
-	
+
 	// Split into lines
 	bgLines := strings.Split(dimmedBg, "\n")
 	modalLines := strings.Split(modal, "\n")
-	
+
 	// Calculate modal position (centered)
 	modalHeight := len(modalLines)
 	modalWidth := 0
@@ -23,23 +23,23 @@ func renderModalOverlay(background, modal string, width, height int) string {
 			modalWidth = w
 		}
 	}
-	
+
 	// Calculate starting positions
 	startY := (height - modalHeight) / 2
 	startX := (width - modalWidth) / 2
-	
+
 	if startY < 0 {
 		startY = 0
 	}
 	if startX < 0 {
 		startX = 0
 	}
-	
+
 	// Ensure we have enough background lines
 	for len(bgLines) < height {
 		bgLines = append(bgLines, strings.Repeat(" ", width))
 	}
-	
+
 	// Overlay modal on background
 	for i, modalLine := range modalLines {
 		y := startY + i
@@ -47,45 +47,45 @@ func renderModalOverlay(background, modal string, width, height int) string {
 			// Get the background line
 			bgLine := bgLines[y]
 			bgRunes := []rune(bgLine)
-			
+
 			// Pad background line if needed
 			for len(bgRunes) < width {
 				bgRunes = append(bgRunes, ' ')
 			}
-			
+
 			// Calculate the actual width of the modal line
 			modalRunes := []rune(modalLine)
 			modalLineWidth := lipgloss.Width(modalLine)
-			
+
 			// Replace the center portion with the modal line
 			if startX < len(bgRunes) {
 				// Create the new line with modal content
 				newLine := make([]rune, 0, width)
-				
+
 				// Add left padding (dimmed background)
 				if startX > 0 {
 					newLine = append(newLine, bgRunes[:startX]...)
 				}
-				
+
 				// Add modal content
 				newLine = append(newLine, modalRunes...)
-				
+
 				// Add right padding (dimmed background)
 				endX := startX + modalLineWidth
 				if endX < len(bgRunes) {
 					newLine = append(newLine, bgRunes[endX:]...)
 				}
-				
+
 				bgLines[y] = string(newLine)
 			}
 		}
 	}
-	
+
 	// Trim to height
 	if len(bgLines) > height {
 		bgLines = bgLines[:height]
 	}
-	
+
 	return strings.Join(bgLines, "\n")
 }
 
@@ -94,9 +94,9 @@ func dimBackground(content string) string {
 	// Apply a subtle dimming by using muted colors
 	lines := strings.Split(content, "\n")
 	dimmedLines := make([]string, len(lines))
-	
+
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#4a4a4a"))
-	
+
 	for i, line := range lines {
 		// Preserve empty lines
 		if strings.TrimSpace(line) == "" {
@@ -107,7 +107,7 @@ func dimBackground(content string) string {
 			dimmedLines[i] = dimStyle.Render(stripANSI(line))
 		}
 	}
-	
+
 	return strings.Join(dimmedLines, "\n")
 }
 
@@ -116,7 +116,7 @@ func stripANSI(str string) string {
 	// Simple ANSI stripping - removes color codes
 	result := ""
 	inEscape := false
-	
+
 	for _, r := range str {
 		if r == '\x1b' {
 			inEscape = true
@@ -128,7 +128,7 @@ func stripANSI(str string) string {
 			result += string(r)
 		}
 	}
-	
+
 	return result
 }
 
@@ -142,9 +142,9 @@ func createModalBox(title, content string, width int, borderColor lipgloss.Color
 		Padding(0, 2).
 		Width(width - 4).
 		Align(lipgloss.Center)
-	
+
 	header := headerStyle.Render(title)
-	
+
 	// Create modal box
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
@@ -153,7 +153,7 @@ func createModalBox(title, content string, width int, borderColor lipgloss.Color
 		Padding(1, 2).
 		Width(width).
 		MaxWidth(width)
-	
+
 	// Combine header and content
 	fullContent := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -161,6 +161,6 @@ func createModalBox(title, content string, width int, borderColor lipgloss.Color
 		"",
 		content,
 	)
-	
+
 	return modalStyle.Render(fullContent)
 }

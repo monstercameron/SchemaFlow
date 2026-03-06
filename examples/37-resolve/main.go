@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	schemaflow "github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // loadEnv loads environment variables from .env files
@@ -100,20 +100,20 @@ func main() {
 		{
 			CustomerID:  "CUST-5521",
 			Name:        "John A. Smith",
-			Email:       "jsmith@work.com", // Work email - conflict!
-			Phone:       "(555) 123-4567",  // Same number, different format
+			Email:       "jsmith@work.com",                   // Work email - conflict!
+			Phone:       "(555) 123-4567",                    // Same number, different format
 			Address:     "123 Main Street, Boston, MA 02101", // More complete
-			LastContact: "2024-01-20", // More recent
+			LastContact: "2024-01-20",                        // More recent
 			Status:      "active",
 		},
 		{
 			CustomerID:  "CUST-5521",
 			Name:        "John Smith",
 			Email:       "john.smith@email.com",
-			Phone:       "",               // Missing phone
+			Phone:       "",                        // Missing phone
 			Address:     "456 Oak Ave, Boston, MA", // OLD address!
-			LastContact: "2023-12-01",     // Old contact date
-			Status:      "inactive",       // Status conflict!
+			LastContact: "2023-12-01",              // Old contact date
+			Status:      "inactive",                // Status conflict!
 		},
 	}
 
@@ -220,9 +220,9 @@ func main() {
 			EmployeeID: "EMP-1234",
 			FullName:   "Sarah M. Johnson",
 			Email:      "s.johnson@company.com", // Short email variant
-			Department: "Platform Engineering", // Reorg! More specific dept
-			Title:      "Staff Engineer", // Promotion!
-			Manager:    "Michael Chen", // Same manager, full name
+			Department: "Platform Engineering",  // Reorg! More specific dept
+			Title:      "Staff Engineer",        // Promotion!
+			Manager:    "Michael Chen",          // Same manager, full name
 		},
 		{
 			EmployeeID: "EMP-1234",
@@ -230,7 +230,7 @@ func main() {
 			Email:      "sarah.johnson@company.com",
 			Department: "Engineering",
 			Title:      "Software Engineer", // OLD title
-			Manager:    "", // Missing manager
+			Manager:    "",                  // Missing manager
 		},
 	}
 

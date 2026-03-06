@@ -3,7 +3,7 @@ package schemaflow
 import (
 	"context"
 
-	"github.com/monstercameron/SchemaFlow/internal/ops"
+	"github.com/monstercameron/schemaflow/internal/ops"
 )
 
 // CommonOptions captures operation-wide defaults shared across request builders.

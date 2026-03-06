@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/monstercameron/SchemaFlow/internal/config"
+	"github.com/monstercameron/schemaflow/internal/config"
 )
 
 type testMetricSink struct {

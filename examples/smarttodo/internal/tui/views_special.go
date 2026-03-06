@@ -16,22 +16,22 @@ func (m Model) splashViewRender() string {
 			Foreground(primaryColor).
 			Bold(true).
 			MarginBottom(2)
-		
+
 		welcomeStyle := lipgloss.NewStyle().
 			Foreground(secondaryColor).
 			MarginBottom(2)
-		
+
 		featuresStyle := lipgloss.NewStyle().
 			Foreground(mutedColor).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(primaryColor).
 			Padding(1, 3)
-		
+
 		instructionStyle := lipgloss.NewStyle().
 			Foreground(primaryColor).
 			Bold(true).
 			MarginTop(2)
-		
+
 		content := lipgloss.JoinVertical(
 			lipgloss.Center,
 			titleStyle.Render("Smart Todo"),
@@ -47,13 +47,13 @@ func (m Model) splashViewRender() string {
 			"",
 			instructionStyle.Render("Press Enter to get started"),
 		)
-		
+
 		// Add decorative border
 		modalStyle := lipgloss.NewStyle().
 			Border(lipgloss.DoubleBorder()).
 			BorderForeground(primaryColor).
 			Padding(2, 4)
-		
+
 		return lipgloss.Place(
 			m.width,
 			m.height,
@@ -62,32 +62,32 @@ func (m Model) splashViewRender() string {
 			modalStyle.Render(content),
 		)
 	}
-	
+
 	// Returning user splash
 	titleStyle := lipgloss.NewStyle().
 		Foreground(primaryColor).
 		Bold(true).
 		MarginBottom(2)
-	
+
 	greetingStyle := lipgloss.NewStyle().
 		Foreground(secondaryColor).
 		MarginBottom(1)
-	
+
 	dateStyle := lipgloss.NewStyle().
 		Foreground(mutedColor).
 		MarginBottom(2)
-	
+
 	statsStyle := lipgloss.NewStyle().
 		Foreground(successColor).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(successColor).
 		Padding(1, 3)
-	
+
 	// Calculate stats for today
 	completedToday := 0
 	pendingCount := 0
 	streakDays := 7 // Placeholder
-	
+
 	for _, todo := range m.todos {
 		if todo.Completed && todo.CreatedAt.Day() == time.Now().Day() {
 			completedToday++
@@ -96,7 +96,7 @@ func (m Model) splashViewRender() string {
 			pendingCount++
 		}
 	}
-	
+
 	// Due today count
 	dueTodayCount := 0
 	for _, todo := range m.todos {
@@ -104,7 +104,7 @@ func (m Model) splashViewRender() string {
 			dueTodayCount++
 		}
 	}
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Center,
 		titleStyle.Render(fmt.Sprintf("Welcome back, %s", m.userName)),
@@ -122,13 +122,13 @@ func (m Model) splashViewRender() string {
 		"",
 		lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render("Press Enter to continue"),
 	)
-	
+
 	// Add decorative border
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
 		BorderForeground(primaryColor).
 		Padding(2, 4)
-	
+
 	return lipgloss.Place(
 		m.width,
 		m.height,
@@ -144,23 +144,23 @@ func (m Model) setupViewRender() string {
 		Bold(true).
 		MarginBottom(2).
 		Render("Smart Todo Setup")
-	
+
 	var prompt string
 	if m.userName == "" {
 		prompt = "What's your name?"
 	} else {
 		prompt = fmt.Sprintf("Hi %s! What would you like to call your todo list?", m.userName)
 	}
-	
+
 	promptStyle := lipgloss.NewStyle().
 		Foreground(secondaryColor).
 		MarginBottom(1).
 		Render(prompt)
-	
+
 	inputBox := borderStyle.Render(m.setupInput.View())
-	
+
 	helpText := blurredStyle.Render("Press Enter to continue")
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Center,
 		title,
@@ -168,16 +168,16 @@ func (m Model) setupViewRender() string {
 		inputBox,
 		helpText,
 	)
-	
+
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }
 
 func (m Model) closingViewRender() string {
 	// Create a beautiful closing animation (frame animation removed for cleaner look)
-	
+
 	// Progress bar for closing
 	progressBar := m.renderProgressBar(m.closingProgress)
-	
+
 	// Goodbye messages
 	messages := []string{
 		"Saving your progress...",
@@ -186,13 +186,13 @@ func (m Model) closingViewRender() string {
 		"Almost done...",
 		"Goodbye! 👋",
 	}
-	
+
 	messageIdx := m.closingProgress / 20
 	if messageIdx >= len(messages) {
 		messageIdx = len(messages) - 1
 	}
 	currentMessage := messages[messageIdx]
-	
+
 	// Stats summary
 	completedToday := 0
 	pendingCount := 0
@@ -203,17 +203,17 @@ func (m Model) closingViewRender() string {
 			pendingCount++
 		}
 	}
-	
+
 	// Build the closing screen
 	titleStyle := lipgloss.NewStyle().
 		Foreground(primaryColor).
 		Bold(true).
 		MarginBottom(2)
-		
+
 	messageStyle := lipgloss.NewStyle().
 		Foreground(secondaryColor).
 		MarginBottom(1)
-		
+
 	statsStyle := lipgloss.NewStyle().
 		Foreground(mutedColor).
 		Border(lipgloss.RoundedBorder()).
@@ -221,7 +221,7 @@ func (m Model) closingViewRender() string {
 		Padding(1, 2).
 		MarginTop(2).
 		MarginBottom(2)
-	
+
 	stats := fmt.Sprintf(`Today's Summary:
   ✅ Completed: %d tasks
   ⏳ Remaining: %d tasks
@@ -231,7 +231,7 @@ func (m Model) closingViewRender() string {
 		pendingCount,
 		m.userName,
 	)
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Center,
 		titleStyle.Render("Smart Todo"),
@@ -239,7 +239,7 @@ func (m Model) closingViewRender() string {
 		progressBar,
 		statsStyle.Render(stats),
 	)
-	
+
 	return lipgloss.Place(
 		m.width,
 		m.height,
@@ -256,11 +256,11 @@ func (m Model) statsViewRender() string {
 		BorderForeground(primaryColor).
 		Padding(0, 2).
 		Width(50)
-	
+
 	title := headerStyle.Render(
 		lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render("Smart Todo • Statistics"),
 	)
-	
+
 	stats := []string{
 		focusedStyle.Render("Task Statistics"),
 		"",
@@ -274,19 +274,19 @@ func (m Model) statsViewRender() string {
 		fmt.Sprintf("🟢 Low: %d", m.stats["low"]),
 		"",
 	}
-	
+
 	if m.stats["overdue"] > 0 {
 		stats = append(stats, lipgloss.NewStyle().Foreground(errorColor).Render(fmt.Sprintf("⚠️ OVERDUE: %d tasks", m.stats["overdue"])))
 	}
-	
+
 	completionRate := 0
 	if m.stats["total"] > 0 {
 		completionRate = (m.stats["completed"] * 100) / m.stats["total"]
 	}
-	
+
 	stats = append(stats, "", focusedStyle.Render("Completion Rate"))
 	stats = append(stats, m.renderProgressBar(completionRate))
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
@@ -294,8 +294,6 @@ func (m Model) statsViewRender() string {
 		"",
 		helpStyle.Render("Press Esc to go back"),
 	)
-	
+
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }
-
-

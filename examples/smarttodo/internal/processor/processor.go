@@ -6,7 +6,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/schemaflow"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/database"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/models"
 )

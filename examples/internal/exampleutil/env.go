@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	schemaflow "github.com/monstercameron/schemaflow"
 )
 
 // Bootstrap initializes examples from the process environment and an optional nearby .env file.

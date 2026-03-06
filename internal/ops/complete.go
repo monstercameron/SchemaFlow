@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/llm"
-	"github.com/monstercameron/SchemaFlow/internal/telemetry"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/llm"
+	"github.com/monstercameron/schemaflow/internal/telemetry"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // CompleteResult contains the completion result and metadata
@@ -312,13 +312,13 @@ func estimateCompletionConfidence(completed, original string) float64 {
 
 // CompleteFieldResult contains the result of completing a field in a struct
 type CompleteFieldResult[T any] struct {
-	Data          T              `json:"data"`           // The struct with the completed field
-	Field         string         `json:"field"`          // The field that was completed
-	Original      string         `json:"original"`       // Original field value
-	Completed     string         `json:"completed"`      // Completed field value
-	Length        int            `json:"length"`         // Characters added
-	Confidence    float64        `json:"confidence"`     // Confidence score (0.0-1.0)
-	Metadata      map[string]any `json:"metadata"`       // Additional metadata
+	Data       T              `json:"data"`       // The struct with the completed field
+	Field      string         `json:"field"`      // The field that was completed
+	Original   string         `json:"original"`   // Original field value
+	Completed  string         `json:"completed"`  // Completed field value
+	Length     int            `json:"length"`     // Characters added
+	Confidence float64        `json:"confidence"` // Confidence score (0.0-1.0)
+	Metadata   map[string]any `json:"metadata"`   // Additional metadata
 }
 
 // CompleteFieldOptions extends CompleteOptions with field-specific settings
@@ -468,7 +468,7 @@ func buildStructContext(val reflect.Value, excludeField string) []string {
 		}
 
 		fieldVal := val.Field(i)
-		
+
 		// Only include exported string fields with content
 		if !field.IsExported() {
 			continue

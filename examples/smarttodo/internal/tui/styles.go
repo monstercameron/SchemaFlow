@@ -75,4 +75,3 @@ func getEffortEmoji(effort string) string {
 	}
 	return "🔸"
 }
-

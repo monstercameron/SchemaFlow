@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	schemaflow "github.com/monstercameron/SchemaFlow"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	schemaflow "github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // loadEnv loads environment variables from .env files
@@ -51,18 +51,18 @@ type Customer360 struct {
 
 // InvestmentReport - composed from multiple research sources
 type InvestmentReport struct {
-	Ticker        string  `json:"ticker"`
-	CompanyName   string  `json:"company_name"`
-	Sector        string  `json:"sector"`
-	CurrentPrice  float64 `json:"current_price"`
-	TargetPrice   float64 `json:"target_price"`
-	Rating        string  `json:"rating"`
-	MarketCap     float64 `json:"market_cap_billions"`
-	PE            float64 `json:"pe_ratio"`
-	Revenue       float64 `json:"revenue_billions"`
-	GrowthRate    float64 `json:"yoy_growth_pct"`
-	Thesis        string  `json:"investment_thesis"`
-	Risks         string  `json:"key_risks"`
+	Ticker       string  `json:"ticker"`
+	CompanyName  string  `json:"company_name"`
+	Sector       string  `json:"sector"`
+	CurrentPrice float64 `json:"current_price"`
+	TargetPrice  float64 `json:"target_price"`
+	Rating       string  `json:"rating"`
+	MarketCap    float64 `json:"market_cap_billions"`
+	PE           float64 `json:"pe_ratio"`
+	Revenue      float64 `json:"revenue_billions"`
+	GrowthRate   float64 `json:"yoy_growth_pct"`
+	Thesis       string  `json:"investment_thesis"`
+	Risks        string  `json:"key_risks"`
 }
 
 // ============================================================
@@ -71,18 +71,18 @@ type InvestmentReport struct {
 
 // ProductCatalog - assembled from multiple systems
 type ProductCatalog struct {
-	SKU            string   `json:"sku"`
-	Name           string   `json:"name"`
-	Description    string   `json:"description"`
-	Category       string   `json:"category"`
-	Price          float64  `json:"price"`
-	Cost           float64  `json:"cost"`
-	Margin         float64  `json:"margin_pct"`
-	StockLevel     int      `json:"stock_level"`
-	Warehouse      string   `json:"warehouse"`
-	Supplier       string   `json:"supplier"`
-	LeadTimeDays   int      `json:"lead_time_days"`
-	Tags           []string `json:"tags"`
+	SKU          string   `json:"sku"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Category     string   `json:"category"`
+	Price        float64  `json:"price"`
+	Cost         float64  `json:"cost"`
+	Margin       float64  `json:"margin_pct"`
+	StockLevel   int      `json:"stock_level"`
+	Warehouse    string   `json:"warehouse"`
+	Supplier     string   `json:"supplier"`
+	LeadTimeDays int      `json:"lead_time_days"`
+	Tags         []string `json:"tags"`
 }
 
 func main() {
@@ -113,9 +113,9 @@ func main() {
 
 	// From e-commerce/orders system
 	ordersData := map[string]any{
-		"customer_id":    "CUST-88421",
-		"total_spend":    12450.00,
-		"order_count":    47,
+		"customer_id":     "CUST-88421",
+		"total_spend":     12450.00,
+		"order_count":     47,
 		"avg_order_value": 264.89,
 	}
 
@@ -187,11 +187,11 @@ func main() {
 
 	// From financial statements
 	financials := map[string]any{
-		"ticker":          "NVDA",
-		"sector":          "Technology",
+		"ticker":           "NVDA",
+		"sector":           "Technology",
 		"revenue_billions": 60.9,
-		"yoy_growth_pct":  122.0,
-		"pe_ratio":        65.5,
+		"yoy_growth_pct":   122.0,
+		"pe_ratio":         65.5,
 	}
 
 	investParts := []any{marketData, analystReport, financials}

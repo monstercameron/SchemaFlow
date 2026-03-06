@@ -9,7 +9,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/schemaflow"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/database"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/localization"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/models"

@@ -4,22 +4,22 @@ import "github.com/charmbracelet/bubbles/key"
 
 // Key bindings
 type keyMap struct {
-	Up       key.Binding
-	Down     key.Binding
-	Enter    key.Binding
-	Add      key.Binding
-	Delete   key.Binding
-	Edit     key.Binding
-	Complete key.Binding
-	Suggest  key.Binding
-	Stats    key.Binding
-	Detail   key.Binding
-	Back     key.Binding
-	Quit     key.Binding
-	Help     key.Binding
+	Up         key.Binding
+	Down       key.Binding
+	Enter      key.Binding
+	Add        key.Binding
+	Delete     key.Binding
+	Edit       key.Binding
+	Complete   key.Binding
+	Suggest    key.Binding
+	Stats      key.Binding
+	Detail     key.Binding
+	Back       key.Binding
+	Quit       key.Binding
+	Help       key.Binding
 	Prioritize key.Binding
-	Calendar key.Binding
-	UpdateKey key.Binding
+	Calendar   key.Binding
+	UpdateKey  key.Binding
 }
 
 func (k keyMap) ShortHelp() []key.Binding {

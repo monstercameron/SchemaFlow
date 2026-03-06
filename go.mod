@@ -1,4 +1,4 @@
-module github.com/monstercameron/SchemaFlow
+module github.com/monstercameron/schemaflow
 
 go 1.24.0
 
@@ -44,3 +44,4 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.40.1 // indirect
 )
+

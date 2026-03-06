@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/config"
-	"github.com/monstercameron/SchemaFlow/internal/llm"
-	"github.com/monstercameron/SchemaFlow/internal/logger"
-	"github.com/monstercameron/SchemaFlow/internal/types"
-	"github.com/monstercameron/SchemaFlow/internal/utils"
-	"github.com/monstercameron/SchemaFlow/pricing"
-	"github.com/monstercameron/SchemaFlow/telemetry"
+	"github.com/monstercameron/schemaflow/internal/config"
+	"github.com/monstercameron/schemaflow/internal/llm"
+	"github.com/monstercameron/schemaflow/internal/logger"
+	"github.com/monstercameron/schemaflow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/utils"
+	"github.com/monstercameron/schemaflow/pricing"
+	"github.com/monstercameron/schemaflow/telemetry"
 )
 
 var defaultProvider llm.Provider

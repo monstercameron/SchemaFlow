@@ -27,15 +27,15 @@ import (
 	"os"
 	"strings"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	schemaflow "github.com/monstercameron/schemaflow"
 )
 
 // Resume represents structured resume data (input type)
 type Resume struct {
-	Name       string   `json:"name"`       // Expected: "Jane Developer"
-	Email      string   `json:"email"`      // Expected: "jane.dev@email.com"
-	Phone      string   `json:"phone"`      // Expected: "+1-555-0123"
-	Skills     []string `json:"skills"`     // Expected: ["Go", "Python", "JavaScript", ...]
+	Name       string   `json:"name"`   // Expected: "Jane Developer"
+	Email      string   `json:"email"`  // Expected: "jane.dev@email.com"
+	Phone      string   `json:"phone"`  // Expected: "+1-555-0123"
+	Skills     []string `json:"skills"` // Expected: ["Go", "Python", "JavaScript", ...]
 	Experience []struct {
 		Company  string `json:"company"`  // Expected: "Tech Corp"
 		Position string `json:"position"` // Expected: "Senior Engineer"

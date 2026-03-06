@@ -1311,4 +1311,3 @@ func (m Model) View() string {
 		return m.listViewRender()
 	}
 }
-

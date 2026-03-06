@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 var (

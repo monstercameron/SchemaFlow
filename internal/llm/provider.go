@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/types"
 	openai "github.com/sashabaranov/go-openai"
 )
 

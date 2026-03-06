@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	schemaflow "github.com/monstercameron/schemaflow"
 )
 
 // Localization handles dynamic translation of UI strings

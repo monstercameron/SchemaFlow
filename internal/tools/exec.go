@@ -111,10 +111,10 @@ var RunCodeTool = &Tool{
 
 // EmbedTool generates text embeddings (stub - requires embedding model)
 var EmbedTool = &Tool{
-	Name:        "embed",
-	Description: "Generate text embeddings (stub - requires OpenAI or similar API)",
-	Category:    CategoryAI,
-	IsStub:      true,
+	Name:         "embed",
+	Description:  "Generate text embeddings (stub - requires OpenAI or similar API)",
+	Category:     CategoryAI,
+	IsStub:       true,
 	RequiresAuth: true,
 	Parameters: ObjectSchema(map[string]ParameterSchema{
 		"text":  StringParam("Text to embed"),
@@ -132,10 +132,10 @@ var EmbedTool = &Tool{
 
 // SimilarityTool calculates text similarity (stub)
 var SimilarityTool = &Tool{
-	Name:        "similarity",
-	Description: "Calculate semantic similarity between texts (stub - requires embeddings)",
-	Category:    CategoryAI,
-	IsStub:      true,
+	Name:         "similarity",
+	Description:  "Calculate semantic similarity between texts (stub - requires embeddings)",
+	Category:     CategoryAI,
+	IsStub:       true,
 	RequiresAuth: true,
 	Parameters: ObjectSchema(map[string]ParameterSchema{
 		"text1": StringParam("First text"),
@@ -151,10 +151,10 @@ var SimilarityTool = &Tool{
 
 // SemanticSearchTool performs semantic search (stub)
 var SemanticSearchTool = &Tool{
-	Name:        "semantic_search",
-	Description: "Search documents by semantic meaning (stub - requires vector database)",
-	Category:    CategoryAI,
-	IsStub:      true,
+	Name:         "semantic_search",
+	Description:  "Search documents by semantic meaning (stub - requires vector database)",
+	Category:     CategoryAI,
+	IsStub:       true,
 	RequiresAuth: true,
 	Parameters: ObjectSchema(map[string]ParameterSchema{
 		"query":     StringParam("Search query"),
@@ -173,10 +173,10 @@ var SemanticSearchTool = &Tool{
 
 // ClassifyTool classifies text into categories (stub)
 var ClassifyTool = &Tool{
-	Name:        "classify",
-	Description: "Classify text into predefined categories (stub - requires LLM)",
-	Category:    CategoryAI,
-	IsStub:      true,
+	Name:         "classify",
+	Description:  "Classify text into predefined categories (stub - requires LLM)",
+	Category:     CategoryAI,
+	IsStub:       true,
 	RequiresAuth: true,
 	Parameters: ObjectSchema(map[string]ParameterSchema{
 		"text":       StringParam("Text to classify"),
@@ -194,10 +194,10 @@ var ClassifyTool = &Tool{
 
 // SentimentTool analyzes text sentiment (stub)
 var SentimentTool = &Tool{
-	Name:        "sentiment",
-	Description: "Analyze text sentiment (stub - requires sentiment model or LLM)",
-	Category:    CategoryAI,
-	IsStub:      true,
+	Name:         "sentiment",
+	Description:  "Analyze text sentiment (stub - requires sentiment model or LLM)",
+	Category:     CategoryAI,
+	IsStub:       true,
 	RequiresAuth: true,
 	Parameters: ObjectSchema(map[string]ParameterSchema{
 		"text": StringParam("Text to analyze"),
@@ -214,15 +214,15 @@ var SentimentTool = &Tool{
 
 // TranslateTool translates text (stub)
 var TranslateTool = &Tool{
-	Name:        "translate",
-	Description: "Translate text between languages (stub - requires translation API)",
-	Category:    CategoryAI,
-	IsStub:      true,
+	Name:         "translate",
+	Description:  "Translate text between languages (stub - requires translation API)",
+	Category:     CategoryAI,
+	IsStub:       true,
 	RequiresAuth: true,
 	Parameters: ObjectSchema(map[string]ParameterSchema{
-		"text":   StringParam("Text to translate"),
-		"from":   StringParam("Source language code"),
-		"to":     StringParam("Target language code"),
+		"text": StringParam("Text to translate"),
+		"from": StringParam("Source language code"),
+		"to":   StringParam("Target language code"),
 	}, []string{"text", "to"}),
 	Execute: func(ctx context.Context, params map[string]any) (Result, error) {
 		text, _ := params["text"].(string)

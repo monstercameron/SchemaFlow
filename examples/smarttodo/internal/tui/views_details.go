@@ -20,7 +20,7 @@ func (m Model) detailViewRender() string {
 		BorderForeground(primaryColor).
 		Padding(0, 2).
 		Width(60)
-	
+
 	title := headerStyle.Render(
 		lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(fmt.Sprintf("Task Details • %s", todo.Title)),
 	)
@@ -30,11 +30,11 @@ func (m Model) detailViewRender() string {
 
 	// Description
 	if todo.Description != "" {
-		details = append(details, fmt.Sprintf("%s\n%s", 
+		details = append(details, fmt.Sprintf("%s\n%s",
 			focusedStyle.Render("Description:"),
 			todo.Description))
 	}
-	
+
 	// Tasks/Subtasks
 	if len(todo.Tasks) > 0 {
 		completedCount := 0
@@ -43,7 +43,7 @@ func (m Model) detailViewRender() string {
 				completedCount++
 			}
 		}
-		
+
 		progressBar := m.renderProgressBar((completedCount * 100) / len(todo.Tasks))
 		tasksStr := fmt.Sprintf("%s (%d/%d)\n%s\n",
 			focusedStyle.Render("Tasks:"),
@@ -51,7 +51,7 @@ func (m Model) detailViewRender() string {
 			len(todo.Tasks),
 			progressBar,
 		)
-		
+
 		for i, task := range todo.Tasks {
 			checkbox := "☐"
 			taskStyle := lipgloss.NewStyle()
@@ -61,7 +61,7 @@ func (m Model) detailViewRender() string {
 			}
 			tasksStr += fmt.Sprintf("  %d. %s %s\n", i+1, checkbox, taskStyle.Render(task.Text))
 		}
-		
+
 		details = append(details, tasksStr)
 	}
 

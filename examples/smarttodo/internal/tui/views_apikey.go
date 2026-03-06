@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/schemaflow"
 )
 
 // apiKeyViewRender renders the API key setup view

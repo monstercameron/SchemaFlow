@@ -30,7 +30,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 	var itemStyle lipgloss.Style
 	var textStyle lipgloss.Style
-	
+
 	// Apply styles based on completion status
 	if i.todo.Completed {
 		// Completed items are dimmed
@@ -39,7 +39,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	} else {
 		textStyle = lipgloss.NewStyle()
 	}
-	
+
 	if index == m.Index() {
 		// Selected item - highlight with background and border
 		itemStyle = lipgloss.NewStyle().
@@ -62,7 +62,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	if i.todo.Completed {
 		str = formatCompletedText(str, true)
 	}
-	
+
 	fullContent := textStyle.Render(str)
 	if desc != "" {
 		fullContent += "\n" + textStyle.Render(desc)

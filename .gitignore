@@ -32,3 +32,5 @@ coverage.txt
 # Temporary files
 *.tmp
 *.temp
+tmp_live_smoke/
+.tmp/

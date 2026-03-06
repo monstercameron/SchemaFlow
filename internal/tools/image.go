@@ -11,10 +11,10 @@ import (
 
 // VisionTool analyzes images using AI vision (stub - requires AI vision API)
 var VisionTool = &Tool{
-	Name:        "vision",
-	Description: "Analyze images using AI vision (stub - requires OpenAI/Claude vision API)",
-	Category:    CategoryVision,
-	IsStub:      true,
+	Name:         "vision",
+	Description:  "Analyze images using AI vision (stub - requires OpenAI/Claude vision API)",
+	Category:     CategoryVision,
+	IsStub:       true,
 	RequiresAuth: true,
 	Parameters: ObjectSchema(map[string]ParameterSchema{
 		"image":  StringParam("Image URL or base64-encoded image"),
@@ -104,10 +104,10 @@ var ImageResizeTool = &Tool{
 	Category:    CategoryVision,
 	IsStub:      true,
 	Parameters: ObjectSchema(map[string]ParameterSchema{
-		"input":  StringParam("Input image path"),
-		"output": StringParam("Output image path"),
-		"width":  NumberParam("Target width in pixels"),
-		"height": NumberParam("Target height in pixels"),
+		"input":       StringParam("Input image path"),
+		"output":      StringParam("Output image path"),
+		"width":       NumberParam("Target width in pixels"),
+		"height":      NumberParam("Target height in pixels"),
 		"keep_aspect": BoolParam("Maintain aspect ratio"),
 	}, []string{"input", "width"}),
 	Execute: func(ctx context.Context, params map[string]any) (Result, error) {

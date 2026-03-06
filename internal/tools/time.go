@@ -63,16 +63,16 @@ func executeNow(ctx context.Context, params map[string]any) (Result, error) {
 	}
 
 	return NewResultWithMeta(formatted, map[string]any{
-		"unix":      now.Unix(),
-		"timezone":  loc.String(),
-		"weekday":   now.Weekday().String(),
-		"year":      now.Year(),
-		"month":     int(now.Month()),
-		"day":       now.Day(),
-		"hour":      now.Hour(),
-		"minute":    now.Minute(),
-		"second":    now.Second(),
-		"is_dst":    isDST(now),
+		"unix":     now.Unix(),
+		"timezone": loc.String(),
+		"weekday":  now.Weekday().String(),
+		"year":     now.Year(),
+		"month":    int(now.Month()),
+		"day":      now.Day(),
+		"hour":     now.Hour(),
+		"minute":   now.Minute(),
+		"second":   now.Second(),
+		"is_dst":   isDST(now),
 	}), nil
 }
 
@@ -82,7 +82,7 @@ func isDST(t time.Time) bool {
 	_, janOffset := jan.Zone()
 	_, julOffset := jul.Zone()
 	_, nowOffset := t.Zone()
-	
+
 	if janOffset == julOffset {
 		return false
 	}

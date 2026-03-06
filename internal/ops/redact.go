@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/monstercameron/SchemaFlow/internal/logger"
-	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/schemaflow/internal/logger"
+	"github.com/monstercameron/schemaflow/internal/types"
 )
 
 // RedactResult contains detailed information about redaction operations

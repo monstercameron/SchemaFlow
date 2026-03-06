@@ -166,7 +166,7 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/monstercameron/SchemaFlow/internal/tools"
+    "github.com/monstercameron/schemaflow/internal/tools"
 )
 
 func main() {
@@ -224,3 +224,4 @@ To implement these stubs, you can:
 1. Fork the repository
 2. Add your API integration in the corresponding tool file
 3. Set the `IsStub` flag to `false`
+
