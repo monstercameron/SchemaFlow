@@ -628,3 +628,101 @@ func TestProviderTimeout(t *testing.T) {
 		}
 	})
 }
+
+func TestOpenAICompatibleProvider(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer compat-key" {
+			t.Fatalf("expected bearer auth header, got %q", got)
+		}
+		if got := r.Header.Get("X-Test-Header"); got != "enabled" {
+			t.Fatalf("expected custom header, got %q", got)
+		}
+		if !strings.Contains(r.URL.Path, "/chat/completions") {
+			t.Fatalf("expected chat completions path, got %s", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{
+			"id":"chatcmpl_123",
+			"model":"deepseek-chat",
+			"choices":[{"index":0,"message":{"role":"assistant","content":"compatible response"},"finish_reason":"stop"}],
+			"usage":{"prompt_tokens":12,"completion_tokens":8,"total_tokens":20}
+		}`))
+	}))
+	defer server.Close()
+
+	provider, err := NewOpenAICompatibleProvider("deepseek", ProviderConfig{
+		APIKey:  "compat-key",
+		BaseURL: server.URL + "/v1",
+		ExtraHeaders: map[string]string{
+			"X-Test-Header": "enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to create compatible provider: %v", err)
+	}
+
+	resp, err := provider.Complete(context.Background(), CompletionRequest{
+		Model:          "deepseek-chat",
+		SystemPrompt:   "Be terse",
+		UserPrompt:     "Hello",
+		ResponseFormat: "json",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if provider.Name() != "deepseek" {
+		t.Fatalf("expected provider name deepseek, got %s", provider.Name())
+	}
+	if resp.Content != "compatible response" {
+		t.Fatalf("expected compatible response, got %q", resp.Content)
+	}
+}
+
+func TestProviderRegistryFactories(t *testing.T) {
+	registry := NewProviderRegistry()
+
+	err := registry.RegisterFactory("custom", func(config ProviderConfig) (Provider, error) {
+		provider, _ := NewLocalProvider(config)
+		return provider, nil
+	})
+	if err != nil {
+		t.Fatalf("failed to register factory: %v", err)
+	}
+
+	provider, err := registry.Create("custom", ProviderConfig{MaxRetries: 2})
+	if err != nil {
+		t.Fatalf("failed to create provider from factory: %v", err)
+	}
+	if provider.Name() != "local" {
+		t.Fatalf("expected local provider from factory, got %s", provider.Name())
+	}
+
+	names := registry.List()
+	if len(names) != 1 || names[0] != "custom" {
+		t.Fatalf("expected custom in provider list, got %v", names)
+	}
+
+	if err := registry.SetDefault("custom"); err != nil {
+		t.Fatalf("failed to set default factory provider: %v", err)
+	}
+}
+
+func TestVendorFactoriesRegistered(t *testing.T) {
+	expected := []string{"anthropic", "cerebras", "deepseek", "local", "mock", "openai", "openrouter", "qwen", "zai"}
+	names := ListProviders()
+
+	for _, want := range expected {
+		found := false
+		for _, got := range names {
+			if got == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected built-in provider %s to be registered, got %v", want, names)
+		}
+	}
+}

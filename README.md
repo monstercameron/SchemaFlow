@@ -1,274 +1,336 @@
-# SchemaFlow 🔄
+# SchemaFlow
 
-**Production-ready LLM operations with Go's type safety**
+Production-ready LLM operations with Go's type safety.
 
-## What 🎯
+SchemaFlow turns LLM calls into typed Go operations. You define structs and use semantic operations like `Extract`, `Transform`, `Generate`, `Rank`, `Enrich`, or `Verify` without manually juggling prompts, JSON parsing, retries, logging, and cost tracking in each call site.
 
-SchemaFlow brings **compile-time type safety** to LLM operations. No more parsing JSON strings and hoping for the best. Define your types, and let the LLM fill them.
+## What It Is
 
-```go
-// Your types, LLM's data extraction
-type Person struct {
-    Name string `json:"name"`
-    Age  int    `json:"age"`
-}
+SchemaFlow is a Go library, not an app.
 
-person, err := schemaflow.Extract[Person]("John is 30")
-// person is typed, validated, and ready to use
+It gives you:
+- typed LLM operations with generics
+- fluent request builders for common workflows
+- provider abstraction for OpenAI, Anthropic, OpenRouter, Cerebras, and local mocks
+- built-in retries, timeouts, structured logging, tracing, metrics, and cost tracking
+
+## Quick Start
+
+```bash
+go get github.com/monstercameron/SchemaFlow
 ```
 
-## ⚠️ Critical Rule: Never Put LLMs in Loops!
-
-**LLMs have 1-3 second latency. A loop with 100 items = 5 minutes. Batch processing = 5 seconds.**
-
-```go
-// ❌ NEVER DO THIS - Will take 30+ minutes for 1000 items
-for _, item := range items {
-    result, _ := schemaflow.Extract[Data](item)  // 2 sec * 1000 = 33 minutes!
-}
-
-// ✅ ALWAYS DO THIS - Takes 30 seconds for 1000 items
-results := schemaflow.ExtractBatch[Data](
-    schemaflow.Batch().WithMode(schemaflow.ParallelMode),
-    items,
-)
+```bash
+export SCHEMAFLOW_API_KEY=your-api-key
 ```
-
-**Think collections, not iterations. LLMs are high-latency, high-throughput systems.**
-
-## Why It Makes Sense 💡
-
-**LLMs are unstructured → Go is structured → SchemaFlow is the bridge**
-
-- **🔒 Type Safety First**: Generics ensure compile-time safety for all LLM operations
-- **🚀 Production Ready**: Built-in retries, timeouts, error handling, and circuit breakers
-- **💰 Cost Optimized**: Batch operations reduce API costs by up to 90%
-- **🔄 Provider Agnostic**: Swap between OpenAI, Anthropic, or local models with one line
-- **📊 Observable**: OpenTelemetry tracing, structured logging, and cost tracking built-in
-- **🎮 Testable**: Mock provider for unit tests - no API calls needed
-
-## The Batch-First Mental Model 🧠
-
-**Traditional code thinking doesn't work with LLMs. Here's why:**
-
-### ❌ The Loop Trap (What NOT to Do)
-```go
-// THIS IS AN ANTI-PATTERN - Each iteration = 2-3 seconds
-for _, customer := range customers {
-    enriched, _ := schemaflow.Extract[EnrichedCustomer](customer)
-    // 1000 customers × 2 seconds = 33 minutes of waiting!
-}
-```
-
-### ✅ The Batch Solution (What TO DO)
-```go
-// Process ALL customers in one go
-enriched := schemaflow.ExtractBatch[EnrichedCustomer](
-    schemaflow.Batch().WithMode(schemaflow.MergedMode),
-    customers,
-)
-// 1000 customers = 30 seconds total!
-```
-
-### Why This Matters
-
-1. **LLMs are high-latency systems** (1-3 seconds per call)
-2. **LLMs are high-throughput systems** (can process many items at once)
-3. **API pricing favors batching** (same cost for 1 or 50 items in merged mode)
-
-**Think of LLMs like a cargo ship**: It takes the same time to cross the ocean whether carrying 1 container or 1000. Don't send 1000 ships when 1 will do!
-
-## LLM Operations 📦
-
-### Core Operations
-- **`Extract[T]`** - Pull structured data from unstructured text
-- **`Transform[T,U]`** - Convert between types using LLM intelligence
-- **`Generate[T]`** - Create new data from templates and examples
-
-### Text Operations
-- **`Summarize`** - Intelligent compression to target length
-- **`Rewrite`** - Change tone, style, or format
-- **`Translate`** - Any language pair
-- **`Expand`** - Add detail and context
-
-### Analysis Operations
-- **`Classify`** - Categorize into predefined groups
-- **`Score`** - Rate based on custom criteria
-- **`Compare`** - Semantic comparison of objects
-- **`Similar`** - Find similar items by meaning
-
-### Collection Operations
-- **`Choose`** - Pick best option with reasoning
-- **`Filter`** - Smart filtering with natural language
-- **`Sort`** - Multi-criteria intelligent sorting
-
-### Advanced Operations
-- **`Validate`** - Check data against business rules
-- **`Format`** - Transform to any output format
-- **`Merge`** - Intelligently combine data sources
-- **`Question`** - Ask questions about your data
-- **`Deduplicate`** - Semantic deduplication
-
-### Control Flow
-- **`Decide`** - Multi-way decisions with LLM fallback
-- **`Guard`** - Conditional execution with suggestions
-- **`Workflow`** - Multi-step orchestration
-- **`StateMachine`** - Type-safe state management
-
-## Simple Example 🎬
 
 ```go
 package main
 
 import (
     "fmt"
-    "github.com/monstercameron/schemaflow"
+
+    schemaflow "github.com/monstercameron/SchemaFlow"
 )
+
+type Person struct {
+    Name string `json:"name"`
+    Age  int    `json:"age"`
+}
 
 func main() {
-    schemaflow.Init("your-api-key")
-    
-    // Extract structured data from messy text
-    type Product struct {
-        Name     string  `json:"name"`
-        Price    float64 `json:"price"`
-        InStock  bool    `json:"in_stock"`
+    schemaflow.Init("")
+
+    person, err := schemaflow.Extracting[Person]("John is 30 years old").Run()
+    if err != nil {
+        panic(err)
     }
-    
-    product, _ := schemaflow.Extract[Product](
-        "We have the iPhone 15 Pro available for $999 in stock!",
-    )
-    
-    fmt.Printf("%+v\n", product)
-    // Output: {Name:iPhone 15 Pro Price:999 InStock:true}
+
+    fmt.Printf("%+v\n", person)
 }
 ```
 
-## Complex Example 🚀
+## Fluent API
+
+New integrations should prefer the fluent builders.
 
 ```go
-// Multi-provider pipeline with cost optimization and observability
-func ProcessOrders(orders []Order) error {
-    // Use different models for different tasks
-    extractClient := schemaflow.NewClient(apiKey).
-        WithProvider("openai").          // GPT-4 for extraction
-        WithDebug(true)
-    
-    validateClient := schemaflow.NewClient(apiKey).
-        WithProvider("anthropic")        // Claude for validation
-    
-    // Cost-optimized batch processing pipeline
-    pipeline := schemaflow.NewPipeline("order-processing").
-        Add("extract", func(ctx context.Context, in any) (any, error) {
-            return schemaflow.ClientExtract[OrderData](extractClient, in)
-        }).
-        Add("validate", func(ctx context.Context, in any) (any, error) {
-            data := in.(OrderData)
-            return schemaflow.ClientValidate(validateClient, data, 
-                "must have valid email, items > 0, total > 0")
-        }).
-        Add("enrich", func(ctx context.Context, in any) (any, error) {
-            // Add steering for specific behavior
-            return schemaflow.Generate[EnrichedOrder](schemaflow.OpOptions{
-                Steering: "Add shipping estimates and tax calculations",
-                Intelligence: schemaflow.Quick,  // Use fast model for simple tasks
-            })
-        })
-    
-    // Process in batches with 90% cost reduction
-    batch := schemaflow.Batch().
-        WithMode(schemaflow.MergedMode).
-        WithBatchSize(50).
-        WithTimeout(5 * time.Minute)
-    
-    results := schemaflow.ProcessBatch(batch, orders, pipeline)
-    
-    // Full observability
-    log.Printf("Processed: %d orders", results.Metadata.Succeeded)
-    log.Printf("Cost: $%.4f", results.Metadata.EstimatedCost)
-    log.Printf("Tokens saved: %d", results.Metadata.TokensSaved)
-    
-    return results.Error
-}
+person, err := schemaflow.Extracting[Person](rawText).
+    Strict().
+    Smart().
+    Steer("Prefer explicit evidence over guesses").
+    Run()
+
+best, err := schemaflow.Choosing(products).
+    By("lowest total cost", "best battery life").
+    Fast().
+    Run()
+
+urgent, err := schemaflow.FilterBy(tasks, "high priority tasks due today")
 ```
 
-## Key Features ⚡
+The original function-based API remains supported:
 
-### 🎯 **Steering**
-Guide LLM behavior without changing code:
 ```go
-result, _ := schemaflow.Extract[Data](input, schemaflow.OpOptions{
-    Steering: "Focus on financial data only",
+person, err := schemaflow.Extract[Person](rawText, schemaflow.NewExtractOptions())
+summary, err := schemaflow.Summarize(text, schemaflow.NewSummarizeOptions())
+result, err := schemaflow.Verify(claim, schemaflow.NewVerifyOptions())
+```
+
+## Core Operations
+
+### Structured data
+- `Extract[T]`
+- `Transform[T, U]`
+- `Generate[T]`
+- `Infer[T]`
+- `Parse[T]`
+- `Enrich[T, U]`
+- `Normalize[T]`
+- `Project[T, U]`
+- `Pivot[T, U]`
+
+### Text and analysis
+- `Summarize`
+- `Rewrite`
+- `Translate`
+- `Expand`
+- `Classify`
+- `Score`
+- `Compare`
+- `Similar`
+- `Critique`
+- `Explain`
+- `Verify`
+- `Question`
+
+### Collections and decisions
+- `Choose`
+- `Filter`
+- `Sort`
+- `Rank`
+- `Cluster`
+- `SemanticMatch`
+- `MatchOne`
+- `Decide`
+- `Guard`
+- `Resolve`
+- `Negotiate`
+- `Arbitrate`
+
+See [docs/reference/API.md](docs/reference/API.md) for the full surface.
+
+## Reliability Defaults
+
+SchemaFlow now treats the shared LLM path as infrastructure, not a raw provider call.
+
+Built in:
+- request IDs generated automatically when missing
+- provider-level retry policy support
+- default retry budget for transient LLM failures
+- fail-fast behavior for non-retryable request/auth errors
+- validation for empty provider responses
+- predictable timeout handling through context and `SCHEMAFLOW_TIMEOUT`
+
+Retry-related environment variables:
+- `SCHEMAFLOW_LLM_MAX_RETRIES`
+- `SCHEMAFLOW_LLM_RETRY_BACKOFF`
+- `SCHEMAFLOW_TIMEOUT`
+
+Client-level tuning:
+
+```go
+client := schemaflow.NewClient(apiKey).
+    WithRetries(3).
+    WithRetryBackoff(500 * time.Millisecond).
+    WithTimeout(30 * time.Second).
+    WithProvider("openai")
+```
+
+## Logging And Review
+
+SchemaFlow ships with structured logging backed by `slog`.
+
+Features:
+- text or JSON output
+- level control
+- optional file sink
+- in-memory capture for review
+- request-correlated LLM lifecycle logs
+
+Environment variables:
+- `SCHEMAFLOW_LOG_LEVEL=debug|info|warn|error`
+- `SCHEMAFLOW_LOG_FORMAT=text|json`
+- `SCHEMAFLOW_LOG_FILE=/path/to/schemaflow.log`
+- `SCHEMAFLOW_LOG_BUFFER=1000`
+- `SCHEMAFLOW_LOG_SOURCE=true`
+- `SCHEMAFLOW_LOG_DISABLE_STDERR=true`
+- `SCHEMAFLOW_LOG_DISABLE_CAPTURE=true`
+
+Programmatic configuration:
+
+```go
+schemaflow.ConfigureLogging(schemaflow.LoggerConfig{
+    Level:      schemaflow.LogDebug,
+    Format:     "json",
+    FilePath:   "schemaflow.log",
+    BufferSize: 2000,
+    Capture:    true,
 })
+
+entries := schemaflow.GetLogEntries()
+fmt.Println("captured logs:", len(entries))
+schemaflow.ResetLogEntries()
 ```
 
-### 🔄 **Provider Layer**
-Mix and match models for optimal performance/cost:
+## Metrics And Cost Tracking
+
+SchemaFlow records:
+- request counts
+- request durations
+- prompt/completion/total tokens
+- prompt/completion/total cost in USD
+- cached and reasoning token/cost fields when providers return them
+
+Low-cardinality metrics are recorded through the telemetry registry, while exact per-request cost history is tracked separately for review and reporting.
+
+Examples:
+
 ```go
-smartClient := client.WithProvider("openai")      // Complex tasks
-fastClient := client.WithProvider("anthropic")    // Quick responses  
-testClient := client.WithProvider("local")        // Free testing
-```
+import (
+    "fmt"
+    "time"
 
-### 📊 **Observability**
-Built-in logging, tracing, and cost tracking:
-```go
-// OpenTelemetry tracing
-ctx = otel.Start(ctx, "process-batch")
-
-// Structured logging
-logger.Info("Processing", "items", len(items), "cost", batch.EstimatedCost())
-
-// Cost tracking
-fmt.Printf("This operation cost: $%.4f\n", result.Metadata.Cost)
-```
-
-### 🚀 **Batch Processing**
-```go
-// Process 1000 items with 10 parallel workers
-results := schemaflow.ExtractBatch[Invoice](
-    schemaflow.Batch().WithMode(schemaflow.ParallelMode).WithConcurrency(10),
-    invoices,
+    "github.com/monstercameron/SchemaFlow/pricing"
 )
 
-// Or merge into 20 API calls instead of 1000 (95% cost reduction)
-results := schemaflow.ExtractBatch[Invoice](
-    schemaflow.Batch().WithMode(schemaflow.MergedMode).WithBatchSize(50),
-    invoices,
+summary := pricing.GetCostSummary(time.Now().Add(-1*time.Hour), map[string]string{
+    "provider": "openai",
+})
+fmt.Printf("requests=%d avg_cost=%.6f avg_tokens=%.1f\n",
+    summary.RequestCount,
+    summary.AverageCostPerRequest,
+    summary.AverageTokensPerRequest,
 )
+
+record, ok := pricing.GetRequestCost("req-123")
+if ok {
+    fmt.Printf("request cost: %.6f total tokens: %d\n",
+        record.Cost.TotalCost,
+        record.TokenUsage.TotalTokens,
+    )
+}
 ```
 
-## Get Started 🏃
-
-```bash
-go get github.com/monstercameron/schemaflow
-```
+## Provider Layer
 
 ```go
-// Set your API key
-export SCHEMAFLOW_API_KEY=your-api-key
+client := schemaflow.NewClient(apiKey)
 
-// Initialize and go
-schemaflow.Init(os.Getenv("SCHEMAFLOW_API_KEY"))
+client.WithProvider("openai")
+client.WithProvider("anthropic")
+client.WithProvider("openrouter")
+client.WithProvider("cerebras")
+client.WithProvider("deepseek")
+client.WithProvider("qwen")
+client.WithProvider("zai")
+client.WithProvider("local")
 ```
 
-## Why SchemaFlow? 🤔
+Built-in provider notes:
+- `anthropic` uses Anthropic's native Messages API
+- `deepseek`, `qwen`, `zai`, `openrouter`, and `cerebras` use the shared OpenAI-compatible provider path
+- provider-specific env vars are supported, for example `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, `ZAI_API_KEY`, `ANTHROPIC_API_KEY`
 
-1. **It's Just Go** - No DSL, no magic strings, just strongly-typed Go
-2. **Battle-Tested** - Production-ready with retries, timeouts, and error handling
-3. **Cost Efficient** - Batch processing saves 90% on API costs
-4. **Observable** - Know what's happening with built-in logging and tracing
-5. **Testable** - Mock provider means no API calls in tests
-6. **Flexible** - Swap providers, add steering, customize everything
+Custom provider integration:
 
-## Ready to Make Your LLMs Type-Safe? 🎯
+```go
+schemaflow.RegisterProviderFactory("myvendor", func(cfg schemaflow.ProviderConfig) (schemaflow.Provider, error) {
+    cfg.BaseURL = "https://vendor.example.com/v1"
+    return schemaflow.NewOpenAICompatibleProvider("myvendor", cfg)
+})
 
-Stop wrestling with JSON strings. Start writing type-safe LLM operations.
+client := schemaflow.NewClient("").
+    WithProviderConfig("myvendor", schemaflow.ProviderConfig{
+        APIKey: "vendor-key",
+    })
+```
 
-[**📚 Full API Documentation →**](docs/reference/API.md)
+Default OpenAI intelligence mapping:
+- `Smart -> gpt-5.4`
+- `Fast -> gpt-5-mini`
+- `Quick -> gpt-5-nano`
 
-[**⭐ Star on GitHub**](https://github.com/monstercameron/schemaflow) | [**🐛 Report Issues**](https://github.com/monstercameron/schemaflow/issues) | [**💬 Discussions**](https://github.com/monstercameron/schemaflow/discussions)
+You can override model mapping with:
+- `SCHEMAFLOW_MODEL`
+- `SCHEMAFLOW_MODEL_SMART`
+- `SCHEMAFLOW_MODEL_FAST`
+- `SCHEMAFLOW_MODEL_QUICK`
 
----
+## Example Workflow
 
-*Built for Go developers who want LLMs without the chaos* 🚀
+```go
+package main
+
+import (
+    "fmt"
+
+    schemaflow "github.com/monstercameron/SchemaFlow"
+)
+
+type Ticket struct {
+    Title    string `json:"title"`
+    Priority string `json:"priority"`
+    Team     string `json:"team"`
+}
+
+func ProcessTickets(raw []string) error {
+    parsed := make([]Ticket, 0, len(raw))
+    for _, item := range raw {
+        ticket, err := schemaflow.Extracting[Ticket](item).
+            Fast().
+            Steer("Infer priority conservatively").
+            Run()
+        if err != nil {
+            return err
+        }
+        parsed = append(parsed, ticket)
+    }
+
+    urgent, err := schemaflow.FilterBy(parsed, "priority is high and team is platform")
+    if err != nil {
+        return err
+    }
+
+    ordered, err := schemaflow.Sorting(urgent).
+        By("most urgent operational risk first").
+        Smart().
+        Run()
+    if err != nil {
+        return err
+    }
+
+    fmt.Println("tickets to handle:", len(ordered))
+    return nil
+}
+```
+
+## Notes
+
+- Prefer collection-aware APIs when they exist; avoid spraying raw LLM calls through business logic.
+- Use the local provider for tests and smoke runs, not as proof of semantic correctness.
+- Use JSON output only for operations that truly need structure; SchemaFlow now infers and enforces that automatically for shared LLM calls.
+
+## Documentation
+
+- [API reference](docs/reference/API.md)
+- [`examples/`](examples/)
+- [Production backlog](docs/notes/PRODUCTION_TODO.md)
+
+## Why SchemaFlow
+
+1. It is just Go with generics, not a separate DSL.
+2. It centralizes reliability concerns instead of scattering prompt and parse glue.
+3. It gives you typed outputs for semantic operations.
+4. It includes observability and cost analysis primitives out of the box.
+5. It keeps provider choice and intelligence mapping configurable.

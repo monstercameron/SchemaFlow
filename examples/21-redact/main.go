@@ -10,52 +10,25 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
 
-	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/examples/internal/exampleutil"
 )
 
-// loadEnv loads environment variables from .env file
-func loadEnv() {
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		envPath := filepath.Join(dir, ".env")
-		if _, err := os.Stat(envPath); err == nil {
-			if err := godotenv.Load(envPath); err != nil {
-				log.Fatal("Error loading .env file")
-			}
-			return
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	log.Fatal(".env file not found")
-}
-
 func main() {
-	loadEnv()
 
-	fmt.Println("🔒 RedactLLM Example - AI-Powered Sensitive Data Masking")
+	fmt.Println("?? RedactLLM Example - AI-Powered Sensitive Data Masking")
 	fmt.Println("=" + string(make([]byte, 60)))
 
 	// Initialize SchemaFlow
-	if err := schemaflow.InitWithEnv(); err != nil {
+	if err := exampleutil.Bootstrap(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
 
 	// Example 1: Basic sensitive data detection
-	fmt.Println("\n1️⃣  Basic PII Detection")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n1??  Basic PII Detection")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	text1 := "Contact John Smith at john.smith@company.com or call 555-123-4567 for support."
 	fmt.Printf("   Input:  %q\n", text1)
@@ -67,18 +40,18 @@ func main() {
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
 		fmt.Printf("   Output: %q\n", result1.Text)
 		fmt.Println("   Spans detected:")
 		for _, span := range result1.Spans {
-			fmt.Printf("      [%d:%d] %s → %q\n", span.Start, span.End, span.Category, span.Original)
+			fmt.Printf("      [%d:%d] %s ? %q\n", span.Start, span.End, span.Category, span.Original)
 		}
 	}
 
 	// Example 2: Partial reveal (show first/last characters)
-	fmt.Println("\n2️⃣  Partial Reveal - Show First 2 and Last 2 Characters")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n2??  Partial Reveal - Show First 2 and Last 2 Characters")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	text2 := "My email is alice.johnson@example.org and SSN is 123-45-6789."
 	fmt.Printf("   Input:  %q\n", text2)
@@ -92,18 +65,18 @@ func main() {
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
 		fmt.Printf("   Output: %q\n", result2.Text)
 		fmt.Println("   Spans detected:")
 		for _, span := range result2.Spans {
-			fmt.Printf("      [%d:%d] %s → %q\n", span.Start, span.End, span.Category, span.Original)
+			fmt.Printf("      [%d:%d] %s ? %q\n", span.Start, span.End, span.Category, span.Original)
 		}
 	}
 
 	// Example 3: Custom mask character
-	fmt.Println("\n3️⃣  Custom Mask Character (█)")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n3??  Custom Mask Character (|)")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	text3 := "Credit card: 4532-1234-5678-9012, expires 12/25."
 	fmt.Printf("   Input:  %q\n", text3)
@@ -111,22 +84,22 @@ func main() {
 	result3, err := schemaflow.RedactLLM(text3,
 		schemaflow.NewRedactLLMOptions().
 			WithCategories([]string{"credit_card"}).
-			WithMaskChar('█').
+			WithMaskChar('|').
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
 		fmt.Printf("   Output: %q\n", result3.Text)
 		fmt.Println("   Spans detected:")
 		for _, span := range result3.Spans {
-			fmt.Printf("      [%d:%d] %s → %q\n", span.Start, span.End, span.Category, span.Original)
+			fmt.Printf("      [%d:%d] %s ? %q\n", span.Start, span.End, span.Category, span.Original)
 		}
 	}
 
 	// Example 4: Detect secrets and API keys
-	fmt.Println("\n4️⃣  Detect Secrets and API Keys")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n4??  Detect Secrets and API Keys")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	text4 := "Set API_KEY=sk-abc123xyz789secret and DB_PASSWORD=MyS3cretP@ss!"
 	fmt.Printf("   Input:  %q\n", text4)
@@ -139,18 +112,18 @@ func main() {
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
 		fmt.Printf("   Output: %q\n", result4.Text)
 		fmt.Println("   Spans detected:")
 		for _, span := range result4.Spans {
-			fmt.Printf("      [%d:%d] %s → %q\n", span.Start, span.End, span.Category, span.Original)
+			fmt.Printf("      [%d:%d] %s ? %q\n", span.Start, span.End, span.Category, span.Original)
 		}
 	}
 
 	// Example 5: Mixed content with multiple categories
-	fmt.Println("\n5️⃣  Complex Text with Multiple PII Types")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n5??  Complex Text with Multiple PII Types")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	text5 := `Customer: Bob Wilson
 Email: bob.wilson@gmail.com
@@ -168,7 +141,7 @@ SSN: 987-65-4321`
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
 		fmt.Printf("   Output:\n%s\n", result5.Text)
 		fmt.Printf("\n   Categories found: %v\n", result5.Categories)
@@ -176,8 +149,8 @@ SSN: 987-65-4321`
 	}
 
 	// Example 6: Specific category only
-	fmt.Println("\n6️⃣  Detect Only Email Addresses")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n6??  Detect Only Email Addresses")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	text6 := "Contacts: admin@company.com, support@help.org, John Smith (555-1234)"
 	fmt.Printf("   Input:  %q\n", text6)
@@ -189,15 +162,15 @@ SSN: 987-65-4321`
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
 		fmt.Printf("   Output: %q\n", result6.Text)
 		fmt.Println("   Spans detected:")
 		for _, span := range result6.Spans {
-			fmt.Printf("      [%d:%d] %s → %q\n", span.Start, span.End, span.Category, span.Original)
+			fmt.Printf("      [%d:%d] %s ? %q\n", span.Start, span.End, span.Category, span.Original)
 		}
 	}
 
 	fmt.Println()
-	fmt.Println("✨ Success! Sensitive data detected and masked with LLM intelligence")
+	fmt.Println("? Success! Sensitive data detected and masked with LLM intelligence")
 }

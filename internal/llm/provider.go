@@ -8,8 +8,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/monstercameron/SchemaFlow/internal/types"
@@ -26,6 +28,9 @@ type Provider interface {
 
 	// EstimateCost estimates the cost for a request
 	EstimateCost(req CompletionRequest) float64
+
+	// RetryPolicy returns provider-specific retry settings.
+	RetryPolicy() (maxRetries int, backoff time.Duration)
 }
 
 // CompletionRequest represents a unified request format
@@ -54,12 +59,23 @@ type ProviderConfig struct {
 	OrgID        string
 	Timeout      time.Duration
 	MaxRetries   int
+	RetryBackoff time.Duration
 	Debug        bool
 	ExtraHeaders map[string]string
 }
 
+// ProviderFactory creates a provider from configuration.
+type ProviderFactory func(config ProviderConfig) (Provider, error)
+
 // OpenAIProvider implements Provider for OpenAI
 type OpenAIProvider struct {
+	client *openai.Client
+	config ProviderConfig
+}
+
+// OpenAICompatibleProvider implements Provider for vendors with an OpenAI-compatible chat API.
+type OpenAICompatibleProvider struct {
+	name   string
 	client *openai.Client
 	config ProviderConfig
 }
@@ -70,18 +86,10 @@ func NewOpenAIProvider(config ProviderConfig) (*OpenAIProvider, error) {
 		return nil, fmt.Errorf("OpenAI API key is required")
 	}
 
-	// Create client config
-	clientConfig := openai.DefaultConfig(config.APIKey)
-
-	if config.BaseURL != "" {
-		clientConfig.BaseURL = config.BaseURL
+	client, config, err := newOpenAIClient(config, "")
+	if err != nil {
+		return nil, fmt.Errorf("OpenAI %w", err)
 	}
-
-	if config.OrgID != "" {
-		clientConfig.OrgID = config.OrgID
-	}
-
-	client := openai.NewClientWithConfig(clientConfig)
 
 	return &OpenAIProvider{
 		client: client,
@@ -233,6 +241,11 @@ func (provider *OpenAIProvider) Name() string {
 	return "openai"
 }
 
+// RetryPolicy returns provider retry settings.
+func (provider *OpenAIProvider) RetryPolicy() (int, time.Duration) {
+	return provider.config.MaxRetries, provider.config.RetryBackoff
+}
+
 // EstimateCost estimates the cost for OpenAI
 func (provider *OpenAIProvider) EstimateCost(req CompletionRequest) float64 {
 	inputRate, outputRate := getModelRates("openai", req.Model)
@@ -268,6 +281,56 @@ func reasoningEffort(model string) string {
 		return "none"
 	}
 	return "minimal"
+}
+
+func normalizeProviderName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
+}
+
+func newOpenAIClient(config ProviderConfig, defaultBaseURL string) (*openai.Client, ProviderConfig, error) {
+	if config.APIKey == "" {
+		return nil, config, fmt.Errorf("API key is required")
+	}
+
+	clientConfig := openai.DefaultConfig(config.APIKey)
+
+	baseURL := strings.TrimRight(strings.TrimSpace(config.BaseURL), "/")
+	if baseURL == "" {
+		baseURL = strings.TrimRight(defaultBaseURL, "/")
+	}
+	if baseURL != "" {
+		clientConfig.BaseURL = baseURL
+		config.BaseURL = baseURL
+	}
+
+	if config.OrgID != "" {
+		clientConfig.OrgID = config.OrgID
+	}
+
+	if len(config.ExtraHeaders) > 0 {
+		clientConfig.HTTPClient = &http.Client{
+			Transport: &customTransport{
+				transport: http.DefaultTransport,
+				headers:   config.ExtraHeaders,
+			},
+			Timeout: config.Timeout,
+		}
+	}
+
+	return openai.NewClientWithConfig(clientConfig), config, nil
+}
+
+func newOpenAICompatibleProvider(name string, config ProviderConfig, defaultBaseURL string) (*OpenAICompatibleProvider, error) {
+	client, config, err := newOpenAIClient(config, defaultBaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("%s %w", name, err)
+	}
+
+	return &OpenAICompatibleProvider{
+		name:   normalizeProviderName(name),
+		client: client,
+		config: config,
+	}, nil
 }
 
 // AnthropicProvider implements Provider for Anthropic Claude
@@ -411,6 +474,11 @@ func (provider *AnthropicProvider) Name() string {
 	return "anthropic"
 }
 
+// RetryPolicy returns provider retry settings.
+func (provider *AnthropicProvider) RetryPolicy() (int, time.Duration) {
+	return provider.config.MaxRetries, provider.config.RetryBackoff
+}
+
 // EstimateCost estimates the cost for Anthropic
 func (provider *AnthropicProvider) EstimateCost(req CompletionRequest) float64 {
 	inputRate, outputRate := getModelRates("anthropic", req.Model)
@@ -429,8 +497,7 @@ func (provider *AnthropicProvider) EstimateCost(req CompletionRequest) float64 {
 
 // OpenRouterProvider implements Provider for OpenRouter
 type OpenRouterProvider struct {
-	client *openai.Client
-	config ProviderConfig
+	*OpenAICompatibleProvider
 }
 
 // customTransport is a http.RoundTripper that adds custom headers
@@ -446,46 +513,16 @@ func (t *customTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.transport.RoundTrip(req)
 }
 
-// NewOpenRouterProvider creates a new OpenRouter provider
-func NewOpenRouterProvider(config ProviderConfig) (*OpenRouterProvider, error) {
-	if config.APIKey == "" {
-		return nil, fmt.Errorf("OpenRouter API key is required")
+// NewOpenAICompatibleProvider creates a provider for OpenAI-compatible chat completion APIs.
+func NewOpenAICompatibleProvider(name string, config ProviderConfig) (*OpenAICompatibleProvider, error) {
+	if strings.TrimSpace(config.BaseURL) == "" {
+		return nil, fmt.Errorf("%s base URL is required", name)
 	}
-
-	// Create client config
-	clientConfig := openai.DefaultConfig(config.APIKey)
-
-	// Set OpenRouter base URL
-	if config.BaseURL != "" {
-		clientConfig.BaseURL = config.BaseURL
-	} else {
-		clientConfig.BaseURL = "https://openrouter.ai/api/v1"
-	}
-
-	if config.OrgID != "" {
-		clientConfig.OrgID = config.OrgID
-	}
-
-	// Add custom headers if provided
-	if len(config.ExtraHeaders) > 0 {
-		clientConfig.HTTPClient = &http.Client{
-			Transport: &customTransport{
-				transport: http.DefaultTransport,
-				headers:   config.ExtraHeaders,
-			},
-		}
-	}
-
-	client := openai.NewClientWithConfig(clientConfig)
-
-	return &OpenRouterProvider{
-		client: client,
-		config: config,
-	}, nil
+	return newOpenAICompatibleProvider(name, config, "")
 }
 
-// Complete sends a completion request to OpenRouter
-func (provider *OpenRouterProvider) Complete(ctx context.Context, req CompletionRequest) (CompletionResponse, error) {
+// Complete sends a completion request to an OpenAI-compatible API.
+func (provider *OpenAICompatibleProvider) Complete(ctx context.Context, req CompletionRequest) (CompletionResponse, error) {
 	messages := []openai.ChatCompletionMessage{
 		{
 			Role:    openai.ChatMessageRoleSystem,
@@ -510,7 +547,6 @@ func (provider *OpenRouterProvider) Complete(ctx context.Context, req Completion
 		chatRequest.MaxTokens = req.MaxTokens
 	}
 
-	// OpenRouter supports response_format for some models
 	if req.ResponseFormat == "json" {
 		chatRequest.ResponseFormat = &openai.ChatCompletionResponseFormat{
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
@@ -519,7 +555,7 @@ func (provider *OpenRouterProvider) Complete(ctx context.Context, req Completion
 
 	completion, err := provider.client.CreateChatCompletion(ctx, chatRequest)
 	if err != nil {
-		return CompletionResponse{}, fmt.Errorf("OpenRouter completion failed: %w", err)
+		return CompletionResponse{}, fmt.Errorf("%s completion failed: %w", provider.name, err)
 	}
 
 	if len(completion.Choices) == 0 {
@@ -539,14 +575,19 @@ func (provider *OpenRouterProvider) Complete(ctx context.Context, req Completion
 	}, nil
 }
 
-// Name returns the provider name
-func (provider *OpenRouterProvider) Name() string {
-	return "openrouter"
+// Name returns the provider name.
+func (provider *OpenAICompatibleProvider) Name() string {
+	return provider.name
 }
 
-// EstimateCost estimates the cost for OpenRouter
-func (provider *OpenRouterProvider) EstimateCost(req CompletionRequest) float64 {
-	inputRate, outputRate := getModelRates("openrouter", req.Model)
+// RetryPolicy returns provider retry settings.
+func (provider *OpenAICompatibleProvider) RetryPolicy() (int, time.Duration) {
+	return provider.config.MaxRetries, provider.config.RetryBackoff
+}
+
+// EstimateCost estimates the cost for an OpenAI-compatible provider.
+func (provider *OpenAICompatibleProvider) EstimateCost(req CompletionRequest) float64 {
+	inputRate, outputRate := getModelRates(provider.name, req.Model)
 
 	estimatedPromptTokens := len(req.SystemPrompt+req.UserPrompt) / 4
 	estimatedCompletionTokens := 500
@@ -560,10 +601,21 @@ func (provider *OpenRouterProvider) EstimateCost(req CompletionRequest) float64 
 	return promptCost + completionCost
 }
 
+// NewOpenRouterProvider creates a new OpenRouter provider
+func NewOpenRouterProvider(config ProviderConfig) (*OpenRouterProvider, error) {
+	if config.APIKey == "" {
+		return nil, fmt.Errorf("OpenRouter API key is required")
+	}
+	compatible, err := newOpenAICompatibleProvider("openrouter", config, "https://openrouter.ai/api/v1")
+	if err != nil {
+		return nil, err
+	}
+	return &OpenRouterProvider{OpenAICompatibleProvider: compatible}, nil
+}
+
 // CerebrasProvider implements Provider for Cerebras
 type CerebrasProvider struct {
-	client *openai.Client
-	config ProviderConfig
+	*OpenAICompatibleProvider
 }
 
 // NewCerebrasProvider creates a new Cerebras provider
@@ -571,113 +623,62 @@ func NewCerebrasProvider(config ProviderConfig) (*CerebrasProvider, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("Cerebras API key is required")
 	}
-
-	// Create client config
-	clientConfig := openai.DefaultConfig(config.APIKey)
-
-	// Set Cerebras base URL
-	if config.BaseURL != "" {
-		clientConfig.BaseURL = config.BaseURL
-	} else {
-		clientConfig.BaseURL = "https://api.cerebras.ai/v1"
-	}
-
-	if config.OrgID != "" {
-		clientConfig.OrgID = config.OrgID
-	}
-
-	// Add custom headers if provided
-	if len(config.ExtraHeaders) > 0 {
-		clientConfig.HTTPClient = &http.Client{
-			Transport: &customTransport{
-				transport: http.DefaultTransport,
-				headers:   config.ExtraHeaders,
-			},
-		}
-	}
-
-	client := openai.NewClientWithConfig(clientConfig)
-
-	return &CerebrasProvider{
-		client: client,
-		config: config,
-	}, nil
-}
-
-// Complete sends a completion request to Cerebras
-func (provider *CerebrasProvider) Complete(ctx context.Context, req CompletionRequest) (CompletionResponse, error) {
-	messages := []openai.ChatCompletionMessage{
-		{
-			Role:    openai.ChatMessageRoleSystem,
-			Content: req.SystemPrompt,
-		},
-		{
-			Role:    openai.ChatMessageRoleUser,
-			Content: req.UserPrompt,
-		},
-	}
-
-	chatRequest := openai.ChatCompletionRequest{
-		Model:    req.Model,
-		Messages: messages,
-	}
-
-	if req.Temperature > 0 {
-		chatRequest.Temperature = float32(req.Temperature)
-	}
-
-	if req.MaxTokens > 0 {
-		chatRequest.MaxTokens = req.MaxTokens
-	}
-
-	// Cerebras supports response_format for some models (json_object)
-	if req.ResponseFormat == "json" {
-		chatRequest.ResponseFormat = &openai.ChatCompletionResponseFormat{
-			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
-		}
-	}
-
-	completion, err := provider.client.CreateChatCompletion(ctx, chatRequest)
+	compatible, err := newOpenAICompatibleProvider("cerebras", config, "https://api.cerebras.ai/v1")
 	if err != nil {
-		return CompletionResponse{}, fmt.Errorf("Cerebras completion failed: %w", err)
+		return nil, err
 	}
-
-	if len(completion.Choices) == 0 {
-		return CompletionResponse{}, fmt.Errorf("no completion choices returned")
-	}
-
-	return CompletionResponse{
-		Content:      completion.Choices[0].Message.Content,
-		Provider:     provider.Name(),
-		Model:        completion.Model,
-		FinishReason: string(completion.Choices[0].FinishReason),
-		Usage: types.TokenUsage{
-			PromptTokens:     completion.Usage.PromptTokens,
-			CompletionTokens: completion.Usage.CompletionTokens,
-			TotalTokens:      completion.Usage.TotalTokens,
-		},
-	}, nil
+	return &CerebrasProvider{OpenAICompatibleProvider: compatible}, nil
 }
 
-// Name returns the provider name
-func (provider *CerebrasProvider) Name() string {
-	return "cerebras"
+// DeepSeekProvider implements Provider for DeepSeek's OpenAI-compatible API.
+type DeepSeekProvider struct {
+	*OpenAICompatibleProvider
 }
 
-// EstimateCost estimates the cost for Cerebras
-func (provider *CerebrasProvider) EstimateCost(req CompletionRequest) float64 {
-	inputRate, outputRate := getModelRates("cerebras", req.Model)
-
-	estimatedPromptTokens := len(req.SystemPrompt+req.UserPrompt) / 4
-	estimatedCompletionTokens := 500
-	if req.MaxTokens > 0 {
-		estimatedCompletionTokens = req.MaxTokens
+// NewDeepSeekProvider creates a new DeepSeek provider.
+func NewDeepSeekProvider(config ProviderConfig) (*DeepSeekProvider, error) {
+	if config.APIKey == "" {
+		return nil, fmt.Errorf("DeepSeek API key is required")
 	}
+	compatible, err := newOpenAICompatibleProvider("deepseek", config, "https://api.deepseek.com/v1")
+	if err != nil {
+		return nil, err
+	}
+	return &DeepSeekProvider{OpenAICompatibleProvider: compatible}, nil
+}
 
-	promptCost := float64(estimatedPromptTokens) * inputRate
-	completionCost := float64(estimatedCompletionTokens) * outputRate
+// QwenProvider implements Provider for Qwen via DashScope compatible mode.
+type QwenProvider struct {
+	*OpenAICompatibleProvider
+}
 
-	return promptCost + completionCost
+// NewQwenProvider creates a new Qwen provider.
+func NewQwenProvider(config ProviderConfig) (*QwenProvider, error) {
+	if config.APIKey == "" {
+		return nil, fmt.Errorf("Qwen API key is required")
+	}
+	compatible, err := newOpenAICompatibleProvider("qwen", config, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
+	if err != nil {
+		return nil, err
+	}
+	return &QwenProvider{OpenAICompatibleProvider: compatible}, nil
+}
+
+// ZAIProvider implements Provider for Z.ai's OpenAI-compatible API.
+type ZAIProvider struct {
+	*OpenAICompatibleProvider
+}
+
+// NewZAIProvider creates a new Z.ai provider.
+func NewZAIProvider(config ProviderConfig) (*ZAIProvider, error) {
+	if config.APIKey == "" {
+		return nil, fmt.Errorf("Z.ai API key is required")
+	}
+	compatible, err := newOpenAICompatibleProvider("zai", config, "https://api.z.ai/api/paas/v4")
+	if err != nil {
+		return nil, err
+	}
+	return &ZAIProvider{OpenAICompatibleProvider: compatible}, nil
 }
 
 // LocalProvider implements Provider for local/mock models
@@ -763,6 +764,11 @@ func (provider *LocalProvider) Name() string {
 	return "local"
 }
 
+// RetryPolicy returns provider retry settings.
+func (provider *LocalProvider) RetryPolicy() (int, time.Duration) {
+	return provider.config.MaxRetries, provider.config.RetryBackoff
+}
+
 // EstimateCost returns 0 for local provider
 func (provider *LocalProvider) EstimateCost(req CompletionRequest) float64 {
 	return 0.0
@@ -770,7 +776,9 @@ func (provider *LocalProvider) EstimateCost(req CompletionRequest) float64 {
 
 // ProviderRegistry manages available providers
 type ProviderRegistry struct {
+	mu              sync.RWMutex
 	providers       map[string]Provider
+	factories       map[string]ProviderFactory
 	defaultProvider string
 }
 
@@ -778,13 +786,21 @@ type ProviderRegistry struct {
 func NewProviderRegistry() *ProviderRegistry {
 	return &ProviderRegistry{
 		providers: make(map[string]Provider),
+		factories: make(map[string]ProviderFactory),
 	}
 }
 
 // Register adds a provider to the registry
 func (registry *ProviderRegistry) Register(name string, provider Provider) error {
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+
+	name = normalizeProviderName(name)
 	if provider == nil {
 		return fmt.Errorf("provider cannot be nil")
+	}
+	if name == "" {
+		return fmt.Errorf("provider name cannot be empty")
 	}
 	registry.providers[name] = provider
 	if registry.defaultProvider == "" {
@@ -793,24 +809,64 @@ func (registry *ProviderRegistry) Register(name string, provider Provider) error
 	return nil
 }
 
+// RegisterFactory adds a provider factory to the registry.
+func (registry *ProviderRegistry) RegisterFactory(name string, factory ProviderFactory) error {
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+
+	name = normalizeProviderName(name)
+	if factory == nil {
+		return fmt.Errorf("provider factory cannot be nil")
+	}
+	if name == "" {
+		return fmt.Errorf("provider name cannot be empty")
+	}
+	registry.factories[name] = factory
+	if registry.defaultProvider == "" {
+		registry.defaultProvider = name
+	}
+	return nil
+}
+
 // Get retrieves a provider by name
 func (registry *ProviderRegistry) Get(name string) (Provider, error) {
+	return registry.Create(name, ProviderConfig{})
+}
+
+// Create creates or retrieves a provider by name and configuration.
+func (registry *ProviderRegistry) Create(name string, config ProviderConfig) (Provider, error) {
+	registry.mu.RLock()
+	name = normalizeProviderName(name)
 	if name == "" {
 		name = registry.defaultProvider
 	}
 
 	provider, ok := registry.providers[name]
-	if !ok {
+	factory := registry.factories[name]
+	registry.mu.RUnlock()
+
+	if ok {
+		return provider, nil
+	}
+	if factory == nil {
 		return nil, fmt.Errorf("provider %s not found", name)
 	}
-
-	return provider, nil
+	return factory(config)
 }
 
 // SetDefault sets the default provider
 func (registry *ProviderRegistry) SetDefault(name string) error {
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+
+	name = normalizeProviderName(name)
+	if name == "" {
+		return fmt.Errorf("provider name cannot be empty")
+	}
 	if _, ok := registry.providers[name]; !ok {
-		return fmt.Errorf("provider %s not found", name)
+		if _, ok := registry.factories[name]; !ok {
+			return fmt.Errorf("provider %s not found", name)
+		}
 	}
 	registry.defaultProvider = name
 	return nil
@@ -818,10 +874,19 @@ func (registry *ProviderRegistry) SetDefault(name string) error {
 
 // List returns all registered provider names
 func (registry *ProviderRegistry) List() []string {
-	names := make([]string, 0, len(registry.providers))
+	registry.mu.RLock()
+	defer registry.mu.RUnlock()
+
+	names := make([]string, 0, len(registry.providers)+len(registry.factories))
 	for name := range registry.providers {
 		names = append(names, name)
 	}
+	for name := range registry.factories {
+		if _, exists := registry.providers[name]; !exists {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
 	return names
 }
 
@@ -833,14 +898,53 @@ func RegisterProvider(name string, provider Provider) error {
 	return globalRegistry.Register(name, provider)
 }
 
+// RegisterProviderFactory registers a provider factory globally.
+func RegisterProviderFactory(name string, factory ProviderFactory) error {
+	return globalRegistry.RegisterFactory(name, factory)
+}
+
 // GetProviderFromRegistry gets a provider from the global registry
 func GetProviderFromRegistry(name string) (Provider, error) {
 	return globalRegistry.Get(name)
 }
 
+// CreateProvider creates a provider from the global registry using the supplied configuration.
+func CreateProvider(name string, config ProviderConfig) (Provider, error) {
+	return globalRegistry.Create(name, config)
+}
+
 // SetDefaultProvider sets the global default provider
 func SetDefaultProvider(name string) error {
 	return globalRegistry.SetDefault(name)
+}
+
+// ListProviders returns all globally registered provider names.
+func ListProviders() []string {
+	return globalRegistry.List()
+}
+
+func registerBuiltInProviderFactories() {
+	builtIns := map[string]ProviderFactory{
+		"openai":     func(config ProviderConfig) (Provider, error) { return NewOpenAIProvider(config) },
+		"anthropic":  func(config ProviderConfig) (Provider, error) { return NewAnthropicProvider(config) },
+		"openrouter": func(config ProviderConfig) (Provider, error) { return NewOpenRouterProvider(config) },
+		"cerebras":   func(config ProviderConfig) (Provider, error) { return NewCerebrasProvider(config) },
+		"deepseek":   func(config ProviderConfig) (Provider, error) { return NewDeepSeekProvider(config) },
+		"qwen":       func(config ProviderConfig) (Provider, error) { return NewQwenProvider(config) },
+		"zai":        func(config ProviderConfig) (Provider, error) { return NewZAIProvider(config) },
+		"local":      func(config ProviderConfig) (Provider, error) { return NewLocalProvider(config) },
+		"mock":       func(config ProviderConfig) (Provider, error) { return NewLocalProvider(config) },
+	}
+
+	for name, factory := range builtIns {
+		if err := globalRegistry.RegisterFactory(name, factory); err != nil {
+			panic(fmt.Sprintf("failed to register built-in provider %s: %v", name, err))
+		}
+	}
+}
+
+func init() {
+	registerBuiltInProviderFactories()
 }
 
 // getModelRates returns the input and output cost per token for a given model

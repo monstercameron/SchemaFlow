@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/SchemaFlow/internal/utils"
 )
 
 // BaseOptions defines the common interface for all operation options
@@ -40,6 +41,14 @@ type CommonOptions struct {
 
 	// Internal fields
 	RequestID string
+}
+
+// NewCommonOptions creates reusable default common options.
+func NewCommonOptions() CommonOptions {
+	return CommonOptions{
+		Mode:         types.TransformMode,
+		Intelligence: types.Fast,
+	}
 }
 
 // GetSteering returns the steering prompt
@@ -85,13 +94,17 @@ func (c CommonOptions) Validate() error {
 
 // toOpOptions converts to legacy OpOptions for backward compatibility
 func (c CommonOptions) toOpOptions() types.OpOptions {
+	requestID := c.RequestID
+	if requestID == "" {
+		requestID = utils.GenerateRequestID()
+	}
 	return types.OpOptions{
 		Steering:     c.Steering,
 		Threshold:    c.Threshold,
 		Mode:         c.Mode,
 		Intelligence: c.Intelligence,
 		Context:      c.Context,
-		RequestID:    c.RequestID,
+		RequestID:    requestID,
 	}
 }
 
@@ -122,6 +135,12 @@ func (c CommonOptions) WithIntelligence(intelligence types.Speed) CommonOptions 
 // WithContext sets the context
 func (c CommonOptions) WithContext(ctx context.Context) CommonOptions {
 	c.Context = ctx
+	return c
+}
+
+// WithRequestID sets the request ID for tracing.
+func (c CommonOptions) WithRequestID(requestID string) CommonOptions {
+	c.RequestID = requestID
 	return c
 }
 
@@ -1036,6 +1055,42 @@ func (c ChooseOptions) WithTopN(n int) ChooseOptions {
 	return c
 }
 
+// WithSteering sets the steering prompt.
+func (c ChooseOptions) WithSteering(steering string) ChooseOptions {
+	c.CommonOptions = c.CommonOptions.WithSteering(steering)
+	return c
+}
+
+// WithThreshold sets the confidence threshold.
+func (c ChooseOptions) WithThreshold(threshold float64) ChooseOptions {
+	c.CommonOptions = c.CommonOptions.WithThreshold(threshold)
+	return c
+}
+
+// WithMode sets the reasoning mode.
+func (c ChooseOptions) WithMode(mode types.Mode) ChooseOptions {
+	c.CommonOptions = c.CommonOptions.WithMode(mode)
+	return c
+}
+
+// WithIntelligence sets the intelligence level.
+func (c ChooseOptions) WithIntelligence(intelligence types.Speed) ChooseOptions {
+	c.CommonOptions = c.CommonOptions.WithIntelligence(intelligence)
+	return c
+}
+
+// WithContext sets the context.
+func (c ChooseOptions) WithContext(ctx context.Context) ChooseOptions {
+	c.CommonOptions = c.CommonOptions.WithContext(ctx)
+	return c
+}
+
+// WithRequestID sets the request ID.
+func (c ChooseOptions) WithRequestID(requestID string) ChooseOptions {
+	c.CommonOptions = c.CommonOptions.WithRequestID(requestID)
+	return c
+}
+
 func (c ChooseOptions) toOpOptions() types.OpOptions {
 	return c.CommonOptions.toOpOptions()
 }
@@ -1103,6 +1158,42 @@ func (f FilterOptions) WithMinConfidence(confidence float64) FilterOptions {
 // WithIncludeReasons includes reasons for filtering decisions
 func (f FilterOptions) WithIncludeReasons(include bool) FilterOptions {
 	f.IncludeReasons = include
+	return f
+}
+
+// WithSteering sets the steering prompt.
+func (f FilterOptions) WithSteering(steering string) FilterOptions {
+	f.CommonOptions = f.CommonOptions.WithSteering(steering)
+	return f
+}
+
+// WithThreshold sets the confidence threshold.
+func (f FilterOptions) WithThreshold(threshold float64) FilterOptions {
+	f.CommonOptions = f.CommonOptions.WithThreshold(threshold)
+	return f
+}
+
+// WithMode sets the reasoning mode.
+func (f FilterOptions) WithMode(mode types.Mode) FilterOptions {
+	f.CommonOptions = f.CommonOptions.WithMode(mode)
+	return f
+}
+
+// WithIntelligence sets the intelligence level.
+func (f FilterOptions) WithIntelligence(intelligence types.Speed) FilterOptions {
+	f.CommonOptions = f.CommonOptions.WithIntelligence(intelligence)
+	return f
+}
+
+// WithContext sets the context.
+func (f FilterOptions) WithContext(ctx context.Context) FilterOptions {
+	f.CommonOptions = f.CommonOptions.WithContext(ctx)
+	return f
+}
+
+// WithRequestID sets the request ID.
+func (f FilterOptions) WithRequestID(requestID string) FilterOptions {
+	f.CommonOptions = f.CommonOptions.WithRequestID(requestID)
 	return f
 }
 
@@ -1176,6 +1267,42 @@ func (s SortOptions) WithDirection(direction string) SortOptions {
 // WithSecondaryCriteria sets secondary sort criteria
 func (s SortOptions) WithSecondaryCriteria(criteria []string) SortOptions {
 	s.SecondaryCriteria = criteria
+	return s
+}
+
+// WithSteering sets the steering prompt.
+func (s SortOptions) WithSteering(steering string) SortOptions {
+	s.CommonOptions = s.CommonOptions.WithSteering(steering)
+	return s
+}
+
+// WithThreshold sets the confidence threshold.
+func (s SortOptions) WithThreshold(threshold float64) SortOptions {
+	s.CommonOptions = s.CommonOptions.WithThreshold(threshold)
+	return s
+}
+
+// WithMode sets the reasoning mode.
+func (s SortOptions) WithMode(mode types.Mode) SortOptions {
+	s.CommonOptions = s.CommonOptions.WithMode(mode)
+	return s
+}
+
+// WithIntelligence sets the intelligence level.
+func (s SortOptions) WithIntelligence(intelligence types.Speed) SortOptions {
+	s.CommonOptions = s.CommonOptions.WithIntelligence(intelligence)
+	return s
+}
+
+// WithContext sets the context.
+func (s SortOptions) WithContext(ctx context.Context) SortOptions {
+	s.CommonOptions = s.CommonOptions.WithContext(ctx)
+	return s
+}
+
+// WithRequestID sets the request ID.
+func (s SortOptions) WithRequestID(requestID string) SortOptions {
+	s.CommonOptions = s.CommonOptions.WithRequestID(requestID)
 	return s
 }
 

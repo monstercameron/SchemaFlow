@@ -11,37 +11,12 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/examples/internal/exampleutil"
 )
-
-// loadEnv loads environment variables from .env file
-func loadEnv() {
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		envPath := filepath.Join(dir, ".env")
-		if _, err := os.Stat(envPath); err == nil {
-			if err := godotenv.Load(envPath); err != nil {
-				log.Fatal("Error loading .env file")
-			}
-			return
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	log.Fatal(".env file not found")
-}
 
 // UserMessage represents incoming user content to check
 type UserMessage struct {
@@ -60,15 +35,14 @@ type GuardResult struct {
 }
 
 func main() {
-	loadEnv()
 
 	// Initialize SchemaFlow with Fast intelligence (Cerebras)
-	if err := schemaflow.InitWithEnv(); err != nil {
+	if err := exampleutil.Bootstrap(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("🛡️ Guard Example - LLM Content Safety Checking")
+	fmt.Println("??? Guard Example - LLM Content Safety Checking")
 	fmt.Println("=" + string(make([]byte, 60)))
 
 	// Safety policies to check against
@@ -80,7 +54,7 @@ func main() {
 		"No harassment or personal attacks",
 	}
 
-	fmt.Println("\n📋 Safety Policies:")
+	fmt.Println("\n?? Safety Policies:")
 	for i, policy := range policies {
 		fmt.Printf("   %d. %s\n", i+1, policy)
 	}
@@ -116,20 +90,20 @@ func main() {
 		fmt.Printf("   Content: %q\n", truncate(msg.Content, 60))
 
 		fmt.Println()
-		fmt.Println("   🛡️ Running LLM safety check...")
+		fmt.Println("   ??? Running LLM safety check...")
 
 		// Use LLM to check content against policies
 		result, err := checkContentSafety(msg, policies)
 		if err != nil {
-			fmt.Printf("   ❌ Error: %v\n", err)
+			fmt.Printf("   ? Error: %v\n", err)
 			continue
 		}
 
 		fmt.Println()
 		if result.IsSafe {
-			fmt.Printf("   ✅ SAFE - %s\n", result.Action)
+			fmt.Printf("   ? SAFE - %s\n", result.Action)
 		} else {
-			fmt.Printf("   ❌ UNSAFE - %s\n", result.Action)
+			fmt.Printf("   ? UNSAFE - %s\n", result.Action)
 		}
 		fmt.Printf("   Risk Level: %s\n", result.RiskLevel)
 		fmt.Printf("   Explanation: %s\n", result.Explanation)
@@ -137,18 +111,18 @@ func main() {
 		if len(result.Violations) > 0 {
 			fmt.Println("   Violations:")
 			for _, v := range result.Violations {
-				fmt.Printf("      • %s\n", v)
+				fmt.Printf("      â€¢ %s\n", v)
 			}
 		}
 	}
 
 	fmt.Println()
-	fmt.Println("📊 Guard Summary:")
+	fmt.Println("?? Guard Summary:")
 	fmt.Println("   Total messages checked: 4")
 	fmt.Println("   Safe (allowed): 2")
 	fmt.Println("   Unsafe (blocked): 2")
 	fmt.Println()
-	fmt.Println("✨ Success! LLM content safety checks complete")
+	fmt.Println("? Success! LLM content safety checks complete")
 }
 
 // checkContentSafety uses LLM to evaluate content against safety policies

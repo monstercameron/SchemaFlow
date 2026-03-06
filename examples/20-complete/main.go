@@ -10,36 +10,10 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
 
-	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/examples/internal/exampleutil"
 )
-
-// loadEnv loads environment variables from .env file
-func loadEnv() {
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		envPath := filepath.Join(dir, ".env")
-		if _, err := os.Stat(envPath); err == nil {
-			if err := godotenv.Load(envPath); err != nil {
-				log.Fatal("Error loading .env file")
-			}
-			return
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	log.Fatal(".env file not found")
-}
 
 // BlogPost represents a blog post with partial content
 type BlogPost struct {
@@ -59,20 +33,19 @@ type ProductDescription struct {
 }
 
 func main() {
-	loadEnv()
 
-	fmt.Println("✍️  Complete Example - Finish Partial Text with LLM")
+	fmt.Println("??  Complete Example - Finish Partial Text with LLM")
 	fmt.Println("=" + string(make([]byte, 60)))
 
 	// Initialize SchemaFlow with Fast intelligence (Cerebras)
-	if err := schemaflow.InitWithEnv(); err != nil {
+	if err := exampleutil.Bootstrap(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
 
 	// Example 1: Basic sentence completion
-	fmt.Println("\n1️⃣  Basic Sentence Completion")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n1??  Basic Sentence Completion")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	partial1 := "The benefits of using type-safe LLM operations include"
 	fmt.Printf("   Input: %q\n", partial1)
@@ -83,9 +56,9 @@ func main() {
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
-		fmt.Println("   ✅ CompleteResult:")
+		fmt.Println("   ? CompleteResult:")
 		fmt.Printf("      Text:       %s\n", result1.Text)
 		fmt.Printf("      Original:   %q\n", result1.Original)
 		fmt.Printf("      Length:     %d characters added\n", result1.Length)
@@ -93,8 +66,8 @@ func main() {
 	}
 
 	// Example 2: Code completion
-	fmt.Println("\n2️⃣  Code Completion")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n2??  Code Completion")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	partial2 := "func validateEmail(email string) bool {\n    // Check if email is valid\n    "
 	fmt.Printf("   Input:\n   %s\n", partial2)
@@ -106,17 +79,17 @@ func main() {
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
-		fmt.Println("   ✅ CompleteResult:")
+		fmt.Println("   ? CompleteResult:")
 		fmt.Printf("      Text:\n%s\n", result2.Text)
 		fmt.Printf("      Length:     %d characters added\n", result2.Length)
 		fmt.Printf("      Confidence: %.2f\n", result2.Confidence)
 	}
 
 	// Example 3: Email completion with context
-	fmt.Println("\n3️⃣  Email Completion with Context")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n3??  Email Completion with Context")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	partial3 := "Dear Customer Support,\n\nI am writing to request a refund because"
 	context3 := []string{
@@ -134,17 +107,17 @@ func main() {
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
-		fmt.Println("   ✅ CompleteResult:")
+		fmt.Println("   ? CompleteResult:")
 		fmt.Printf("      Text:       %s\n", result3.Text)
 		fmt.Printf("      Length:     %d characters added\n", result3.Length)
 		fmt.Printf("      Confidence: %.2f\n", result3.Confidence)
 	}
 
 	// Example 4: Creative story completion
-	fmt.Println("\n4️⃣  Creative Story Completion (Higher Temperature)")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n4??  Creative Story Completion (Higher Temperature)")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	partial4 := "The old lighthouse keeper had a secret that nobody in the village knew about. Every night at midnight, he would"
 	fmt.Printf("   Input: %q\n", partial4)
@@ -156,9 +129,9 @@ func main() {
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
-		fmt.Println("   ✅ CompleteResult:")
+		fmt.Println("   ? CompleteResult:")
 		fmt.Printf("      Text:       %s\n", result4.Text)
 		fmt.Printf("      Length:     %d characters added\n", result4.Length)
 		fmt.Printf("      Confidence: %.2f\n", result4.Confidence)
@@ -168,12 +141,12 @@ func main() {
 	// CompleteField Examples - Complete a field in a struct
 	// ========================================
 	fmt.Println("\n" + "=" + string(make([]byte, 60)))
-	fmt.Println("📦 CompleteField - Complete a Struct Field")
+	fmt.Println("?? CompleteField - Complete a Struct Field")
 	fmt.Println("=" + string(make([]byte, 60)))
 
 	// Example 5: Complete a blog post body using other fields as context
-	fmt.Println("\n5️⃣  Complete Blog Post Body (using Title, Author, Tags as context)")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n5??  Complete Blog Post Body (using Title, Author, Tags as context)")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	blogPost := BlogPost{
 		Title:    "The Future of Renewable Energy",
@@ -196,20 +169,20 @@ func main() {
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
-		fmt.Println("\n   ✅ CompleteFieldResult:")
+		fmt.Println("\n   ? CompleteFieldResult:")
 		fmt.Printf("      Field:      %s\n", result5.Field)
 		fmt.Printf("      Original:   %q\n", result5.Original)
 		fmt.Printf("      Completed:  %s\n", result5.Completed)
 		fmt.Printf("      Length:     %d characters added\n", result5.Length)
 		fmt.Printf("      Confidence: %.2f\n", result5.Confidence)
-		fmt.Printf("\n   📄 Updated BlogPost.Body:\n      %s\n", result5.Data.Body)
+		fmt.Printf("\n   ?? Updated BlogPost.Body:\n      %s\n", result5.Data.Body)
 	}
 
 	// Example 6: Complete a product description
-	fmt.Println("\n6️⃣  Complete Product Description (using Name, Price, Category as context)")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n6??  Complete Product Description (using Name, Price, Category as context)")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	product := ProductDescription{
 		Name:        "EcoSmart Wireless Earbuds",
@@ -231,17 +204,17 @@ func main() {
 			WithIntelligence(schemaflow.Fast))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
-		fmt.Println("\n   ✅ CompleteFieldResult:")
+		fmt.Println("\n   ? CompleteFieldResult:")
 		fmt.Printf("      Field:      %s\n", result6.Field)
 		fmt.Printf("      Original:   %q\n", result6.Original)
 		fmt.Printf("      Completed:  %s\n", result6.Completed)
 		fmt.Printf("      Length:     %d characters added\n", result6.Length)
 		fmt.Printf("      Confidence: %.2f\n", result6.Confidence)
-		fmt.Printf("\n   📄 Updated ProductDescription.Description:\n      %s\n", result6.Data.Description)
+		fmt.Printf("\n   ?? Updated ProductDescription.Description:\n      %s\n", result6.Data.Description)
 	}
 
 	fmt.Println()
-	fmt.Println("✨ Success! Partial text and struct fields completed with LLM intelligence")
+	fmt.Println("? Success! Partial text and struct fields completed with LLM intelligence")
 }

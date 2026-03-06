@@ -3,44 +3,18 @@
 // Expectations:
 // - Routes support tickets to appropriate departments
 // - Provides confidence scores and reasoning for each decision
-// - Technical issues → Technical Support
-// - Training requests → Customer Success
-// - Invoice issues → Billing Support
+// - Technical issues ? Technical Support
+// - Training requests ? Customer Success
+// - Invoice issues ? Billing Support
 
 package main
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
 
-	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/examples/internal/exampleutil"
 )
-
-// loadEnv loads environment variables from .env file
-func loadEnv() {
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		envPath := filepath.Join(dir, ".env")
-		if _, err := os.Stat(envPath); err == nil {
-			if err := godotenv.Load(envPath); err != nil {
-				log.Fatal("Error loading .env file")
-			}
-			return
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	log.Fatal(".env file not found")
-}
 
 // SupportTicket represents a customer support ticket
 type SupportTicket struct {
@@ -60,15 +34,14 @@ type Department struct {
 }
 
 func main() {
-	loadEnv()
 
 	// Initialize SchemaFlow with Fast intelligence (Cerebras)
-	if err := schemaflow.InitWithEnv(); err != nil {
+	if err := exampleutil.Bootstrap(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
 
-	fmt.Println("🎯 Decide Example - Support Ticket Routing")
+	fmt.Println("?? Decide Example - Support Ticket Routing")
 	fmt.Println("=" + string(make([]byte, 60)))
 
 	// Available departments
@@ -144,7 +117,7 @@ func main() {
 		fmt.Printf("   Customer: %s\n", ticket.Customer)
 
 		fmt.Println()
-		fmt.Println("   🔄 Routing ticket...")
+		fmt.Println("   ?? Routing ticket...")
 
 		// Use Decide to route the ticket
 		chosen, result, err := schemaflow.Decide(ticket, departments)
@@ -154,17 +127,17 @@ func main() {
 		}
 
 		fmt.Println()
-		fmt.Printf("   ✅ Route to: %s\n", chosen.Name)
+		fmt.Printf("   ? Route to: %s\n", chosen.Name)
 		fmt.Printf("   Confidence: %.0f%%\n", result.Confidence*100)
 		fmt.Printf("   Reasoning: %s\n", result.Explanation)
 	}
 
 	fmt.Println()
-	fmt.Println("📊 Routing Summary:")
+	fmt.Println("?? Routing Summary:")
 	fmt.Println("   Total tickets: 3")
 	fmt.Println("   Technical Support: 1")
 	fmt.Println("   Billing Support: 1")
 	fmt.Println("   Customer Success: 1")
 	fmt.Println()
-	fmt.Println("✨ Success! Tickets routed intelligently")
+	fmt.Println("? Success! Tickets routed intelligently")
 }

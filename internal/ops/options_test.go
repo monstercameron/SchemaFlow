@@ -626,4 +626,7 @@ func TestOptionsToOpOptions(t *testing.T) {
 	if opOpts.Intelligence != types.Smart {
 		t.Errorf("Expected intelligence Smart, got %v", opOpts.Intelligence)
 	}
+	if opOpts.RequestID == "" {
+		t.Error("expected generated request ID to be set")
+	}
 }

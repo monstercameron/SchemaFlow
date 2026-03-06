@@ -1,13 +1,22 @@
 package pricing
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
+func resetPricingTestState(t *testing.T) {
+	t.Helper()
+	ResetCostTracking()
+	t.Cleanup(ResetCostTracking)
+}
+
 func TestCalculateCost(t *testing.T) {
+	resetPricingTestState(t)
+
 	tests := []struct {
 		name             string
 		model            string
@@ -18,13 +27,22 @@ func TestCalculateCost(t *testing.T) {
 		expectedMax      float64
 	}{
 		{
+			name:             "GPT-5.4",
+			model:            "gpt-5.4",
+			provider:         "openai",
+			promptTokens:     1000,
+			completionTokens: 500,
+			expectedMin:      0.008,
+			expectedMax:      0.011,
+		},
+		{
 			name:             "GPT-5",
 			model:            "gpt-5-2025-08-07",
 			provider:         "openai",
 			promptTokens:     1000,
 			completionTokens: 500,
-			expectedMin:      0.01, // Minimum expected cost
-			expectedMax:      0.05, // Maximum expected cost
+			expectedMin:      0.006, // Minimum expected cost
+			expectedMax:      0.007, // Maximum expected cost
 		},
 		{
 			name:             "GPT-5 Nano",
@@ -32,8 +50,8 @@ func TestCalculateCost(t *testing.T) {
 			provider:         "openai",
 			promptTokens:     1000,
 			completionTokens: 500,
-			expectedMin:      0.001,
-			expectedMax:      0.01,
+			expectedMin:      0.0002,
+			expectedMax:      0.0003,
 		},
 		{
 			name:             "GPT-5 Mini",
@@ -41,8 +59,8 @@ func TestCalculateCost(t *testing.T) {
 			provider:         "openai",
 			promptTokens:     1000,
 			completionTokens: 500,
-			expectedMin:      0.005,
-			expectedMax:      0.02,
+			expectedMin:      0.0012,
+			expectedMax:      0.0013,
 		},
 		{
 			name:             "GPT-4 Turbo (legacy)",
@@ -93,6 +111,8 @@ func TestCalculateCost(t *testing.T) {
 }
 
 func TestTrackCost(t *testing.T) {
+	resetPricingTestState(t)
+
 	// Test tracking costs
 	usage1 := &types.TokenUsage{
 		PromptTokens:     1000,
@@ -124,6 +144,8 @@ func TestTrackCost(t *testing.T) {
 }
 
 func TestGetCostBreakdown(t *testing.T) {
+	resetPricingTestState(t)
+
 	// Add some costs first
 	usage := &types.TokenUsage{
 		PromptTokens:     100,
@@ -152,6 +174,8 @@ func TestGetCostBreakdown(t *testing.T) {
 }
 
 func TestExportCostReport(t *testing.T) {
+	resetPricingTestState(t)
+
 	// Add some costs first
 	usage := &types.TokenUsage{
 		PromptTokens:     1000,
@@ -187,6 +211,74 @@ func TestExportCostReport(t *testing.T) {
 			if !tt.wantErr && report == "" {
 				t.Error("Expected non-empty report")
 			}
+			if tt.format == "json" && !tt.wantErr {
+				var records []CostRecord
+				if err := json.Unmarshal([]byte(report), &records); err != nil {
+					t.Fatalf("expected valid JSON report, got error %v", err)
+				}
+				if len(records) == 0 {
+					t.Fatal("expected JSON report to contain tracked records")
+				}
+			}
 		})
+	}
+}
+
+func TestGetCostSummaryAndRequestCosts(t *testing.T) {
+	resetPricingTestState(t)
+
+	now := time.Now()
+	records := []struct {
+		requestID string
+		model     string
+		provider  string
+		prompt    int
+		output    int
+	}{
+		{"req-1", "gpt-5-mini-2025-08-07", "openai", 100, 50},
+		{"req-2", "gpt-5-mini-2025-08-07", "openai", 200, 100},
+	}
+
+	for _, record := range records {
+		usage := &types.TokenUsage{
+			PromptTokens:     record.prompt,
+			CompletionTokens: record.output,
+			TotalTokens:      record.prompt + record.output,
+		}
+		cost := CalculateCost(usage, record.model, record.provider)
+		TrackCost(cost, &types.ResultMetadata{
+			RequestID:  record.requestID,
+			Model:      record.model,
+			Provider:   record.provider,
+			EndTime:    now,
+			TokenUsage: usage,
+		})
+	}
+
+	summary := GetCostSummary(now.Add(-time.Minute), map[string]string{"provider": "openai"})
+	if summary.RequestCount != 2 {
+		t.Fatalf("expected 2 requests, got %d", summary.RequestCount)
+	}
+	if summary.TotalTokens != 450 {
+		t.Fatalf("expected 450 total tokens, got %d", summary.TotalTokens)
+	}
+	if summary.AverageTokensPerRequest != 225 {
+		t.Fatalf("expected average tokens per request 225, got %v", summary.AverageTokensPerRequest)
+	}
+	if summary.AverageCostPerRequest <= 0 {
+		t.Fatalf("expected positive average cost per request, got %v", summary.AverageCostPerRequest)
+	}
+
+	requests := GetRequestCosts(now.Add(-time.Minute), map[string]string{"provider": "openai"})
+	if len(requests) != 2 {
+		t.Fatalf("expected 2 request records, got %d", len(requests))
+	}
+
+	request, ok := GetRequestCost("req-2")
+	if !ok {
+		t.Fatal("expected req-2 to be found")
+	}
+	if request.TokenUsage.TotalTokens != 300 {
+		t.Fatalf("expected req-2 total tokens 300, got %d", request.TokenUsage.TotalTokens)
 	}
 }

@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -45,6 +46,26 @@ func GetTimeout() time.Duration {
 		}
 	}
 	return 30 * time.Second
+}
+
+// GetLLMMaxRetries returns the retry budget for LLM calls.
+func GetLLMMaxRetries() int {
+	if raw := os.Getenv("SCHEMAFLOW_LLM_MAX_RETRIES"); raw != "" {
+		if retries, err := strconv.Atoi(raw); err == nil && retries >= 0 {
+			return retries
+		}
+	}
+	return 3
+}
+
+// GetLLMRetryBackoff returns the base backoff for LLM retries.
+func GetLLMRetryBackoff() time.Duration {
+	if raw := os.Getenv("SCHEMAFLOW_LLM_RETRY_BACKOFF"); raw != "" {
+		if delay, err := time.ParseDuration(raw); err == nil && delay > 0 {
+			return delay
+		}
+	}
+	return 500 * time.Millisecond
 }
 
 // GetDebugMode returns whether debug mode is enabled

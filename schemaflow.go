@@ -15,7 +15,9 @@ package schemaflow
 import (
 	"context"
 
+	"github.com/monstercameron/SchemaFlow/internal/llm"
 	"github.com/monstercameron/SchemaFlow/internal/ops"
+	telemetry "github.com/monstercameron/SchemaFlow/internal/telemetry"
 	"github.com/monstercameron/SchemaFlow/internal/types"
 )
 
@@ -29,6 +31,30 @@ type (
 
 	// Speed defines the quality vs latency tradeoff for operations.
 	Speed = types.Speed
+
+	// LoggerConfig configures the global structured logger.
+	LoggerConfig = telemetry.LoggerConfig
+
+	// LogEntry is a captured structured log record.
+	LogEntry = telemetry.LogEntry
+
+	// LogLevel controls logger verbosity.
+	LogLevel = telemetry.LogLevel
+
+	// Provider is the shared abstraction for LLM backends.
+	Provider = llm.Provider
+
+	// ProviderConfig configures provider construction.
+	ProviderConfig = llm.ProviderConfig
+
+	// ProviderFactory creates a provider from configuration.
+	ProviderFactory = llm.ProviderFactory
+
+	// CompletionRequest is the low-level provider request shape.
+	CompletionRequest = llm.CompletionRequest
+
+	// CompletionResponse is the low-level provider response shape.
+	CompletionResponse = llm.CompletionResponse
 )
 
 // Result wraps an operation result with metadata.
@@ -212,6 +238,15 @@ const (
 	Quick = types.Quick
 )
 
+// Log level constants.
+const (
+	LogDebug = telemetry.DebugLevel
+	LogInfo  = telemetry.InfoLevel
+	LogWarn  = telemetry.WarnLevel
+	LogError = telemetry.ErrorLevel
+	LogFatal = telemetry.FatalLevel
+)
+
 // Redact strategy constants
 const (
 	RedactNil      = ops.RedactNil
@@ -274,6 +309,21 @@ var (
 	NewVerifyOptions     = ops.NewVerifyOptions
 	NewValidateOptions   = ops.NewValidateOptions
 	NewQuestionOptions   = ops.NewQuestionOptions
+
+	NewOpenAIProvider           = llm.NewOpenAIProvider
+	NewAnthropicProvider        = llm.NewAnthropicProvider
+	NewOpenRouterProvider       = llm.NewOpenRouterProvider
+	NewCerebrasProvider         = llm.NewCerebrasProvider
+	NewDeepSeekProvider         = llm.NewDeepSeekProvider
+	NewQwenProvider             = llm.NewQwenProvider
+	NewZAIProvider              = llm.NewZAIProvider
+	NewLocalProvider            = llm.NewLocalProvider
+	NewOpenAICompatibleProvider = llm.NewOpenAICompatibleProvider
+
+	RegisterProvider        = llm.RegisterProvider
+	RegisterProviderFactory = llm.RegisterProviderFactory
+	CreateProvider          = llm.CreateProvider
+	ListProviders           = llm.ListProviders
 )
 
 // Core operations - re-export from internal/ops

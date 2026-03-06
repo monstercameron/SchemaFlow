@@ -2,20 +2,48 @@ package ops
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/monstercameron/SchemaFlow/internal/config"
 	"github.com/monstercameron/SchemaFlow/internal/llm"
 	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/SchemaFlow/pricing"
+	"github.com/monstercameron/SchemaFlow/telemetry"
 )
 
 type captureProvider struct {
-	req llm.CompletionRequest
+	req       llm.CompletionRequest
+	resp      llm.CompletionResponse
+	responses []llm.CompletionResponse
+	errors    []error
+	attempts  int
 }
 
 func (p *captureProvider) Complete(ctx context.Context, req llm.CompletionRequest) (llm.CompletionResponse, error) {
 	p.req = req
-	return llm.CompletionResponse{Content: `{"ok":true}`}, nil
+	p.attempts++
+	if len(p.errors) > 0 {
+		err := p.errors[0]
+		p.errors = p.errors[1:]
+		if err != nil {
+			return llm.CompletionResponse{}, err
+		}
+	}
+	if len(p.responses) > 0 {
+		resp := p.responses[0]
+		p.responses = p.responses[1:]
+		if resp.Content == "" {
+			resp.Content = `{"ok":true}`
+		}
+		return resp, nil
+	}
+	if p.resp.Content == "" {
+		p.resp.Content = `{"ok":true}`
+	}
+	return p.resp, nil
 }
 
 func (p *captureProvider) Name() string {
@@ -24,6 +52,10 @@ func (p *captureProvider) Name() string {
 
 func (p *captureProvider) EstimateCost(req llm.CompletionRequest) float64 {
 	return 0
+}
+
+func (p *captureProvider) RetryPolicy() (int, time.Duration) {
+	return 2, time.Millisecond
 }
 
 func TestInferResponseFormat(t *testing.T) {
@@ -129,5 +161,165 @@ func TestCallLLMAppliesSteeringToSystemPrompt(t *testing.T) {
 	}
 	if !strings.Contains(provider.req.SystemPrompt, "Return only a JSON array of matching strings.") {
 		t.Fatalf("system prompt missing steering content: %q", provider.req.SystemPrompt)
+	}
+}
+
+func TestCallLLMTracksTokensAndCosts(t *testing.T) {
+	telemetry.ResetMetrics()
+	t.Cleanup(telemetry.ResetMetrics)
+	pricing.ResetCostTracking()
+	t.Cleanup(pricing.ResetCostTracking)
+	t.Setenv("SCHEMAFLOW_METRICS", "")
+	originalMetrics := config.IsMetricsEnabled()
+	t.Cleanup(func() { config.SetMetricsEnabled(originalMetrics) })
+	config.SetMetricsEnabled(true)
+
+	provider := &captureProvider{
+		resp: llm.CompletionResponse{
+			Content:  "ok",
+			Model:    "gpt-5-mini-2025-08-07",
+			Provider: "openai",
+			Usage: types.TokenUsage{
+				PromptTokens:     100,
+				CompletionTokens: 50,
+				TotalTokens:      150,
+			},
+		},
+	}
+
+	_, err := CallLLM(
+		context.Background(),
+		provider,
+		`You are a concise assistant.`,
+		`Summarize this text.`,
+		types.OpOptions{
+			Intelligence: types.Fast,
+			Mode:         types.TransformMode,
+			RequestID:    "req-123",
+		},
+	)
+	if err != nil {
+		t.Fatalf("CallLLM() error = %v", err)
+	}
+
+	tokenSnapshot, ok := telemetry.GetMetricSnapshot("llm_tokens_total", map[string]string{
+		"provider":     "openai",
+		"model":        "gpt-5-mini-2025-08-07",
+		"mode":         "transform",
+		"intelligence": "fast",
+	})
+	if !ok {
+		t.Fatal("expected llm_tokens_total metric to exist")
+	}
+	if tokenSnapshot.Sum != 150 {
+		t.Fatalf("expected total tokens 150, got %v", tokenSnapshot.Sum)
+	}
+
+	costSnapshot, ok := telemetry.GetMetricSnapshot("llm_cost_total_usd", map[string]string{
+		"provider":     "openai",
+		"model":        "gpt-5-mini-2025-08-07",
+		"mode":         "transform",
+		"intelligence": "fast",
+	})
+	if !ok {
+		t.Fatal("expected llm_cost_total_usd metric to exist")
+	}
+	if costSnapshot.Sum <= 0 {
+		t.Fatalf("expected positive cost metric, got %v", costSnapshot.Sum)
+	}
+
+	record, ok := pricing.GetRequestCost("req-123")
+	if !ok {
+		t.Fatal("expected request cost record to exist")
+	}
+	if record.TokenUsage.TotalTokens != 150 {
+		t.Fatalf("expected request total tokens 150, got %d", record.TokenUsage.TotalTokens)
+	}
+
+	summary := pricing.GetCostSummary(record.Timestamp.Add(-time.Second), map[string]string{"provider": "openai"})
+	if summary.RequestCount != 1 {
+		t.Fatalf("expected one tracked request, got %d", summary.RequestCount)
+	}
+	if summary.AverageTokensPerRequest != 150 {
+		t.Fatalf("expected average tokens per request 150, got %v", summary.AverageTokensPerRequest)
+	}
+	if summary.AverageCostPerRequest <= 0 {
+		t.Fatalf("expected positive average cost per request, got %v", summary.AverageCostPerRequest)
+	}
+}
+
+func TestCallLLMRetriesTransientFailures(t *testing.T) {
+	provider := &captureProvider{
+		errors: []error{
+			fmt.Errorf("rate limit exceeded: status 429"),
+			nil,
+		},
+		resp: llm.CompletionResponse{
+			Content: "ok",
+			Model:   "gpt-5-mini",
+		},
+	}
+
+	got, err := CallLLM(
+		context.Background(),
+		provider,
+		`You are a concise assistant.`,
+		`Summarize this text.`,
+		types.OpOptions{Intelligence: types.Fast, Mode: types.TransformMode},
+	)
+	if err != nil {
+		t.Fatalf("CallLLM() error = %v", err)
+	}
+	if got != "ok" {
+		t.Fatalf("expected success after retry, got %q", got)
+	}
+	if provider.attempts != 2 {
+		t.Fatalf("expected 2 attempts, got %d", provider.attempts)
+	}
+}
+
+func TestCallLLMDoesNotRetryNonRetryableFailures(t *testing.T) {
+	provider := &captureProvider{
+		errors: []error{fmt.Errorf("OpenAI API error (status 400): invalid request")},
+	}
+
+	_, err := CallLLM(
+		context.Background(),
+		provider,
+		`You are a concise assistant.`,
+		`Summarize this text.`,
+		types.OpOptions{Intelligence: types.Fast, Mode: types.TransformMode},
+	)
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if provider.attempts != 1 {
+		t.Fatalf("expected 1 attempt, got %d", provider.attempts)
+	}
+}
+
+func TestCallLLMRetriesEmptyContent(t *testing.T) {
+	provider := &captureProvider{
+		responses: []llm.CompletionResponse{
+			{Content: "   "},
+			{Content: "usable response"},
+		},
+	}
+
+	got, err := CallLLM(
+		context.Background(),
+		provider,
+		`You are a concise assistant.`,
+		`Summarize this text.`,
+		types.OpOptions{Intelligence: types.Fast, Mode: types.TransformMode},
+	)
+	if err != nil {
+		t.Fatalf("CallLLM() error = %v", err)
+	}
+	if got != "usable response" {
+		t.Fatalf("expected usable response after retry, got %q", got)
+	}
+	if provider.attempts != 2 {
+		t.Fatalf("expected 2 attempts, got %d", provider.attempts)
 	}
 }

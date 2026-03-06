@@ -2,12 +2,18 @@ package ops
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/monstercameron/SchemaFlow/internal/config"
 	"github.com/monstercameron/SchemaFlow/internal/llm"
+	"github.com/monstercameron/SchemaFlow/internal/logger"
 	"github.com/monstercameron/SchemaFlow/internal/types"
+	"github.com/monstercameron/SchemaFlow/internal/utils"
+	"github.com/monstercameron/SchemaFlow/pricing"
+	"github.com/monstercameron/SchemaFlow/telemetry"
 )
 
 var defaultProvider llm.Provider
@@ -45,6 +51,8 @@ func callLLM(ctx context.Context, systemPrompt, userPrompt string, opts types.Op
 
 // CallLLM executes an LLM request using the provided provider
 func CallLLM(ctx context.Context, provider llm.Provider, systemPrompt, userPrompt string, opts types.OpOptions) (string, error) {
+	log := logger.GetLogger()
+
 	// Determine model
 	model := config.GetModel(opts.Intelligence, provider.Name())
 	maxTokens := config.GetMaxTokens(opts.Intelligence)
@@ -61,11 +69,215 @@ func CallLLM(ctx context.Context, provider llm.Provider, systemPrompt, userPromp
 		ResponseFormat: responseFormat,
 	}
 
-	resp, err := provider.Complete(ctx, req)
-	if err != nil {
-		return "", err
+	start := time.Now()
+	requestID := opts.RequestID
+	if requestID == "" {
+		requestID = utils.GenerateRequestID()
 	}
+
+	log.Debug("LLM request started",
+		"requestID", requestID,
+		"provider", provider.Name(),
+		"model", model,
+		"responseFormat", responseFormat,
+		"maxTokens", maxTokens,
+		"mode", opts.Mode.String(),
+		"intelligence", opts.Intelligence.String(),
+	)
+
+	maxRetries, retryBackoff := provider.RetryPolicy()
+	if maxRetries <= 0 {
+		maxRetries = config.GetLLMMaxRetries()
+	}
+	if retryBackoff <= 0 {
+		retryBackoff = config.GetLLMRetryBackoff()
+	}
+
+	attempts := maxRetries + 1
+	var (
+		resp llm.CompletionResponse
+		err  error
+	)
+
+	for attempt := 1; attempt <= attempts; attempt++ {
+		resp, err = provider.Complete(ctx, req)
+		if err == nil {
+			if validationErr := validateLLMCompletion(resp); validationErr != nil {
+				err = validationErr
+			}
+		}
+
+		if err == nil {
+			break
+		}
+
+		if attempt == attempts || !isRetryableLLMError(err) {
+			log.Error("LLM request failed",
+				"requestID", requestID,
+				"provider", provider.Name(),
+				"model", model,
+				"responseFormat", responseFormat,
+				"attempt", attempt,
+				"maxAttempts", attempts,
+				"duration_ms", time.Since(start).Milliseconds(),
+				"error", err,
+			)
+			return "", err
+		}
+
+		delay := retryDelay(retryBackoff, attempt)
+		log.Warn("LLM request retry scheduled",
+			"requestID", requestID,
+			"provider", provider.Name(),
+			"model", model,
+			"responseFormat", responseFormat,
+			"attempt", attempt,
+			"nextAttempt", attempt+1,
+			"backoff_ms", delay.Milliseconds(),
+			"error", err,
+		)
+
+		if sleepErr := waitForRetry(ctx, delay); sleepErr != nil {
+			return "", sleepErr
+		}
+	}
+
+	actualModel := resp.Model
+	if actualModel == "" {
+		actualModel = model
+	}
+
+	actualProvider := resp.Provider
+	if actualProvider == "" {
+		actualProvider = provider.Name()
+	}
+
+	usage := resp.Usage
+	cost := pricing.CalculateCost(&usage, actualModel, actualProvider)
+	metadata := &types.ResultMetadata{
+		RequestID:    requestID,
+		StartTime:    start,
+		EndTime:      time.Now(),
+		Duration:     time.Since(start),
+		Model:        actualModel,
+		Provider:     actualProvider,
+		Mode:         opts.Mode,
+		Intelligence: opts.Intelligence,
+		TokenUsage:   &usage,
+		CostInfo:     cost,
+		Custom: map[string]any{
+			"response_format": responseFormat,
+		},
+	}
+
+	pricing.TrackCost(cost, metadata)
+	telemetry.RecordLLMMetrics(metadata)
+
+	log.Info("LLM request completed",
+		"requestID", requestID,
+		"provider", actualProvider,
+		"model", actualModel,
+		"responseFormat", responseFormat,
+		"duration_ms", metadata.Duration.Milliseconds(),
+		"tokens_total", usage.TotalTokens,
+		"cost_usd", cost.TotalCost,
+		"finishReason", resp.FinishReason,
+	)
+
 	return resp.Content, nil
+}
+
+func validateLLMCompletion(resp llm.CompletionResponse) error {
+	if strings.TrimSpace(resp.Content) == "" {
+		return fmt.Errorf("provider returned empty completion content")
+	}
+	return nil
+}
+
+func isRetryableLLMError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+
+	msg := strings.ToLower(err.Error())
+
+	nonRetryable := []string{
+		"api key is required",
+		"unauthorized",
+		"forbidden",
+		"invalid api key",
+		"invalid_request_error",
+		"status 400",
+		"status 401",
+		"status 403",
+		"status 404",
+		"status 422",
+	}
+	for _, needle := range nonRetryable {
+		if strings.Contains(msg, needle) {
+			return false
+		}
+	}
+
+	retryable := []string{
+		"timeout",
+		"temporary",
+		"connection reset",
+		"connection refused",
+		"i/o timeout",
+		"rate limit",
+		"throttled",
+		"try again later",
+		"service unavailable",
+		"bad gateway",
+		"gateway timeout",
+		"empty response",
+		"incomplete",
+		"no completion choices",
+		"provider returned empty completion content",
+		"status 408",
+		"status 409",
+		"status 429",
+		"status 500",
+		"status 502",
+		"status 503",
+		"status 504",
+	}
+	for _, needle := range retryable {
+		if strings.Contains(msg, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+func retryDelay(base time.Duration, attempt int) time.Duration {
+	if attempt <= 1 {
+		return base
+	}
+	delay := base
+	for i := 1; i < attempt; i++ {
+		delay *= 2
+		if delay > 5*time.Second {
+			return 5 * time.Second
+		}
+	}
+	return delay
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func applySteering(systemPrompt, steering string) string {

@@ -6,8 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/monstercameron/SchemaFlow/internal/config"
-	"github.com/monstercameron/SchemaFlow/internal/logger"
+	"github.com/monstercameron/SchemaFlow/telemetry"
 )
 
 var requestIDCounter uint64
@@ -27,19 +26,7 @@ func Min(a, b int) int {
 	return b
 }
 
-// RecordMetric records a metric for observability (placeholder for actual implementation)
+// RecordMetric records a metric through the shared telemetry registry.
 func RecordMetric(name string, value int64, tags map[string]string) {
-	if !config.IsMetricsEnabled() {
-		return
-	}
-
-	// This is a placeholder - in production, integrate with your metrics system
-	// (Prometheus, DataDog, CloudWatch, etc.)
-	if config.GetDebugMode() {
-		logger.GetLogger().Debug("Metric recorded",
-			"name", name,
-			"value", value,
-			"tags", tags,
-		)
-	}
+	telemetry.RecordMetric(name, value, tags)
 }

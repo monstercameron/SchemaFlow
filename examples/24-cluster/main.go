@@ -5,49 +5,16 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
-
-	"github.com/joho/godotenv"
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/examples/internal/exampleutil"
 	"github.com/monstercameron/SchemaFlow/internal/ops"
 	"github.com/monstercameron/SchemaFlow/internal/types"
+	"log"
 )
 
-// loadEnv loads environment variables from .env file
-func loadEnv() {
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		envPath := filepath.Join(dir, ".env")
-		if _, err := os.Stat(envPath); err == nil {
-			if err := godotenv.Load(envPath); err != nil {
-				log.Fatal("Error loading .env file")
-			}
-			return
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	log.Fatal(".env file not found")
-}
-
 func main() {
-	loadEnv()
-
-	// Ensure environment is configured
-	if os.Getenv("SCHEMAFLOW_API_KEY") == "" {
-		log.Fatal("SCHEMAFLOW_API_KEY environment variable not set")
-	}
 
 	// Initialize SchemaFlow
-	if err := schemaflow.InitWithEnv(); err != nil {
+	if err := exampleutil.Bootstrap(); err != nil {
 		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
 	}
 
@@ -100,7 +67,7 @@ func main() {
 		fmt.Printf("  Description: %s\n", cluster.Description)
 		fmt.Printf("  Items (%d):\n", cluster.Size)
 		for _, item := range cluster.Items {
-			fmt.Printf("    → Article{ID: %d, Title: %q}\n", item.ID, item.Title)
+			fmt.Printf("    ? Article{ID: %d, Title: %q}\n", item.ID, item.Title)
 		}
 	}
 	fmt.Println()
@@ -147,7 +114,7 @@ func main() {
 		fmt.Printf("  Keywords: %v\n", cluster.Keywords)
 		fmt.Printf("  Tickets (%d):\n", cluster.Size)
 		for _, item := range cluster.Items {
-			fmt.Printf("    → Ticket{ID: %d, Title: %q}\n", item.ID, item.Title)
+			fmt.Printf("    ? Ticket{ID: %d, Title: %q}\n", item.ID, item.Title)
 		}
 	}
 
@@ -156,7 +123,7 @@ func main() {
 	if len(ticketResult.Outliers) > 0 {
 		fmt.Printf("Found %d outlier items that don't fit clusters:\n", len(ticketResult.Outliers))
 		for _, outlier := range ticketResult.Outliers {
-			fmt.Printf("  → Ticket{ID: %d, Title: %q}\n", outlier.ID, outlier.Title)
+			fmt.Printf("  ? Ticket{ID: %d, Title: %q}\n", outlier.ID, outlier.Title)
 		}
 	} else {
 		fmt.Println("No outliers detected - all items fit into clusters")

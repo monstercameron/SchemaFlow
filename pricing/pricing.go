@@ -2,7 +2,9 @@
 package pricing
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,28 +27,69 @@ type PricingModel struct {
 var (
 	// Pricing data for different models (prices per 1K tokens in USD)
 	pricingModels = map[string]PricingModel{
+		// OpenAI GPT-5.4 models
+		"gpt-5.4": {
+			Provider:                "openai",
+			Model:                   "gpt-5.4",
+			PricePerPromptToken:     0.0025, // $2.50 per 1M tokens
+			PricePerCompletionToken: 0.015,  // $15 per 1M tokens
+			PriceCachedToken:        0.00025,
+			Currency:                "USD",
+			EffectiveDate:           time.Date(2026, 3, 5, 0, 0, 0, 0, time.UTC),
+		},
+
 		// OpenAI GPT-5 models
+		"gpt-5": {
+			Provider:                "openai",
+			Model:                   "gpt-5",
+			PricePerPromptToken:     0.00125, // $1.25 per 1M tokens
+			PricePerCompletionToken: 0.01,    // $10 per 1M tokens
+			PriceCachedToken:        0.000125,
+			Currency:                "USD",
+			EffectiveDate:           time.Date(2025, 8, 7, 0, 0, 0, 0, time.UTC),
+		},
 		"gpt-5-2025-08-07": {
 			Provider:                "openai",
 			Model:                   "gpt-5-2025-08-07",
-			PricePerPromptToken:     0.02, // $20 per 1M tokens
-			PricePerCompletionToken: 0.06, // $60 per 1M tokens
+			PricePerPromptToken:     0.00125, // $1.25 per 1M tokens
+			PricePerCompletionToken: 0.01,    // $10 per 1M tokens
+			PriceCachedToken:        0.000125,
+			Currency:                "USD",
+			EffectiveDate:           time.Date(2025, 8, 7, 0, 0, 0, 0, time.UTC),
+		},
+		"gpt-5-nano": {
+			Provider:                "openai",
+			Model:                   "gpt-5-nano",
+			PricePerPromptToken:     0.00005, // $0.05 per 1M tokens
+			PricePerCompletionToken: 0.0004,  // $0.40 per 1M tokens
+			PriceCachedToken:        0.000005,
 			Currency:                "USD",
 			EffectiveDate:           time.Date(2025, 8, 7, 0, 0, 0, 0, time.UTC),
 		},
 		"gpt-5-nano-2025-08-07": {
 			Provider:                "openai",
 			Model:                   "gpt-5-nano-2025-08-07",
-			PricePerPromptToken:     0.001, // $1 per 1M tokens
-			PricePerCompletionToken: 0.003, // $3 per 1M tokens
+			PricePerPromptToken:     0.00005, // $0.05 per 1M tokens
+			PricePerCompletionToken: 0.0004,  // $0.40 per 1M tokens
+			PriceCachedToken:        0.000005,
+			Currency:                "USD",
+			EffectiveDate:           time.Date(2025, 8, 7, 0, 0, 0, 0, time.UTC),
+		},
+		"gpt-5-mini": {
+			Provider:                "openai",
+			Model:                   "gpt-5-mini",
+			PricePerPromptToken:     0.00025, // $0.25 per 1M tokens
+			PricePerCompletionToken: 0.002,   // $2 per 1M tokens
+			PriceCachedToken:        0.000025,
 			Currency:                "USD",
 			EffectiveDate:           time.Date(2025, 8, 7, 0, 0, 0, 0, time.UTC),
 		},
 		"gpt-5-mini-2025-08-07": {
 			Provider:                "openai",
 			Model:                   "gpt-5-mini-2025-08-07",
-			PricePerPromptToken:     0.005, // $5 per 1M tokens
-			PricePerCompletionToken: 0.015, // $15 per 1M tokens
+			PricePerPromptToken:     0.00025, // $0.25 per 1M tokens
+			PricePerCompletionToken: 0.002,   // $2 per 1M tokens
+			PriceCachedToken:        0.000025,
 			Currency:                "USD",
 			EffectiveDate:           time.Date(2025, 8, 7, 0, 0, 0, 0, time.UTC),
 		},
@@ -172,7 +215,7 @@ func CalculateCost(usage *types.TokenUsage, model string, provider string) *type
 	}
 
 	// Look up pricing model
-	pricing, exists := pricingModels[model]
+	pricing, exists := lookupPricingModel(model)
 	if !exists {
 		// Try to find a default pricing for the provider
 		pricing = getDefaultPricing(provider)
@@ -237,6 +280,9 @@ func TrackCost(cost *types.CostInfo, metadata *types.ResultMetadata) {
 		Provider:  metadata.Provider,
 		Cost:      *cost,
 	}
+	if !metadata.EndTime.IsZero() {
+		record.Timestamp = metadata.EndTime
+	}
 
 	if metadata.TokenUsage != nil {
 		record.TokenUsage = *metadata.TokenUsage
@@ -245,9 +291,7 @@ func TrackCost(cost *types.CostInfo, metadata *types.ResultMetadata) {
 	if metadata.Custom != nil {
 		record.Tags = make(map[string]string)
 		for k, v := range metadata.Custom {
-			if str, ok := v.(string); ok {
-				record.Tags[k] = str
-			}
+			record.Tags[k] = fmt.Sprintf("%v", v)
 		}
 	}
 
@@ -266,12 +310,16 @@ func TrackCost(cost *types.CostInfo, metadata *types.ResultMetadata) {
 
 	// Log high-cost operations
 	if cost.TotalCost > 0.10 { // Log operations over $0.10
+		totalTokens := 0
+		if metadata.TokenUsage != nil {
+			totalTokens = metadata.TokenUsage.TotalTokens
+		}
 		logger.GetLogger().Info("High-cost operation tracked",
 			"requestID", metadata.RequestID,
 			"operation", metadata.Operation,
 			"model", metadata.Model,
 			"cost", fmt.Sprintf("$%.4f", cost.TotalCost),
-			"tokens", metadata.TokenUsage.TotalTokens,
+			"tokens", totalTokens,
 		)
 	}
 }
@@ -377,8 +425,18 @@ func ExportCostReport(since time.Time, format string) (string, error) {
 			)
 		}
 	case "json":
-		// JSON format would be implemented here
-		report = "[]" // Placeholder
+		records := make([]CostRecord, 0, len(costHistory))
+		for _, record := range costHistory {
+			if record.Timestamp.Before(since) {
+				continue
+			}
+			records = append(records, cloneCostRecord(record))
+		}
+		data, err := json.MarshalIndent(records, "", "  ")
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal cost report: %w", err)
+		}
+		report = string(data)
 	default:
 		return "", fmt.Errorf("unsupported format: %s", format)
 	}
@@ -395,13 +453,35 @@ func MatchesFilters(record CostRecord, filters map[string]string) bool {
 
 func getDefaultPricing(provider string) PricingModel {
 	switch provider {
-	case "openai":
-		return pricingModels["gpt-5-nano-2025-08-07"]
 	case "anthropic":
 		return pricingModels["claude-3-haiku"]
 	default:
 		return PricingModel{Currency: "USD"}
 	}
+}
+
+func lookupPricingModel(model string) (PricingModel, bool) {
+	if pricing, exists := pricingModels[model]; exists {
+		return pricing, true
+	}
+
+	model = strings.TrimSpace(strings.ToLower(model))
+	switch {
+	case strings.HasPrefix(model, "gpt-5.4"):
+		pricing, ok := pricingModels["gpt-5.4"]
+		return pricing, ok
+	case strings.HasPrefix(model, "gpt-5-mini"):
+		pricing, ok := pricingModels["gpt-5-mini"]
+		return pricing, ok
+	case strings.HasPrefix(model, "gpt-5-nano"):
+		pricing, ok := pricingModels["gpt-5-nano"]
+		return pricing, ok
+	case strings.HasPrefix(model, "gpt-5"):
+		pricing, ok := pricingModels["gpt-5"]
+		return pricing, ok
+	}
+
+	return PricingModel{}, false
 }
 
 func updateCostTotal(key string, amount float64) {

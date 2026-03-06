@@ -5,49 +5,16 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
-
-	"github.com/joho/godotenv"
-	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/examples/internal/exampleutil"
 	"github.com/monstercameron/SchemaFlow/internal/ops"
 	"github.com/monstercameron/SchemaFlow/internal/types"
+	"log"
 )
 
-// loadEnv loads environment variables from .env file
-func loadEnv() {
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		envPath := filepath.Join(dir, ".env")
-		if _, err := os.Stat(envPath); err == nil {
-			if err := godotenv.Load(envPath); err != nil {
-				log.Fatal("Error loading .env file")
-			}
-			return
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	log.Fatal(".env file not found")
-}
-
 func main() {
-	loadEnv()
-
-	// Ensure environment is configured
-	if os.Getenv("SCHEMAFLOW_API_KEY") == "" {
-		log.Fatal("SCHEMAFLOW_API_KEY environment variable not set")
-	}
 
 	// Initialize SchemaFlow
-	if err := schemaflow.InitWithEnv(); err != nil {
+	if err := exampleutil.Bootstrap(); err != nil {
 		log.Fatalf("Failed to initialize SchemaFlow: %v", err)
 	}
 
@@ -56,7 +23,7 @@ func main() {
 	fmt.Println()
 
 	// Business Use Case: Sprint Planning - Break Epic into User Stories
-	fmt.Println("--- Business Use Case: Epic → Sprint Backlog ---")
+	fmt.Println("--- Business Use Case: Epic ? Sprint Backlog ---")
 
 	type Epic struct {
 		Title       string `json:"title"`
@@ -86,22 +53,22 @@ func main() {
 		log.Fatalf("Decomposition failed: %v", err)
 	}
 
-	fmt.Println("OUTPUT: DecomposeResult[Epic] → Sprint-Ready User Stories")
+	fmt.Println("OUTPUT: DecomposeResult[Epic] ? Sprint-Ready User Stories")
 	fmt.Printf("  Total Stories: %d\n", len(result.Parts))
-	fmt.Println("  ┌─────────────────────────────────────────────────────────────")
+	fmt.Println("  +-------------------------------------------------------------")
 	for i, part := range result.Parts {
-		fmt.Printf("  │ Story %d: %s\n", i+1, part.Name)
-		fmt.Printf("  │   Description: %s\n", part.Description)
+		fmt.Printf("  Â¦ Story %d: %s\n", i+1, part.Name)
+		fmt.Printf("  Â¦   Description: %s\n", part.Description)
 		if len(part.Dependencies) > 0 {
-			fmt.Printf("  │   Blocked By: %v\n", part.Dependencies)
+			fmt.Printf("  Â¦   Blocked By: %v\n", part.Dependencies)
 		}
 		if i < len(result.Parts)-1 {
-			fmt.Println("  │")
+			fmt.Println("  Â¦")
 		}
 	}
-	fmt.Println("  └─────────────────────────────────────────────────────────────")
+	fmt.Println("  +-------------------------------------------------------------")
 
-	fmt.Println("\n--- Business Use Case: Incident → Runbook Steps ---")
+	fmt.Println("\n--- Business Use Case: Incident ? Runbook Steps ---")
 
 	incident := "P1: Checkout failures during peak traffic"
 
@@ -118,17 +85,17 @@ func main() {
 		log.Fatalf("Incident decomposition failed: %v", err)
 	}
 
-	fmt.Println("OUTPUT: DecomposeResult[string] → Troubleshooting Runbook")
+	fmt.Println("OUTPUT: DecomposeResult[string] ? Troubleshooting Runbook")
 	fmt.Printf("  Total Steps: %d\n", len(incidentResult.Parts))
-	fmt.Println("  ┌─────────────────────────────────────────────────────────────")
+	fmt.Println("  +-------------------------------------------------------------")
 	for i, part := range incidentResult.Parts {
-		fmt.Printf("  │ Step %d: %s\n", i+1, part.Name)
-		fmt.Printf("  │   Action: %s\n", part.Description)
+		fmt.Printf("  Â¦ Step %d: %s\n", i+1, part.Name)
+		fmt.Printf("  Â¦   Action: %s\n", part.Description)
 		if i < len(incidentResult.Parts)-1 {
-			fmt.Println("  │")
+			fmt.Println("  Â¦")
 		}
 	}
-	fmt.Println("  └─────────────────────────────────────────────────────────────")
+	fmt.Println("  +-------------------------------------------------------------")
 
 	fmt.Println("\n=== Decompose Example Complete ===")
 }

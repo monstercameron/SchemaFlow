@@ -10,52 +10,25 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
 
-	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/examples/internal/exampleutil"
 )
 
-// loadEnv loads environment variables from .env file
-func loadEnv() {
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		envPath := filepath.Join(dir, ".env")
-		if _, err := os.Stat(envPath); err == nil {
-			if err := godotenv.Load(envPath); err != nil {
-				log.Fatal("Error loading .env file")
-			}
-			return
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	log.Fatal(".env file not found")
-}
-
 func main() {
-	loadEnv()
 
-	fmt.Println("💡 Suggest Example - AI-Powered Recommendations")
+	fmt.Println("?? Suggest Example - AI-Powered Recommendations")
 	fmt.Println("=" + string(make([]byte, 60)))
 
 	// Initialize SchemaFlow
-	if err := schemaflow.InitWithEnv(); err != nil {
+	if err := exampleutil.Bootstrap(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
 
 	// Example 1: ETL Pipeline Optimization Suggestions
-	fmt.Println("\n1️⃣  ETL Pipeline Optimization Suggestions")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n1??  ETL Pipeline Optimization Suggestions")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	etlContext := map[string]any{
 		"task":          "ETL pipeline optimization",
@@ -76,17 +49,17 @@ func main() {
 			WithDomain("data-engineering"))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
-		fmt.Printf("\n   ✅ Suggestions (%d):\n", len(suggestions1))
+		fmt.Printf("\n   ? Suggestions (%d):\n", len(suggestions1))
 		for i, s := range suggestions1 {
 			fmt.Printf("      %d. %s\n", i+1, s)
 		}
 	}
 
 	// Example 2: API Design Suggestions
-	fmt.Println("\n2️⃣  REST API Design Suggestions")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n2??  REST API Design Suggestions")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	apiContext := map[string]any{
 		"resource":    "user profiles",
@@ -107,17 +80,17 @@ func main() {
 			WithStrategy(schemaflow.SuggestPattern))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
-		fmt.Printf("\n   ✅ Suggestions (%d):\n", len(suggestions2))
+		fmt.Printf("\n   ? Suggestions (%d):\n", len(suggestions2))
 		for i, s := range suggestions2 {
 			fmt.Printf("      %d. %s\n", i+1, s)
 		}
 	}
 
 	// Example 3: Error Recovery with Constraints
-	fmt.Println("\n3️⃣  Error Recovery Suggestions (with constraints)")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n3??  Error Recovery Suggestions (with constraints)")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	errorContext := map[string]any{
 		"error":     "database connection timeout",
@@ -138,17 +111,17 @@ func main() {
 			WithDomain("reliability"))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
-		fmt.Printf("\n   ✅ Suggestions (%d):\n", len(suggestions3))
+		fmt.Printf("\n   ? Suggestions (%d):\n", len(suggestions3))
 		for i, s := range suggestions3 {
 			fmt.Printf("      %d. %s\n", i+1, s)
 		}
 	}
 
 	// Example 4: Code Review Suggestions
-	fmt.Println("\n4️⃣  Code Review Suggestions")
-	fmt.Println("─" + string(make([]byte, 60)))
+	fmt.Println("\n4??  Code Review Suggestions")
+	fmt.Println("-" + string(make([]byte, 60)))
 
 	codeContext := map[string]any{
 		"language": "Go",
@@ -169,14 +142,14 @@ func main() {
 			WithDomain("code-quality"))
 
 	if err != nil {
-		fmt.Printf("   ❌ Error: %v\n", err)
+		fmt.Printf("   ? Error: %v\n", err)
 	} else {
-		fmt.Printf("\n   ✅ Suggestions (%d):\n", len(suggestions4))
+		fmt.Printf("\n   ? Suggestions (%d):\n", len(suggestions4))
 		for i, s := range suggestions4 {
 			fmt.Printf("      %d. %s\n", i+1, s)
 		}
 	}
 
 	fmt.Println()
-	fmt.Println("✨ Success! Context-aware suggestions generated with LLM intelligence")
+	fmt.Println("? Success! Context-aware suggestions generated with LLM intelligence")
 }

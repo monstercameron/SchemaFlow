@@ -1,45 +1,19 @@
 // 16-infer: Infer missing information from partial data using LLM
 // Intelligence: Fast (Cerebras gpt-oss-120b)
 // Expectations:
-// - Person: Name="John", Age=30 → infers Email and City based on context
-// - Product: Name="iPhone 15" → infers Price, Category, Brand
+// - Person: Name="John", Age=30 ? infers Email and City based on context
+// - Product: Name="iPhone 15" ? infers Price, Category, Brand
 
 package main
 
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/examples/internal/exampleutil"
 )
-
-// loadEnv loads environment variables from .env file
-func loadEnv() {
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		envPath := filepath.Join(dir, ".env")
-		if _, err := os.Stat(envPath); err == nil {
-			if err := godotenv.Load(envPath); err != nil {
-				log.Fatal("Error loading .env file")
-			}
-			return
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	log.Fatal(".env file not found")
-}
 
 // Person represents a person with some fields that might be missing
 type Person struct {
@@ -58,17 +32,16 @@ type Product struct {
 }
 
 func main() {
-	loadEnv()
 
 	// Initialize SchemaFlow with Fast intelligence (Cerebras)
-	fmt.Println("🔧 Initializing SchemaFlow...")
-	if err := schemaflow.InitWithEnv(); err != nil {
+	fmt.Println("?? Initializing SchemaFlow...")
+	if err := exampleutil.Bootstrap(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
-	fmt.Println("✅ SchemaFlow initialized successfully")
+	fmt.Println("? SchemaFlow initialized successfully")
 
-	fmt.Println("🧠 Smart Data Inference Example")
+	fmt.Println("?? Smart Data Inference Example")
 	fmt.Println("=" + string(make([]byte, 50)))
 
 	// Create a context with 10-second timeout
@@ -76,7 +49,7 @@ func main() {
 	defer cancel()
 
 	// Example 1: Infer missing person fields
-	fmt.Println("\n📥 Partial Person Data:")
+	fmt.Println("\n?? Partial Person Data:")
 	partialPerson := Person{
 		Name: "John",
 		Age:  30,
@@ -87,7 +60,7 @@ func main() {
 	fmt.Println("  City:  (missing)")
 
 	// Infer complete person data
-	fmt.Println("\n🤖 Starting person inference...")
+	fmt.Println("\n?? Starting person inference...")
 
 	// Set timeout context on the options
 	opts := schemaflow.NewInferOptions().
@@ -101,16 +74,16 @@ func main() {
 		schemaflow.GetLogger().Error("Person inference failed", "error", err)
 		return
 	}
-	fmt.Println("✅ Person inference completed")
+	fmt.Println("? Person inference completed")
 
-	fmt.Println("\n✅ Inferred Complete Person:")
+	fmt.Println("\n? Inferred Complete Person:")
 	fmt.Printf("  Name:  %s\n", completePerson.Name)
 	fmt.Printf("  Age:   %d\n", completePerson.Age)
 	fmt.Printf("  Email: %s\n", completePerson.Email)
 	fmt.Printf("  City:  %s\n", completePerson.City)
 
 	// Example 2: Infer missing product fields
-	fmt.Println("\n📦 Partial Product Data:")
+	fmt.Println("\n?? Partial Product Data:")
 	partialProduct := Product{
 		Name: "iPhone 15",
 	}
@@ -120,7 +93,7 @@ func main() {
 	fmt.Println("  Brand:    (missing)")
 
 	// Infer complete product data
-	fmt.Println("\n🤖 Starting product inference...")
+	fmt.Println("\n?? Starting product inference...")
 
 	// Set timeout context on the options
 	productOpts := schemaflow.NewInferOptions().
@@ -134,13 +107,13 @@ func main() {
 		schemaflow.GetLogger().Error("Product inference failed", "error", err)
 		return
 	}
-	fmt.Println("✅ Product inference completed")
+	fmt.Println("? Product inference completed")
 
-	fmt.Println("\n✅ Inferred Complete Product:")
+	fmt.Println("\n? Inferred Complete Product:")
 	fmt.Printf("  Name:     %s\n", completeProduct.Name)
 	fmt.Printf("  Price:    $%.2f\n", completeProduct.Price)
 	fmt.Printf("  Category: %s\n", completeProduct.Category)
 	fmt.Printf("  Brand:    %s\n", completeProduct.Brand)
 
-	fmt.Println("\n✨ Success! Partial data → Complete records")
+	fmt.Println("\n? Success! Partial data ? Complete records")
 }

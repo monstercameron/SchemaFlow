@@ -9,54 +9,27 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
 
-	"github.com/joho/godotenv"
 	schemaflow "github.com/monstercameron/SchemaFlow"
+	"github.com/monstercameron/SchemaFlow/examples/internal/exampleutil"
 )
 
-// loadEnv loads environment variables from .env file
-func loadEnv() {
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		envPath := filepath.Join(dir, ".env")
-		if _, err := os.Stat(envPath); err == nil {
-			if err := godotenv.Load(envPath); err != nil {
-				log.Fatal("Error loading .env file")
-			}
-			return
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	log.Fatal(".env file not found")
-}
-
 func main() {
-	loadEnv()
 
-	fmt.Println("🔍 Intelligent Difference Detection Example")
+	fmt.Println("?? Intelligent Difference Detection Example")
 	fmt.Println("=")
 
 	// Initialize SchemaFlow with Fast intelligence (Cerebras)
-	fmt.Println("🔧 Initializing SchemaFlow...")
-	if err := schemaflow.InitWithEnv(); err != nil {
+	fmt.Println("?? Initializing SchemaFlow...")
+	if err := exampleutil.Bootstrap(); err != nil {
 		schemaflow.GetLogger().Error("Failed to initialize SchemaFlow", "error", err)
 		return
 	}
-	fmt.Println("✅ SchemaFlow initialized successfully")
+	fmt.Println("? SchemaFlow initialized successfully")
 	fmt.Println()
 
 	// Example 1: Customer Record Changes
-	fmt.Println("👤 Customer Record Changes")
+	fmt.Println("?? Customer Record Changes")
 	fmt.Println("-")
 
 	type Customer struct {
@@ -82,10 +55,10 @@ func main() {
 		Phone:  "+1-555-0123",
 	}
 
-	fmt.Printf("📊 Old Customer:\n  %+v\n\n", oldCustomer)
-	fmt.Printf("📊 New Customer:\n  %+v\n\n", newCustomer)
+	fmt.Printf("?? Old Customer:\n  %+v\n\n", oldCustomer)
+	fmt.Printf("?? New Customer:\n  %+v\n\n", newCustomer)
 
-	fmt.Println("🤖 Analyzing differences...")
+	fmt.Println("?? Analyzing differences...")
 	result, err := schemaflow.Diff(oldCustomer, newCustomer,
 		schemaflow.NewDiffOptions().WithContext("Customer management system"))
 	if err != nil {
@@ -93,18 +66,18 @@ func main() {
 		return
 	}
 
-	fmt.Printf("📋 Changes Detected:\n")
+	fmt.Printf("?? Changes Detected:\n")
 	fmt.Printf("  Added: %v\n", result.Added)
 	fmt.Printf("  Removed: %v\n", result.Removed)
 	fmt.Printf("  Modified: %d fields\n", len(result.Modified))
 	for _, change := range result.Modified {
-		fmt.Printf("    - %s: %v → %v\n", change.Field, change.OldValue, change.NewValue)
+		fmt.Printf("    - %s: %v ? %v\n", change.Field, change.OldValue, change.NewValue)
 	}
-	fmt.Printf("\n💡 Summary: %s\n", result.Summary)
+	fmt.Printf("\n?? Summary: %s\n", result.Summary)
 	fmt.Println()
 
 	// Example 2: Product Catalog Changes
-	fmt.Println("📦 Product Catalog Changes")
+	fmt.Println("?? Product Catalog Changes")
 	fmt.Println("-")
 
 	type Product struct {
@@ -136,10 +109,10 @@ func main() {
 		Tags:        []string{"bestseller", "premium", "noise-cancelling"},
 	}
 
-	fmt.Printf("📦 Old Product:\n  %+v\n\n", oldProduct)
-	fmt.Printf("📦 New Product:\n  %+v\n\n", newProduct)
+	fmt.Printf("?? Old Product:\n  %+v\n\n", oldProduct)
+	fmt.Printf("?? New Product:\n  %+v\n\n", newProduct)
 
-	fmt.Println("🤖 Analyzing differences...")
+	fmt.Println("?? Analyzing differences...")
 	productResult, err := schemaflow.Diff(oldProduct, newProduct,
 		schemaflow.NewDiffOptions().WithContext("E-commerce product catalog"))
 	if err != nil {
@@ -147,18 +120,18 @@ func main() {
 		return
 	}
 
-	fmt.Printf("📋 Changes Detected:\n")
+	fmt.Printf("?? Changes Detected:\n")
 	fmt.Printf("  Added: %v\n", productResult.Added)
 	fmt.Printf("  Removed: %v\n", productResult.Removed)
 	fmt.Printf("  Modified: %d fields\n", len(productResult.Modified))
 	for _, change := range productResult.Modified {
-		fmt.Printf("    - %s: %v → %v\n", change.Field, change.OldValue, change.NewValue)
+		fmt.Printf("    - %s: %v ? %v\n", change.Field, change.OldValue, change.NewValue)
 	}
-	fmt.Printf("\n💡 Summary: %s\n", productResult.Summary)
+	fmt.Printf("\n?? Summary: %s\n", productResult.Summary)
 	fmt.Println()
 
 	// Example 3: Configuration Changes with Ignored Fields
-	fmt.Println("⚙️  Configuration Changes (with ignored fields)")
+	fmt.Println("??  Configuration Changes (with ignored fields)")
 	fmt.Println("-")
 
 	type Config struct {
@@ -185,10 +158,10 @@ func main() {
 		LastUpdated: "2023-01-02T15:30:00Z",
 	}
 
-	fmt.Printf("⚙️  Old Config:\n  %+v\n\n", oldConfig)
-	fmt.Printf("⚙️  New Config:\n  %+v\n\n", newConfig)
+	fmt.Printf("??  Old Config:\n  %+v\n\n", oldConfig)
+	fmt.Printf("??  New Config:\n  %+v\n\n", newConfig)
 
-	fmt.Println("🤖 Analyzing differences (ignoring timestamps)...")
+	fmt.Println("?? Analyzing differences (ignoring timestamps)...")
 	configResult, err := schemaflow.Diff(oldConfig, newConfig,
 		schemaflow.NewDiffOptions().
 			WithContext("Service configuration management").
@@ -198,15 +171,15 @@ func main() {
 		return
 	}
 
-	fmt.Printf("📋 Changes Detected:\n")
+	fmt.Printf("?? Changes Detected:\n")
 	fmt.Printf("  Added: %v\n", configResult.Added)
 	fmt.Printf("  Removed: %v\n", configResult.Removed)
 	fmt.Printf("  Modified: %d fields\n", len(configResult.Modified))
 	for _, change := range configResult.Modified {
-		fmt.Printf("    - %s: %v → %v\n", change.Field, change.OldValue, change.NewValue)
+		fmt.Printf("    - %s: %v ? %v\n", change.Field, change.OldValue, change.NewValue)
 	}
-	fmt.Printf("\n💡 Summary: %s\n", configResult.Summary)
+	fmt.Printf("\n?? Summary: %s\n", configResult.Summary)
 	fmt.Println()
 
-	fmt.Println("✨ Success! Intelligent difference detection completed")
+	fmt.Println("? Success! Intelligent difference detection completed")
 }
