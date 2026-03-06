@@ -272,7 +272,7 @@ const (
 )
 
 // Legacy option constructors retained for backward compatibility.
-// New integrations should prefer the fluent request builders in `fluent*.go`.
+// New integrations should prefer the fluent request builders in `fluent.go`.
 var (
 	NewExtractOptions   = ops.NewExtractOptions
 	NewTransformOptions = ops.NewTransformOptions
@@ -328,7 +328,7 @@ var (
 )
 
 // Legacy direct-call operations retained for backward compatibility.
-// New integrations should prefer the fluent request builders in `fluent*.go`.
+// New integrations should prefer the fluent request builders in `fluent.go`.
 
 // Extract converts unstructured data into strongly-typed Go structs.
 //

@@ -18,7 +18,8 @@ func TestNewCommonOptionsDefaults(t *testing.T) {
 
 func TestExtractingBuilderAppliesCommonAndOperationOptions(t *testing.T) {
 	ctx := context.Background()
-	req := Extracting[struct {
+	var seen ExtractOptions
+	_ = Extracting[struct {
 		Name string `json:"name"`
 	}]("John Doe").
 		Strict().
@@ -28,141 +29,170 @@ func TestExtractingBuilderAppliesCommonAndOperationOptions(t *testing.T) {
 		Context(ctx).
 		RequestID("req-123").
 		Partial(false).
-		SchemaHints(map[string]string{"name": "Full legal name"})
+		SchemaHints(map[string]string{"name": "Full legal name"}).
+		Configure(func(opts ExtractOptions) ExtractOptions {
+			seen = opts
+			return opts
+		})
 
-	if req.opts.CommonOptions.Mode != Strict {
-		t.Fatalf("expected strict mode, got %v", req.opts.CommonOptions.Mode)
+	if seen.CommonOptions.Mode != Strict {
+		t.Fatalf("expected strict mode, got %v", seen.CommonOptions.Mode)
 	}
-	if req.opts.CommonOptions.Intelligence != Smart {
-		t.Fatalf("expected smart intelligence, got %v", req.opts.CommonOptions.Intelligence)
+	if seen.CommonOptions.Intelligence != Smart {
+		t.Fatalf("expected smart intelligence, got %v", seen.CommonOptions.Intelligence)
 	}
-	if req.opts.CommonOptions.Steering != "focus on the contact record" {
-		t.Fatalf("unexpected steering: %q", req.opts.CommonOptions.Steering)
+	if seen.CommonOptions.Steering != "focus on the contact record" {
+		t.Fatalf("unexpected steering: %q", seen.CommonOptions.Steering)
 	}
-	if req.opts.CommonOptions.Threshold != 0.9 {
-		t.Fatalf("expected threshold 0.9, got %v", req.opts.CommonOptions.Threshold)
+	if seen.CommonOptions.Threshold != 0.9 {
+		t.Fatalf("expected threshold 0.9, got %v", seen.CommonOptions.Threshold)
 	}
-	if req.opts.CommonOptions.Context != ctx {
+	if seen.CommonOptions.Context != ctx {
 		t.Fatal("expected context to be preserved")
 	}
-	if req.opts.CommonOptions.RequestID != "req-123" {
-		t.Fatalf("unexpected request id: %q", req.opts.CommonOptions.RequestID)
+	if seen.CommonOptions.RequestID != "req-123" {
+		t.Fatalf("unexpected request id: %q", seen.CommonOptions.RequestID)
 	}
-	if req.opts.AllowPartial {
+	if seen.AllowPartial {
 		t.Fatal("expected partial extraction to be disabled")
 	}
-	if req.opts.SchemaHints["name"] != "Full legal name" {
-		t.Fatalf("unexpected schema hint: %#v", req.opts.SchemaHints)
+	if seen.SchemaHints["name"] != "Full legal name" {
+		t.Fatalf("unexpected schema hint: %#v", seen.SchemaHints)
 	}
 }
 
 func TestGenerateAndTransformBuildersAreConfigurable(t *testing.T) {
-	genReq := Generating[string]("write a release note").
+	var genOpts GenerateOptions
+	_ = Generating[string]("write a release note").
 		Creative().
 		Quick().
 		Style("concise").
-		Count(2)
+		Count(2).
+		Configure(func(opts GenerateOptions) GenerateOptions {
+			genOpts = opts
+			return opts
+		})
 
-	if genReq.opts.CommonOptions.Mode != Creative {
-		t.Fatalf("expected creative mode, got %v", genReq.opts.CommonOptions.Mode)
+	if genOpts.CommonOptions.Mode != Creative {
+		t.Fatalf("expected creative mode, got %v", genOpts.CommonOptions.Mode)
 	}
-	if genReq.opts.CommonOptions.Intelligence != Quick {
-		t.Fatalf("expected quick intelligence, got %v", genReq.opts.CommonOptions.Intelligence)
+	if genOpts.CommonOptions.Intelligence != Quick {
+		t.Fatalf("expected quick intelligence, got %v", genOpts.CommonOptions.Intelligence)
 	}
-	if genReq.opts.Style != "concise" {
-		t.Fatalf("unexpected style: %q", genReq.opts.Style)
+	if genOpts.Style != "concise" {
+		t.Fatalf("unexpected style: %q", genOpts.Style)
 	}
-	if genReq.opts.Count != 2 {
-		t.Fatalf("unexpected count: %d", genReq.opts.Count)
+	if genOpts.Count != 2 {
+		t.Fatalf("unexpected count: %d", genOpts.Count)
 	}
 
 	type source struct{ Name string }
 	type target struct{ Label string }
 
-	transformReq := Transforming[source, target](source{Name: "foo"}).
+	var transformOpts TransformOptions
+	_ = Transforming[source, target](source{Name: "foo"}).
 		Strict().
 		Fast().
 		Merge("merge").
-		Steer("preserve identifiers")
+		Steer("preserve identifiers").
+		Configure(func(opts TransformOptions) TransformOptions {
+			transformOpts = opts
+			return opts
+		})
 
-	if transformReq.opts.CommonOptions.Mode != Strict {
-		t.Fatalf("expected strict mode, got %v", transformReq.opts.CommonOptions.Mode)
+	if transformOpts.CommonOptions.Mode != Strict {
+		t.Fatalf("expected strict mode, got %v", transformOpts.CommonOptions.Mode)
 	}
-	if transformReq.opts.CommonOptions.Intelligence != Fast {
-		t.Fatalf("expected fast intelligence, got %v", transformReq.opts.CommonOptions.Intelligence)
+	if transformOpts.CommonOptions.Intelligence != Fast {
+		t.Fatalf("expected fast intelligence, got %v", transformOpts.CommonOptions.Intelligence)
 	}
-	if transformReq.opts.MergeStrategy != "merge" {
-		t.Fatalf("unexpected merge strategy: %q", transformReq.opts.MergeStrategy)
+	if transformOpts.MergeStrategy != "merge" {
+		t.Fatalf("unexpected merge strategy: %q", transformOpts.MergeStrategy)
 	}
-	if transformReq.opts.CommonOptions.Steering != "preserve identifiers" {
-		t.Fatalf("unexpected steering: %q", transformReq.opts.CommonOptions.Steering)
+	if transformOpts.CommonOptions.Steering != "preserve identifiers" {
+		t.Fatalf("unexpected steering: %q", transformOpts.CommonOptions.Steering)
 	}
 }
 
 func TestCollectionBuildersStayFluent(t *testing.T) {
-	chooseReq := Choosing([]string{"a", "b"}).
+	var chooseOpts ChooseOptions
+	_ = Choosing([]string{"a", "b"}).
 		By("best quality", "lowest cost").
 		Smart().
 		Reasoning(false).
 		Top(2).
-		Steer("prefer durable options")
+		Steer("prefer durable options").
+		Configure(func(opts ChooseOptions) ChooseOptions {
+			chooseOpts = opts
+			return opts
+		})
 
-	if len(chooseReq.opts.Criteria) != 2 {
-		t.Fatalf("expected 2 criteria, got %d", len(chooseReq.opts.Criteria))
+	if len(chooseOpts.Criteria) != 2 {
+		t.Fatalf("expected 2 criteria, got %d", len(chooseOpts.Criteria))
 	}
-	if chooseReq.opts.CommonOptions.Intelligence != Smart {
-		t.Fatalf("expected smart intelligence, got %v", chooseReq.opts.CommonOptions.Intelligence)
+	if chooseOpts.CommonOptions.Intelligence != Smart {
+		t.Fatalf("expected smart intelligence, got %v", chooseOpts.CommonOptions.Intelligence)
 	}
-	if chooseReq.opts.RequireReasoning {
+	if chooseOpts.RequireReasoning {
 		t.Fatal("expected reasoning to be disabled")
 	}
-	if chooseReq.opts.TopN != 2 {
-		t.Fatalf("expected top 2, got %d", chooseReq.opts.TopN)
+	if chooseOpts.TopN != 2 {
+		t.Fatalf("expected top 2, got %d", chooseOpts.TopN)
 	}
-	if chooseReq.opts.CommonOptions.Steering != "prefer durable options" {
-		t.Fatalf("unexpected steering: %q", chooseReq.opts.CommonOptions.Steering)
+	if chooseOpts.CommonOptions.Steering != "prefer durable options" {
+		t.Fatalf("unexpected steering: %q", chooseOpts.CommonOptions.Steering)
 	}
 
-	filterReq := Filtering([]string{"a", "b"}).
+	var filterOpts FilterOptions
+	_ = Filtering([]string{"a", "b"}).
 		By("urgent only").
 		Quick().
 		KeepMatching(false).
 		MinConfidence(0.95).
-		Steer("drop backlog items")
+		Steer("drop backlog items").
+		Configure(func(opts FilterOptions) FilterOptions {
+			filterOpts = opts
+			return opts
+		})
 
-	if filterReq.opts.Criteria != "urgent only" {
-		t.Fatalf("unexpected criteria: %q", filterReq.opts.Criteria)
+	if filterOpts.Criteria != "urgent only" {
+		t.Fatalf("unexpected criteria: %q", filterOpts.Criteria)
 	}
-	if filterReq.opts.CommonOptions.Intelligence != Quick {
-		t.Fatalf("expected quick intelligence, got %v", filterReq.opts.CommonOptions.Intelligence)
+	if filterOpts.CommonOptions.Intelligence != Quick {
+		t.Fatalf("expected quick intelligence, got %v", filterOpts.CommonOptions.Intelligence)
 	}
-	if filterReq.opts.KeepMatching {
+	if filterOpts.KeepMatching {
 		t.Fatal("expected keep matching to be false")
 	}
-	if filterReq.opts.MinConfidence != 0.95 {
-		t.Fatalf("unexpected confidence: %v", filterReq.opts.MinConfidence)
+	if filterOpts.MinConfidence != 0.95 {
+		t.Fatalf("unexpected confidence: %v", filterOpts.MinConfidence)
 	}
-	if filterReq.opts.CommonOptions.Steering != "drop backlog items" {
-		t.Fatalf("unexpected steering: %q", filterReq.opts.CommonOptions.Steering)
+	if filterOpts.CommonOptions.Steering != "drop backlog items" {
+		t.Fatalf("unexpected steering: %q", filterOpts.CommonOptions.Steering)
 	}
 
-	sortReq := Sorting([]string{"a", "b"}).
+	var sortOpts SortOptions
+	_ = Sorting([]string{"a", "b"}).
 		By("highest priority first").
 		Fast().
 		Desc().
-		Steer("prioritize deadlines")
+		Steer("prioritize deadlines").
+		Configure(func(opts SortOptions) SortOptions {
+			sortOpts = opts
+			return opts
+		})
 
-	if sortReq.opts.Criteria != "highest priority first" {
-		t.Fatalf("unexpected criteria: %q", sortReq.opts.Criteria)
+	if sortOpts.Criteria != "highest priority first" {
+		t.Fatalf("unexpected criteria: %q", sortOpts.Criteria)
 	}
-	if sortReq.opts.CommonOptions.Intelligence != Fast {
-		t.Fatalf("expected fast intelligence, got %v", sortReq.opts.CommonOptions.Intelligence)
+	if sortOpts.CommonOptions.Intelligence != Fast {
+		t.Fatalf("expected fast intelligence, got %v", sortOpts.CommonOptions.Intelligence)
 	}
-	if sortReq.opts.Direction != "descending" {
-		t.Fatalf("unexpected direction: %q", sortReq.opts.Direction)
+	if sortOpts.Direction != "descending" {
+		t.Fatalf("unexpected direction: %q", sortOpts.Direction)
 	}
-	if sortReq.opts.CommonOptions.Steering != "prioritize deadlines" {
-		t.Fatalf("unexpected steering: %q", sortReq.opts.CommonOptions.Steering)
+	if sortOpts.CommonOptions.Steering != "prioritize deadlines" {
+		t.Fatalf("unexpected steering: %q", sortOpts.CommonOptions.Steering)
 	}
 }
 
@@ -204,59 +234,84 @@ func TestCollectionOptionTypesExposeCommonBuilders(t *testing.T) {
 }
 
 func TestExtendedBuildersExposeFluentConfiguration(t *testing.T) {
-	classifyReq := Classifying[string, string]("refund requested").
+	var classifyOpts ClassifyOptions
+	_ = Classifying[string, string]("refund requested").
 		Categories("billing", "support").
 		Smart().
-		Steer("prefer the most actionable label")
-	if len(classifyReq.opts.Categories) != 2 {
-		t.Fatalf("expected categories to be captured, got %#v", classifyReq.opts.Categories)
+		Steer("prefer the most actionable label").
+		Configure(func(opts ClassifyOptions) ClassifyOptions {
+			classifyOpts = opts
+			return opts
+		})
+	if len(classifyOpts.Categories) != 2 {
+		t.Fatalf("expected categories to be captured, got %#v", classifyOpts.Categories)
 	}
-	if classifyReq.opts.CommonOptions.Intelligence != Smart {
-		t.Fatalf("expected smart intelligence, got %v", classifyReq.opts.CommonOptions.Intelligence)
+	if classifyOpts.CommonOptions.Intelligence != Smart {
+		t.Fatalf("expected smart intelligence, got %v", classifyOpts.CommonOptions.Intelligence)
 	}
 
-	parseReq := Parsing[map[string]any]("name|john").
+	var parseOpts ParseOptions
+	_ = Parsing[map[string]any]("name|john").
 		AllowLLMFallback(true).
 		AutoFix(true).
 		Quick().
-		RequestID("parse-1")
-	if !parseReq.opts.AllowLLMFallback || !parseReq.opts.AutoFix {
-		t.Fatalf("expected parse flags to be enabled: %#v", parseReq.opts)
+		RequestID("parse-1").
+		Configure(func(opts ParseOptions) ParseOptions {
+			parseOpts = opts
+			return opts
+		})
+	if !parseOpts.AllowLLMFallback || !parseOpts.AutoFix {
+		t.Fatalf("expected parse flags to be enabled: %#v", parseOpts)
 	}
-	if parseReq.opts.OpOptions.Intelligence != Quick || parseReq.opts.OpOptions.RequestID != "parse-1" {
-		t.Fatalf("expected parse op options to be updated: %#v", parseReq.opts.OpOptions)
+	if parseOpts.OpOptions.Intelligence != Quick || parseOpts.OpOptions.RequestID != "parse-1" {
+		t.Fatalf("expected parse op options to be updated: %#v", parseOpts.OpOptions)
 	}
 
-	questionReq := Asking[string, string]("quarterly report", "What changed?").
+	var questionOpts QuestionOptions
+	_ = Asking[string, string]("quarterly report", "What changed?").
 		Strict().
-		Steer("answer briefly")
-	if questionReq.opts.Question != "What changed?" {
-		t.Fatalf("unexpected question: %q", questionReq.opts.Question)
+		Steer("answer briefly").
+		Configure(func(opts QuestionOptions) QuestionOptions {
+			questionOpts = opts
+			return opts
+		})
+	if questionOpts.Question != "What changed?" {
+		t.Fatalf("unexpected question: %q", questionOpts.Question)
 	}
-	if questionReq.opts.CommonOptions.Mode != Strict || questionReq.opts.CommonOptions.Steering != "answer briefly" {
-		t.Fatalf("unexpected question common options: %#v", questionReq.opts.CommonOptions)
+	if questionOpts.CommonOptions.Mode != Strict || questionOpts.CommonOptions.Steering != "answer briefly" {
+		t.Fatalf("unexpected question common options: %#v", questionOpts.CommonOptions)
 	}
 }
 
 func TestDirectStyleBuildersExposeUnifiedControls(t *testing.T) {
-	resolveReq := Resolving([]string{"a", "b"}).
+	var resolveOpts ResolveOptions
+	_ = Resolving([]string{"a", "b"}).
 		Strategy("merge").
 		Smart().
-		Steer("prefer the most complete record")
-	if resolveReq.opts.Strategy != "merge" {
-		t.Fatalf("unexpected resolve strategy: %q", resolveReq.opts.Strategy)
+		Steer("prefer the most complete record").
+		Configure(func(opts ResolveOptions) ResolveOptions {
+			resolveOpts = opts
+			return opts
+		})
+	if resolveOpts.Strategy != "merge" {
+		t.Fatalf("unexpected resolve strategy: %q", resolveOpts.Strategy)
 	}
-	if resolveReq.opts.Intelligence != Smart || resolveReq.opts.Steering != "prefer the most complete record" {
-		t.Fatalf("unexpected resolve direct options: %#v", resolveReq.opts)
+	if resolveOpts.Intelligence != Smart || resolveOpts.Steering != "prefer the most complete record" {
+		t.Fatalf("unexpected resolve direct options: %#v", resolveOpts)
 	}
 
-	projectReq := Projecting[map[string]any, map[string]any](map[string]any{"id": 1}).
+	var projectOpts ProjectOptions
+	_ = Projecting[map[string]any, map[string]any](map[string]any{"id": 1}).
 		Exclude("secret", "token").
-		Fast()
-	if len(projectReq.opts.Exclude) != 2 {
-		t.Fatalf("expected projected exclude fields, got %#v", projectReq.opts.Exclude)
+		Fast().
+		Configure(func(opts ProjectOptions) ProjectOptions {
+			projectOpts = opts
+			return opts
+		})
+	if len(projectOpts.Exclude) != 2 {
+		t.Fatalf("expected projected exclude fields, got %#v", projectOpts.Exclude)
 	}
-	if projectReq.opts.Intelligence != Fast {
-		t.Fatalf("expected fast intelligence, got %v", projectReq.opts.Intelligence)
+	if projectOpts.Intelligence != Fast {
+		t.Fatalf("expected fast intelligence, got %v", projectOpts.Intelligence)
 	}
 }

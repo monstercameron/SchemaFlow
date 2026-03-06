@@ -1,28 +1,22 @@
 # SchemaFlow
 
-Production-ready LLM operations with Go's type safety.
+SchemaFlow is a Go library for typed LLM operations.
 
-SchemaFlow turns LLM calls into typed Go operations. You define structs and use semantic operations like `Extract`, `Transform`, `Generate`, `Rank`, `Enrich`, or `Verify` without manually juggling prompts, JSON parsing, retries, logging, and cost tracking in each call site.
+It gives you a single public API built around fluent request builders so application code stays readable while retries, structured output contracts, logging, metrics, and cost tracking stay centralized.
 
-## What It Is
-
-SchemaFlow is a Go library, not an app.
-
-It gives you:
-- typed LLM operations with generics
-- fluent request builders for common workflows
-- provider abstraction for OpenAI, Anthropic, OpenRouter, Cerebras, and local mocks
-- built-in retries, timeouts, structured logging, tracing, metrics, and cost tracking
-
-## Quick Start
+## Install
 
 ```bash
 go get github.com/monstercameron/schemaflow
 ```
 
+Set an API key for your provider. OpenAI is the default.
+
 ```bash
 export SCHEMAFLOW_API_KEY=your-api-key
 ```
+
+## Quick Start
 
 ```go
 package main
@@ -41,7 +35,9 @@ type Person struct {
 func main() {
     schemaflow.Init("")
 
-    person, err := schemaflow.Extracting[Person]("John is 30 years old").Run()
+    person, err := schemaflow.Extracting[Person]("John is 30 years old").
+        Strict().
+        Run()
     if err != nil {
         panic(err)
     }
@@ -50,9 +46,9 @@ func main() {
 }
 ```
 
-## Public API
+## API Shape
 
-New integrations should use the fluent request-builder stack.
+The public API is the fluent builder stack at the root package.
 
 ```go
 person, err := schemaflow.Extracting[Person](rawText).
@@ -66,12 +62,20 @@ best, err := schemaflow.Choosing(products).
     Fast().
     Run()
 
-urgent, err := schemaflow.FilterBy(tasks, "high priority tasks due today")
+summary, err := schemaflow.Summarizing(longText).
+    MaxLength(120).
+    Run()
 ```
 
-The fluent layer covers the typed LLM surface.
+Builder conventions:
+- `Run()` executes the operation
+- `WithOptions(...)` replaces the full typed option object
+- `Configure(func(...))` lets you mutate the typed option object directly
+- common controls such as `Strict()`, `Smart()`, `Fast()`, `Quick()`, `Steer(...)`, `Context(...)`, and `RequestID(...)` are exposed where they make sense
 
-### Structured builders
+## Core Builders
+
+### Structured extraction and generation
 - `Extracting[T](input)`
 - `Transforming[T, U](input)`
 - `Generating[T](prompt)`
@@ -85,7 +89,7 @@ The fluent layer covers the typed LLM surface.
 - `Projecting[T, U](input)`
 - `Pivoting[T, U](input)`
 
-### Text builders
+### Text operations
 - `Summarizing(input)`
 - `Rewriting(input)`
 - `Translating(input)`
@@ -95,7 +99,7 @@ The fluent layer covers the typed LLM surface.
 - `Redacting[T](input)`
 - `LLMRedacting(input)`
 
-### Evaluation builders
+### Analysis and validation
 - `Classifying[T, C](input)`
 - `Scoring[T](input)`
 - `Comparing[T](left, right)`
@@ -106,7 +110,7 @@ The fluent layer covers the typed LLM surface.
 - `Verifying(input)`
 - `VerifyingClaim(claim)`
 
-### Collection and synthesis builders
+### Collection and reasoning
 - `Choosing[T](items)`
 - `Filtering[T](items)`
 - `Sorting[T](items)`
@@ -132,30 +136,128 @@ The fluent layer covers the typed LLM surface.
 - `Auditing[T](input)`
 - `Assembling[T](parts)`
 
-See [docs/reference/API.md](docs/reference/API.md) for the full surface.
+### Compact helpers
+- `ChooseBy(items, criteria...)`
+- `FilterBy(items, criteria)`
+- `SortBy(items, criteria)`
 
-Compatibility note:
-- the older `Extract(...)` / `New*Options()` style remains available for existing callers
-- it is no longer the primary documented API
+Full API reference: [docs/reference/API.md](docs/reference/API.md)
 
-## Reliability Defaults
+## Usage Examples
 
-SchemaFlow now treats the shared LLM path as infrastructure, not a raw provider call.
+### Extract typed data
+
+```go
+type Invoice struct {
+    Number string  `json:"number"`
+    Total  float64 `json:"total"`
+}
+
+invoice, err := schemaflow.Extracting[Invoice](rawEmail).
+    Strict().
+    Fast().
+    Run()
+```
+
+### Transform one type into another
+
+```go
+type Lead struct {
+    Name  string `json:"name"`
+    Email string `json:"email"`
+}
+
+type CRMContact struct {
+    FullName string `json:"full_name"`
+    Email    string `json:"email"`
+}
+
+contact, err := schemaflow.Transforming[Lead, CRMContact](lead).
+    Strict().
+    Steer("Preserve exact identifiers and emails").
+    Run()
+```
+
+### Generate typed output
+
+```go
+type ReleaseNote struct {
+    Title   string   `json:"title"`
+    Bullets []string `json:"bullets"`
+}
+
+note, err := schemaflow.Generating[ReleaseNote]("Write release notes for version 2.3").
+    Creative().
+    Smart().
+    Run()
+```
+
+### Filter and sort collections
+
+```go
+urgent, err := schemaflow.Filtering(tasks).
+    By("high priority tasks due today").
+    Run()
+
+ordered, err := schemaflow.Sorting(urgent).
+    By("most urgent operational risk first").
+    Smart().
+    Run()
+```
+
+### Summarize and rewrite text
+
+```go
+summary, err := schemaflow.Summarizing(article).
+    MaxLength(160).
+    Run()
+
+rewrite, err := schemaflow.Rewriting(summary).
+    Tone("executive").
+    Run()
+```
+
+### Validate structured data
+
+```go
+result, err := schemaflow.Validating(customer).
+    Rules("email must be valid, country must be ISO alpha-2, age must be at least 18").
+    Run()
+
+if err != nil {
+    panic(err)
+}
+if !result.Valid {
+    fmt.Println(result.Issues)
+}
+```
+
+### Ask typed questions over context
+
+```go
+answer, err := schemaflow.Asking[string, string](report, "What changed from last quarter?").
+    Strict().
+    Run()
+```
+
+## Reliability
+
+SchemaFlow treats the shared LLM path as infrastructure.
 
 Built in:
-- request IDs generated automatically when missing
-- provider-level retry policy support
-- default retry budget for transient LLM failures
-- fail-fast behavior for non-retryable request/auth errors
-- validation for empty provider responses
-- predictable timeout handling through context and `SCHEMAFLOW_TIMEOUT`
+- automatic request IDs when missing
+- retries for transient provider failures and empty completions
+- fail-fast behavior for non-retryable auth and request errors
+- JSON response enforcement for structured operations
+- timeout control through context and client configuration
+- structured error and request logging
 
 Retry-related environment variables:
 - `SCHEMAFLOW_LLM_MAX_RETRIES`
 - `SCHEMAFLOW_LLM_RETRY_BACKOFF`
 - `SCHEMAFLOW_TIMEOUT`
 
-Client-level tuning:
+Client tuning:
 
 ```go
 client := schemaflow.NewClient(apiKey).
@@ -165,16 +267,9 @@ client := schemaflow.NewClient(apiKey).
     WithProvider("openai")
 ```
 
-## Logging And Review
+## Logging
 
-SchemaFlow ships with structured logging backed by `slog`.
-
-Features:
-- text or JSON output
-- level control
-- optional file sink
-- in-memory capture for review
-- request-correlated LLM lifecycle logs
+SchemaFlow uses structured logging backed by `slog`.
 
 Environment variables:
 - `SCHEMAFLOW_LOG_LEVEL=debug|info|warn|error`
@@ -206,13 +301,10 @@ schemaflow.ResetLogEntries()
 SchemaFlow records:
 - request counts
 - request durations
-- prompt/completion/total tokens
-- prompt/completion/total cost in USD
-- cached and reasoning token/cost fields when providers return them
+- prompt, completion, cached, reasoning, and total tokens when available
+- prompt, completion, cached, reasoning, and total USD cost when available
 
-Low-cardinality metrics are recorded through the telemetry registry, while exact per-request cost history is tracked separately for review and reporting.
-
-Examples:
+Per-request cost history is tracked separately from low-cardinality aggregate metrics.
 
 ```go
 import (
@@ -240,27 +332,38 @@ if ok {
 }
 ```
 
-## Provider Layer
+## Providers
+
+Default provider:
+- `openai`
+
+Built-in providers:
+- `openai`
+- `anthropic`
+- `openrouter`
+- `cerebras`
+- `deepseek`
+- `qwen`
+- `zai`
+- `local`
 
 ```go
 client := schemaflow.NewClient(apiKey)
 
 client.WithProvider("openai")
 client.WithProvider("anthropic")
-client.WithProvider("openrouter")
-client.WithProvider("cerebras")
 client.WithProvider("deepseek")
 client.WithProvider("qwen")
 client.WithProvider("zai")
 client.WithProvider("local")
 ```
 
-Built-in provider notes:
-- `anthropic` uses Anthropic's native Messages API
+Provider notes:
+- `anthropic` uses the native Anthropic Messages API
 - `deepseek`, `qwen`, `zai`, `openrouter`, and `cerebras` use the shared OpenAI-compatible provider path
-- provider-specific env vars are supported, for example `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, `ZAI_API_KEY`, `ANTHROPIC_API_KEY`
+- provider-specific env vars are supported, including `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, and `ZAI_API_KEY`
 
-Custom provider integration:
+Custom provider registration:
 
 ```go
 schemaflow.RegisterProviderFactory("myvendor", func(cfg schemaflow.ProviderConfig) (schemaflow.Provider, error) {
@@ -279,78 +382,39 @@ Default OpenAI intelligence mapping:
 - `Fast -> gpt-5-mini`
 - `Quick -> gpt-5-nano`
 
-You can override model mapping with:
+Overrides:
 - `SCHEMAFLOW_MODEL`
 - `SCHEMAFLOW_MODEL_SMART`
 - `SCHEMAFLOW_MODEL_FAST`
 - `SCHEMAFLOW_MODEL_QUICK`
 
-## Example Workflow
+## Environment
 
-```go
-package main
+Common environment variables:
+- `SCHEMAFLOW_API_KEY`
+- `OPENAI_API_KEY`
+- `SCHEMAFLOW_PROVIDER`
+- `SCHEMAFLOW_TIMEOUT`
+- `SCHEMAFLOW_MODEL`
+- `SCHEMAFLOW_MODEL_SMART`
+- `SCHEMAFLOW_MODEL_FAST`
+- `SCHEMAFLOW_MODEL_QUICK`
 
-import (
-    "fmt"
+If `SCHEMAFLOW_API_KEY` is unset and `OPENAI_API_KEY` is present, SchemaFlow will use `OPENAI_API_KEY`.
 
-    schemaflow "github.com/monstercameron/schemaflow"
-)
+## Design Notes
 
-type Ticket struct {
-    Title    string `json:"title"`
-    Priority string `json:"priority"`
-    Team     string `json:"team"`
-}
-
-func ProcessTickets(raw []string) error {
-    parsed := make([]Ticket, 0, len(raw))
-    for _, item := range raw {
-        ticket, err := schemaflow.Extracting[Ticket](item).
-            Fast().
-            Steer("Infer priority conservatively").
-            Run()
-        if err != nil {
-            return err
-        }
-        parsed = append(parsed, ticket)
-    }
-
-    urgent, err := schemaflow.FilterBy(parsed, "priority is high and team is platform")
-    if err != nil {
-        return err
-    }
-
-    ordered, err := schemaflow.Sorting(urgent).
-        By("most urgent operational risk first").
-        Smart().
-        Run()
-    if err != nil {
-        return err
-    }
-
-    fmt.Println("tickets to handle:", len(ordered))
-    return nil
-}
-```
-
-## Notes
-
-- Prefer collection-aware APIs when they exist; avoid spraying raw LLM calls through business logic.
-- Use the local provider for tests and smoke runs, not as proof of semantic correctness.
-- Use JSON output only for operations that truly need structure; SchemaFlow now infers and enforces that automatically for shared LLM calls.
+- The root package is the public facade for downstream Go projects.
+- Builder implementation lives under `internal/` so the exported API can evolve without exposing internal plumbing.
+- Prefer collection-aware builders when they exist instead of scattering raw single-call logic across application code.
+- The local provider is useful for tests and smoke runs, not for proving semantic correctness.
 
 ## Documentation
 
 - [API reference](docs/reference/API.md)
-- [`examples/`](examples/)
+- [Examples](examples/)
 - [Production backlog](docs/engineering/backlog/PRODUCTION_TODO.md)
 
-## Why SchemaFlow
+## Compatibility
 
-1. It is just Go with generics, not a separate DSL.
-2. It centralizes reliability concerns instead of scattering prompt and parse glue.
-3. It gives you typed outputs for semantic operations.
-4. It includes observability and cost analysis primitives out of the box.
-5. It keeps provider choice and intelligence mapping configurable.
-
-
+The older direct-call function API still exists for existing consumers, but it is compatibility-only. New code should use the fluent builders shown here.
