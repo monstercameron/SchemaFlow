@@ -1,0 +1,60 @@
+name: smarttodo-demo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/smarttodo/**'
+      - 'web/smarttodo-demo/**'
+      - '.github/workflows/smarttodo-demo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: smarttodo-demo
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Prepare dist
+        run: |
+          mkdir -p dist/smarttodo-demo
+          cp -R web/smarttodo-demo/. dist/smarttodo-demo/
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/smarttodo-demo/
+
+      - name: Build smarttodo wasm
+        working-directory: examples/smarttodo
+        run: GOOS=js GOARCH=wasm go build -o ../../dist/smarttodo-demo/smarttodo.wasm ./cmd/smarttodo-wasm
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/smarttodo-demo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

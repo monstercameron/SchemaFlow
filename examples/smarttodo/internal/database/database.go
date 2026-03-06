@@ -85,8 +85,8 @@ func (d *Database) createTables() error {
 
 func (d *Database) AddTodo(todo *models.SmartTodo) (int64, error) {
 	query := `
-	INSERT INTO todos (title, description, priority, category, location, deadline, effort, dependencies, context, cost)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	INSERT INTO todos (title, description, priority, category, location, deadline, effort, dependencies, context, tasks, cost)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	var deadlineStr *string
@@ -99,6 +99,10 @@ func (d *Database) AddTodo(todo *models.SmartTodo) (int64, error) {
 	if len(todo.Dependencies) > 0 {
 		deps = joinStrings(todo.Dependencies, ",")
 	}
+	tasksJSON := "[]"
+	if len(todo.Tasks) > 0 {
+		tasksJSON = todo.TasksToJSON()
+	}
 
 	result, err := d.db.Exec(query,
 		todo.Title,
@@ -110,6 +114,7 @@ func (d *Database) AddTodo(todo *models.SmartTodo) (int64, error) {
 		todo.Effort,
 		deps,
 		todo.Context,
+		tasksJSON,
 		todo.Cost,
 	)
 
@@ -122,7 +127,7 @@ func (d *Database) AddTodo(todo *models.SmartTodo) (int64, error) {
 
 func (d *Database) GetPendingTodos() ([]*models.SmartTodo, error) {
 	query := `
-	SELECT id, title, description, priority, category, deadline, effort, dependencies, context, created_at
+	SELECT id, title, description, priority, category, deadline, effort, dependencies, context, tasks, created_at
 	FROM todos
 	WHERE completed = 0
 	ORDER BY 

@@ -7,231 +7,150 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/localization"
+	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/models"
 )
 
 func (m Model) listViewRender() string {
-	// Build professional header with user info
-	// Create header sections
-	leftSection := localization.T(localization.AppName)
-	if m.userName != "" {
-		leftSection = fmt.Sprintf("%s • %s", localization.T(localization.AppName), m.userName)
-	}
+	header := renderShellHeader(
+		m.width,
+		"Smart Todo",
+		fmt.Sprintf("%s | %s", fallbackLabel(m.listTitle, "Focused task board"), fallbackLabel(m.userName, "anonymous")),
+		[]string{
+			lipgloss.NewStyle().Foreground(primaryColor).Render(time.Now().Format("Mon Jan 2")),
+			lipgloss.NewStyle().Foreground(mutedColor).Render(fmt.Sprintf("%d items", len(m.todos))),
+		},
+	)
 
-	// Add filter indicator if active
-	if m.list.SettingFilter() {
-		filterIndicator := lipgloss.NewStyle().
-			Foreground(warningColor).
-			Bold(true).
-			Render(" 🔍 FILTER MODE")
-		leftSection += filterIndicator
-	}
-
-	// Add today's date
-	today := time.Now().Format("Monday, January 2, 2006")
-	rightSection := today
-
-	// Create professional bordered header
-	// Top line of header
-	// Ensure header width is safe
-	headerWidth := m.width - 2
-	if headerWidth < 40 {
-		headerWidth = 40
-	}
-	headerTop := "╭" + strings.Repeat("─", headerWidth) + "╮"
-
-	// Main header content line
-	leftPart := lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(leftSection)
-	rightPart := lipgloss.NewStyle().Foreground(secondaryColor).Render(rightSection)
-
-	// Calculate spacing safely
-	leftWidth := lipgloss.Width(leftPart)
-	rightWidth := lipgloss.Width(rightPart)
-	spacerWidth := headerWidth - leftWidth - rightWidth - 2 // Account for side borders
-	if spacerWidth < 1 {
-		spacerWidth = 1
-	}
-	spacer := strings.Repeat(" ", spacerWidth)
-
-	headerMainLine := fmt.Sprintf("│ %s%s%s │", leftPart, spacer, rightPart)
-
-	// Status line with location and progress info
-	var locationDisplay string
-	if m.selectedTodo != nil && m.selectedTodo.Context != "" {
-		locationDisplay = localization.T(localization.StatusLocation, m.selectedTodo.Context)
-	} else {
-		locationDisplay = localization.T(localization.StatusLocation, localization.T(localization.LocationHome))
-	}
-
-	// Count today's tasks
-	completedToday := 0
-	totalToday := 0
-	for _, todo := range m.todos {
-		if todo.CreatedAt.Day() == time.Now().Day() {
-			totalToday++
-			if todo.Completed {
-				completedToday++
-			}
-		}
-	}
-
-	tasksDisplay := localization.T(localization.StatusTasks, completedToday, totalToday)
-	streakDisplay := localization.T(localization.StatusStreak, 3) // TODO: Calculate actual streak
-
-	statusParts := fmt.Sprintf("%s   %s   %s", locationDisplay, tasksDisplay, streakDisplay)
-	statusLine := fmt.Sprintf("│ %s%*s │",
-		lipgloss.NewStyle().Foreground(mutedColor).Render(statusParts),
-		m.width-lipgloss.Width(statusParts)-4, "")
-
-	// Bottom line of header
-	headerBottom := "╰" + strings.Repeat("─", headerWidth) + "╯"
-
-	headerContent := lipgloss.NewStyle().Foreground(mutedColor).Render(headerTop) + "\n" +
-		headerMainLine + "\n" +
-		statusLine + "\n" +
-		lipgloss.NewStyle().Foreground(mutedColor).Render(headerBottom)
-
-	// Stats bar with beautiful formatting
 	statsBar := m.renderEnhancedStatsBar()
 
-	// Todo list with adjusted height
-	// Calculate available height more accurately
-	headerLines := 4      // Header box
-	statsLines := 2       // Stats bar
-	bottomPanelLines := 9 // Keyboard shortcuts and activity log
-	statusLines := 1      // Status message
-	spacing := 2          // Vertical spacing
-
-	listHeight := m.height - (headerLines + statsLines + bottomPanelLines + statusLines + spacing)
-	if listHeight < 5 {
-		listHeight = 5
+	bodyWidth := clamp(m.width-4, 72, 148)
+	stackSideColumn := m.width < 132
+	compactHeight := m.height < 34
+	showFooter := m.height >= 40
+	leftWidth := bodyWidth
+	rightWidth := bodyWidth
+	if !stackSideColumn && !compactHeight {
+		leftWidth = clamp((bodyWidth*3)/5, 46, 92)
+		rightWidth = clamp(bodyWidth-leftWidth-2, 24, 50)
 	}
-	if listHeight > 50 {
-		listHeight = 50 // Cap max height for readability
+	listHeight := clamp(m.height-18, 6, 24)
+	if compactHeight {
+		listHeight = clamp(m.height-14, 6, 16)
 	}
+	m.list.SetSize(leftWidth-6, listHeight)
 
-	// Ensure list width doesn't cause overflow
-	listWidth := m.width - 4
-	if listWidth < 60 {
-		listWidth = 60
-	}
-	m.list.SetSize(listWidth, listHeight)
-	listContent := m.list.View()
+	listPanel := renderPanel("Task queue", m.list.View(), leftWidth)
 
-	// Create inline keyboard shortcuts and activity log (50/50 split)
-	// Ensure minimum width for both panels
-	halfWidth := (m.width - 6) / 2
-	if halfWidth < 35 {
-		halfWidth = 35
+	var selectedTodo *models.SmartTodo
+	if item, ok := m.list.SelectedItem().(todoItem); ok {
+		selectedTodo = item.todo
 	}
 
-	// Keyboard shortcuts (left side)
-	keyboardShortcuts := []string{
-		lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(localization.T(localization.ShortcutsTitle)),
-		"",
-		lipgloss.NewStyle().Foreground(successColor).Render(localization.T(localization.ShortcutAdd)) + " " + localization.T(localization.ActionAdd) + "  " +
-			lipgloss.NewStyle().Foreground(secondaryColor).Render(localization.T(localization.ShortcutSuggest)) + " " + localization.T(localization.ActionSuggest),
-		lipgloss.NewStyle().Foreground(successColor).Render(localization.T(localization.ShortcutComplete)) + "  " + localization.T(localization.ActionComplete) + "  " +
-			lipgloss.NewStyle().Foreground(secondaryColor).Render(localization.T(localization.ShortcutStats)) + " " + localization.T(localization.ActionStats),
-		lipgloss.NewStyle().Foreground(successColor).Render(localization.T(localization.ShortcutSubtasks)) + "      " + localization.T(localization.ActionSubtasks) + "  " +
-			lipgloss.NewStyle().Foreground(mutedColor).Render(localization.T(localization.ShortcutEdit)) + " " + localization.T(localization.ActionEdit),
-		lipgloss.NewStyle().Foreground(mutedColor).Render(localization.T(localization.ShortcutNavigate)) + "    " + localization.T(localization.ActionNavigate) + "  " +
-			lipgloss.NewStyle().Foreground(errorColor).Render(localization.T(localization.ShortcutDelete)) + " " + localization.T(localization.ActionDelete),
-		lipgloss.NewStyle().Foreground(mutedColor).Render(localization.T(localization.ShortcutDetails)) + "      " + localization.T(localization.ActionDetails) + "   " +
-			lipgloss.NewStyle().Foreground(errorColor).Render(localization.T(localization.ShortcutQuit)) + "    " + localization.T(localization.ActionQuit),
+	rightTop := renderPanel("Focus", renderTodoSnapshot(selectedTodo, rightWidth-4), rightWidth)
+
+	shortcutLines := []string{
+		"ctrl+a  add task",
+		"enter   toggle complete",
+		"ctrl+e  edit task",
+		"ctrl+d  delete task",
+		"v       details",
+		"right   subtasks",
+		"ctrl+s  suggest next",
+		"ctrl+r  smart prioritize",
+		"ctrl+i  board stats",
+		"ctrl+k  update API key",
+		"esc     quit",
+	}
+	shortcuts := renderPanel("Controls", renderShortcutList(shortcutLines), rightWidth)
+	rightColumn := lipgloss.JoinVertical(lipgloss.Left, rightTop, shortcuts)
+
+	mainSection := listPanel
+	if !compactHeight {
+		mainSection = lipgloss.JoinHorizontal(lipgloss.Top, listPanel, rightColumn)
+	}
+	if stackSideColumn && !compactHeight {
+		mainSection = lipgloss.JoinVertical(lipgloss.Left, listPanel, rightColumn)
 	}
 
-	keyHelpBox := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(mutedColor).
-		Padding(0, 1).
-		Width(halfWidth).
-		Height(9).
-		Render(strings.Join(keyboardShortcuts, "\n"))
+	status := renderStatusLine(m.width-2, m.statusType, m.statusMsg)
+	footerLeft := renderPanel("Activity", renderRecentLogs(m.consoleLogs, clamp((m.width-10)/2, 28, 64), 8), clamp((m.width-6)/2, 34, 72))
+	footerRight := renderPanel("Hints", strings.Join([]string{
+		"Use natural language when adding tasks.",
+		"The AI can extract subtasks, urgency, timing, and context.",
+		fmt.Sprintf("Locale: %s", fallbackLabel(localization.GetLocale(), "en")),
+	}, "\n"), clamp((m.width-6)/2, 34, 72))
+	footerSection := lipgloss.JoinHorizontal(lipgloss.Top, footerLeft, footerRight)
+	if stackSideColumn {
+		footerSection = lipgloss.JoinVertical(lipgloss.Left, footerLeft, footerRight)
+	}
+	compactControls := lipgloss.NewStyle().
+		Foreground(mutedColor).
+		Render("Keys: ctrl+a add | enter toggle | ctrl+e edit | ctrl+d delete | v details | right subtasks | esc quit")
 
-	// Activity log (right side)
-	activityLogs := []string{
-		lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(localization.T(localization.ActivityLogTitle)),
-		"",
+	contentParts := []string{header, statsBar, mainSection}
+	if compactHeight {
+		contentParts = append(contentParts, compactControls)
+	}
+	contentParts = append(contentParts, status)
+	if showFooter && !compactHeight {
+		contentParts = append(contentParts, footerSection)
 	}
 
-	// Add cost tracking at the top if available
-	if m.processor != nil && m.processor.TotalCost > 0 {
-		costLine := fmt.Sprintf("💰 $%.4f | Fast:%d | Smart:%d",
-			m.processor.TotalCost,
-			m.processor.FastCalls,
-			m.processor.SmartCalls)
-		activityLogs = append(activityLogs,
-			lipgloss.NewStyle().Foreground(warningColor).Render(costLine))
-	}
-
-	// Add the actual logs, truncating long lines
-	if len(m.consoleLogs) == 0 {
-		activityLogs = append(activityLogs, lipgloss.NewStyle().Foreground(mutedColor).Render(localization.T(localization.ActivityNoRecent)))
-	} else {
-		// Truncate each log line to fit within the box
-		maxLogWidth := halfWidth - 4 // Account for padding and borders
-		for _, log := range m.consoleLogs {
-			if lipgloss.Width(log) > maxLogWidth {
-				// Truncate with ellipsis
-				runes := []rune(log)
-				if len(runes) > maxLogWidth-3 {
-					log = string(runes[:maxLogWidth-3]) + "..."
-				}
-			}
-			activityLogs = append(activityLogs, log)
-		}
-	}
-
-	// Ensure we don't exceed the height
-	maxLogLines := 7
-	if len(activityLogs) > maxLogLines {
-		activityLogs = append(activityLogs[:2], activityLogs[len(activityLogs)-(maxLogLines-2):]...)
-	}
-
-	activityBox := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(mutedColor).
-		Padding(0, 1).
-		Width(halfWidth).
-		Height(9).
-		Render(strings.Join(activityLogs, "\n"))
-
-	// Join keyboard and activity side by side (no gap)
-	bottomPanel := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		keyHelpBox,
-		activityBox,
-	)
-
-	// Status message with animation
-	var statusMsgLine string
-	if m.statusMsg != "" {
-		var statusStyle lipgloss.Style
-		switch m.statusType {
-		case "success":
-			statusStyle = lipgloss.NewStyle().Foreground(successColor).Bold(true)
-		case "error":
-			statusStyle = lipgloss.NewStyle().Foreground(errorColor).Bold(true)
-		case "warning":
-			statusStyle = lipgloss.NewStyle().Foreground(warningColor).Bold(true)
-		default:
-			statusStyle = lipgloss.NewStyle().Foreground(primaryColor)
-		}
-		statusMsgLine = lipgloss.NewStyle().
-			Padding(0, 2).
-			Render(statusStyle.Render("▶ " + m.statusMsg))
-	}
-
-	// Compose the full view with proper spacing
-	content := lipgloss.JoinVertical(
+	content := lipgloss.JoinVertical(lipgloss.Left, contentParts...)
+	return renderViewport(
+		m.width,
+		m.height,
 		lipgloss.Left,
-		headerContent,
-		statsBar,
-		listContent,
-		statusMsgLine,
-		bottomPanel,
+		lipgloss.Top,
+		lipgloss.NewStyle().Padding(1, 1).Render(content),
 	)
+}
 
-	// Use Top alignment for better layout
-	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, content)
+func fallbackLabel(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func renderPriorityLabel(priority string) string {
+	switch strings.ToLower(priority) {
+	case "high":
+		return priorityHighStyle.Render("HIGH")
+	case "medium":
+		return priorityMediumStyle.Render("MED")
+	case "low":
+		return priorityLowStyle.Render("LOW")
+	default:
+		return lipgloss.NewStyle().Foreground(mutedColor).Render("OPEN")
+	}
+}
+
+func renderDeadlineSummary(deadline *time.Time) string {
+	if deadline == nil {
+		return "No deadline"
+	}
+	daysUntil := int(time.Until(*deadline).Hours() / 24)
+	switch {
+	case daysUntil < 0:
+		return lipgloss.NewStyle().Foreground(errorColor).Render(fmt.Sprintf("Overdue by %d days", -daysUntil))
+	case daysUntil == 0:
+		return lipgloss.NewStyle().Foreground(warningColor).Render("Due today")
+	case daysUntil == 1:
+		return lipgloss.NewStyle().Foreground(warningColor).Render("Due tomorrow")
+	default:
+		return deadline.Format("Mon Jan 2")
+	}
+}
+
+func renderLocationSummary(todoContext, location string) string {
+	value := strings.TrimSpace(location)
+	if value == "" {
+		value = strings.TrimSpace(todoContext)
+	}
+	if value == "" {
+		value = localization.T(localization.LocationHome)
+	}
+	return value
 }

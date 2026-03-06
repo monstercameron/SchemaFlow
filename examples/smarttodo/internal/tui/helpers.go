@@ -10,40 +10,159 @@ import (
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/models"
 )
 
-// Helper functions for views
+const panelChromeWidth = 6
 
-// formatCompletedText applies strikethrough effect to completed items
-// Uses ANSI escape codes for better terminal compatibility
+func renderViewport(width, height int, horizontal, vertical lipgloss.Position, content string) string {
+	if width <= 0 || height <= 0 {
+		return content
+	}
+
+	placed := lipgloss.Place(width, height, horizontal, vertical, content)
+	return lipgloss.NewStyle().
+		Background(canvasColor).
+		Foreground(textColor).
+		Width(width).
+		Height(height).
+		Render(placed)
+}
+
 func formatCompletedText(text string, completed bool) string {
 	if !completed {
 		return text
 	}
-
-	// Use ANSI escape codes for strikethrough
-	// \x1b[9m starts strikethrough, \x1b[0m resets
-	return fmt.Sprintf("\x1b[9m%s\x1b[0m", text)
+	return lipgloss.NewStyle().Strikethrough(true).Foreground(mutedColor).Render(text)
 }
 
 func (m *Model) addLog(msg string) {
 	timestamp := time.Now().Format("15:04:05")
 	logEntry := fmt.Sprintf("[%s] %s", timestamp, msg)
 	m.consoleLogs = append(m.consoleLogs, logEntry)
-
-	// Keep only the last N logs
 	if len(m.consoleLogs) > m.maxLogs {
 		m.consoleLogs = m.consoleLogs[len(m.consoleLogs)-m.maxLogs:]
 	}
 }
 
-func (m Model) renderProgressBar(percentage int) string {
-	width := 30
+func clamp(value, min, max int) int {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
+}
+
+func renderTag(value string, color lipgloss.Color) string {
+	return lipgloss.NewStyle().
+		Foreground(color).
+		Background(surfaceAltColor).
+		Padding(0, 1).
+		Bold(true).
+		Render(strings.ToUpper(value))
+}
+
+func renderPanel(title, body string, width int) string {
+	if width <= 0 {
+		width = lipgloss.Width(body) + panelChromeWidth
+	}
+	innerWidth := max(1, width-panelChromeWidth)
+	head := lipgloss.NewStyle().
+		Foreground(primaryColor).
+		Bold(true).
+		MarginBottom(1).
+		Render(title)
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Background(surfaceColor).
+		Padding(1, 2).
+		Width(innerWidth).
+		Render(lipgloss.JoinVertical(lipgloss.Left, head, body))
+}
+
+func renderMetricCard(label, value, note string, tone lipgloss.Color, width int) string {
+	if width <= 0 {
+		width = 24
+	}
+	innerWidth := max(1, width-panelChromeWidth)
+	content := []string{
+		lipgloss.NewStyle().Foreground(mutedColor).Render(strings.ToUpper(label)),
+		lipgloss.NewStyle().Foreground(tone).Bold(true).Render(value),
+	}
+	if note != "" {
+		content = append(content, lipgloss.NewStyle().Foreground(mutedColor).Render(note))
+	}
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Background(surfaceColor).
+		Padding(1, 2).
+		Width(innerWidth).
+		Render(strings.Join(content, "\n"))
+}
+
+func renderShellHeader(width int, title, subtitle string, right []string) string {
+	if width < MinWidth {
+		width = MinWidth
+	}
+	titleText := lipgloss.NewStyle().Foreground(textColor).Bold(true).Render(title)
+	metadata := []string{strings.TrimSpace(subtitle)}
+	for _, item := range right {
+		if strings.TrimSpace(item) != "" {
+			metadata = append(metadata, item)
+		}
+	}
+	metadataText := lipgloss.NewStyle().
+		Foreground(mutedColor).
+		Render(truncateText(strings.Join(metadata, " | "), max(12, width-6)))
+	body := lipgloss.JoinVertical(lipgloss.Left, titleText, metadataText)
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder(), false, false, true, false).
+		BorderForeground(borderColor).
+		Background(surfaceColor).
+		Padding(0, 1).
+		Width(max(1, width-2)).
+		Render(body)
+}
+
+func renderStatusLine(width int, statusType, msg string) string {
+	if strings.TrimSpace(msg) == "" {
+		msg = "Ready. Add a task, filter the board, or ask the assistant for a next move."
+		statusType = "info"
+	}
+
+	tone := primaryColor
+	label := "INFO"
+	switch statusType {
+	case "success":
+		tone = successColor
+		label = "OK"
+	case "error":
+		tone = errorColor
+		label = "ERROR"
+	case "warning":
+		tone = warningColor
+		label = "WARN"
+	}
+
+	prefix := lipgloss.NewStyle().Foreground(tone).Bold(true).Render("[" + label + "] ")
+	return lipgloss.NewStyle().
+		Foreground(textColor).
+		Background(surfaceColor).
+		Padding(0, 2).
+		Width(width).
+		Render(prefix + truncateText(msg, clamp(width-10, 16, width)))
+}
+
+func renderProgressBar(percentage int) string {
+	percentage = clamp(percentage, 0, 100)
+	width := 24
 	filled := (percentage * width) / 100
-	empty := width - filled
-
-	bar := lipgloss.NewStyle().Foreground(successColor).Render(strings.Repeat("█", filled)) +
-		lipgloss.NewStyle().Foreground(mutedColor).Render(strings.Repeat("░", empty))
-
-	return fmt.Sprintf("%s %d%%", bar, percentage)
+	bar := strings.Repeat("=", filled) + strings.Repeat(".", width-filled)
+	return fmt.Sprintf("[%s] %d%%", bar, percentage)
 }
 
 func (m Model) renderEnhancedStatsBar() string {
@@ -51,67 +170,73 @@ func (m Model) renderEnhancedStatsBar() string {
 		return ""
 	}
 
-	// Calculate today's todos (not tasks)
-	todayCompleted := 0
-	todayTotal := 0
-	urgentCount := 0 // Due within 1 hour
-
-	for _, todo := range m.todos {
-		// Count all todos (not just today's)
-		todayTotal++
-		if todo.Completed {
-			todayCompleted++
-		}
-
-		// Count urgent
-		if todo.Deadline != nil && !todo.Completed {
-			timeUntil := time.Until(*todo.Deadline)
-			if timeUntil > 0 && timeUntil <= time.Hour {
-				urgentCount++
-			}
-		}
+	total := m.stats["total"]
+	completed := m.stats["completed"]
+	pending := m.stats["pending"]
+	overdue := m.stats["overdue"]
+	completionRate := 0
+	if total > 0 {
+		completionRate = (completed * 100) / total
 	}
 
-	// Calculate todo completion progress (not daily goal)
-	todoProgress := 0
-	if todayTotal > 0 {
-		todoProgress = (todayCompleted * 100) / todayTotal
+	cost := "AI idle"
+	if m.processor != nil && m.processor.TotalCost > 0 {
+		cost = fmt.Sprintf("Session cost $%.4f", m.processor.TotalCost)
 	}
 
-	// Get location (default to home)
-	location := "Home"
-	if m.selectedTodo != nil && m.selectedTodo.Context != "" {
-		location = m.selectedTodo.Context
+	parts := []string{
+		renderTag(fmt.Sprintf("open %d", pending), primaryColor),
+		renderTag(fmt.Sprintf("done %d", completed), successColor),
+		renderTag(fmt.Sprintf("overdue %d", overdue), warningColor),
+		lipgloss.NewStyle().Foreground(mutedColor).Render(renderProgressBar(completionRate)),
+		lipgloss.NewStyle().Foreground(mutedColor).Render(cost),
 	}
 
-	// Calculate streak (placeholder - would need persistent storage)
-	streakDays := 3
-
-	// Build single-line progress bar
-	progressBar := m.renderProgressBar(todoProgress)
-
-	// Create single-line stats display
-	statsContent := fmt.Sprintf(
-		"Today: %d/%d done │ ",
-		todayCompleted, todayTotal,
-	)
-
-	if urgentCount > 0 {
-		statsContent += fmt.Sprintf("🔥 %d urgent │ ", urgentCount)
-	}
-
-	statsContent += fmt.Sprintf("📍 %s │ ", location)
-	statsContent += fmt.Sprintf("🔥 %d day streak │ ", streakDays)
-	statsContent += progressBar
-	statsContent += fmt.Sprintf(" %d%%", todoProgress)
-
-	// Create single-line display with full width
 	return lipgloss.NewStyle().
-		Foreground(mutedColor).
-		Width(m.width).
-		Padding(0, 2).
-		MarginBottom(1).
-		Render(statsContent)
+		Width(m.width-2).
+		Padding(0, 1).
+		Render(strings.Join(parts, "  "))
+}
+
+func renderRecentLogs(logs []string, width int, height int) string {
+	if len(logs) == 0 {
+		return lipgloss.NewStyle().Foreground(mutedColor).Render("No recent activity")
+	}
+	if len(logs) > height {
+		logs = logs[len(logs)-height:]
+	}
+	trimmed := make([]string, 0, len(logs))
+	for _, line := range logs {
+		trimmed = append(trimmed, truncateText(line, width))
+	}
+	return strings.Join(trimmed, "\n")
+}
+
+func renderShortcutList(lines []string) string {
+	return strings.Join(lines, "\n")
+}
+
+func renderTodoSnapshot(todo *models.SmartTodo, width int) string {
+	if todo == nil {
+		return lipgloss.NewStyle().Foreground(mutedColor).Render("No task selected")
+	}
+
+	rows := []string{
+		truncateText(todo.Title, width-4),
+		fmt.Sprintf("Priority: %s", strings.ToLower(todo.Priority)),
+		fmt.Sprintf("Category: %s", strings.ToLower(todo.Category)),
+		fmt.Sprintf("Deadline: %s", stripANSI(renderDeadlineSummary(todo.Deadline))),
+	}
+	if todo.Location != "" {
+		rows = append(rows, fmt.Sprintf("Location: %s", todo.Location))
+	}
+	if len(todo.Tasks) > 0 {
+		rows = append(rows, fmt.Sprintf("Subtasks: %d", len(todo.Tasks)))
+	}
+	if todo.Context != "" {
+		rows = append(rows, "", truncateText(todo.Context, width-4))
+	}
+	return strings.Join(rows, "\n")
 }
 
 func tickCmd() tea.Cmd {

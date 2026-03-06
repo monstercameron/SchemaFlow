@@ -2,22 +2,22 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Styles - all styling definitions in one place
 var (
-	// Colors
-	primaryColor   = lipgloss.Color("#00D9FF")
-	secondaryColor = lipgloss.Color("#FF00D9")
-	successColor   = lipgloss.Color("#00FF88")
-	warningColor   = lipgloss.Color("#FFD700")
-	errorColor     = lipgloss.Color("#FF4444")
-	mutedColor     = lipgloss.Color("#666666")
+	canvasColor     = lipgloss.Color("#0b1020")
+	surfaceColor    = lipgloss.Color("#121a2b")
+	surfaceAltColor = lipgloss.Color("#18243a")
+	borderColor     = lipgloss.Color("#355070")
+	primaryColor    = lipgloss.Color("#7dd3fc")
+	secondaryColor  = lipgloss.Color("#f59e0b")
+	successColor    = lipgloss.Color("#34d399")
+	warningColor    = lipgloss.Color("#fbbf24")
+	errorColor      = lipgloss.Color("#f87171")
+	mutedColor      = lipgloss.Color("#94a3b8")
+	textColor       = lipgloss.Color("#e2e8f0")
 
-	// Base styles
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(primaryColor).
-			Background(lipgloss.Color("#1a1a1a")).
-			Padding(0, 1)
+			Foreground(textColor)
 
 	helpStyle = lipgloss.NewStyle().
 			Foreground(mutedColor)
@@ -27,14 +27,17 @@ var (
 				Foreground(errorColor)
 
 	priorityMediumStyle = lipgloss.NewStyle().
+				Bold(true).
 				Foreground(warningColor)
 
 	priorityLowStyle = lipgloss.NewStyle().
+				Bold(true).
 				Foreground(successColor)
 
 	borderStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(primaryColor).
+			BorderForeground(borderColor).
+			Background(surfaceColor).
 			Padding(1, 2)
 
 	focusedStyle = lipgloss.NewStyle().
@@ -46,32 +49,41 @@ var (
 )
 
 func getCategoryEmoji(category string) string {
-	emojis := map[string]string{
-		"work":     "💼",
-		"personal": "🏠",
-		"health":   "🏃",
-		"urgent":   "🚨",
-		"learning": "📚",
-		"shopping": "🛒",
-		"social":   "👥",
-		"finance":  "💰",
+	switch category {
+	case "work":
+		return "WORK"
+	case "personal":
+		return "HOME"
+	case "health":
+		return "HEALTH"
+	case "urgent":
+		return "URGENT"
+	case "learning":
+		return "LEARN"
+	case "shopping":
+		return "SHOP"
+	case "social":
+		return "SOCIAL"
+	case "finance":
+		return "FINANCE"
+	default:
+		return "GENERAL"
 	}
-	if emoji, ok := emojis[category]; ok {
-		return emoji
-	}
-	return "📌"
 }
 
 func getEffortEmoji(effort string) string {
-	emojis := map[string]string{
-		"minimal": "⚡",
-		"low":     "🔹",
-		"medium":  "🔸",
-		"high":    "🔶",
-		"massive": "🔥",
+	switch effort {
+	case "minimal":
+		return "XS"
+	case "low":
+		return "S"
+	case "medium":
+		return "M"
+	case "high":
+		return "L"
+	case "massive":
+		return "XL"
+	default:
+		return "M"
 	}
-	if emoji, ok := emojis[effort]; ok {
-		return emoji
-	}
-	return "🔸"
 }

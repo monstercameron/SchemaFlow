@@ -93,7 +93,10 @@ func InitialModel(db *database.Database) Model {
 	delegate := itemDelegate{}
 	l := list.New(items, delegate, 0, 0)
 	l.Title = "" // Remove the title from the list
+	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
+	l.SetShowHelp(false)
+	l.SetShowPagination(false)
 	l.SetFilteringEnabled(true)
 	l.Styles.Title = titleStyle
 	l.Styles.FilterPrompt = focusedStyle

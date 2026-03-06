@@ -34,3 +34,6 @@ coverage.txt
 *.temp
 tmp_live_smoke/
 .tmp/
+dist/
+*.wasm
+smarttodo-wasm

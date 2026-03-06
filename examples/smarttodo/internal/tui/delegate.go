@@ -9,13 +9,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Custom item delegate for better highlighting
 type itemDelegate struct{}
 
-func (d itemDelegate) Height() int {
-	// Dynamic height based on content - increased for tasks
-	return 6
-}
+func (d itemDelegate) Height() int                             { return 5 }
 func (d itemDelegate) Spacing() int                            { return 1 }
 func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
@@ -25,47 +21,33 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		return
 	}
 
-	str := i.Title()
+	title := i.Title()
+	if i.todo.Completed {
+		title = formatCompletedText(title, true)
+	}
 	desc := i.Description()
-
-	var itemStyle lipgloss.Style
-	var textStyle lipgloss.Style
-
-	// Apply styles based on completion status
-	if i.todo.Completed {
-		// Completed items are dimmed
-		textStyle = lipgloss.NewStyle().
-			Foreground(mutedColor)
-	} else {
-		textStyle = lipgloss.NewStyle()
-	}
-
-	if index == m.Index() {
-		// Selected item - highlight with background and border
-		itemStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#1a1a2e")).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderLeft(true).
-			BorderForeground(primaryColor).
-			PaddingLeft(1).
-			Width(m.Width() - 2).
-			Bold(true)
-	} else {
-		// Non-selected item
-		itemStyle = lipgloss.NewStyle().
-			PaddingLeft(1).
-			Width(m.Width() - 2)
-	}
-
-	// Render the item - title on first line, description below
-	// Apply strikethrough to completed items using ANSI codes
-	if i.todo.Completed {
-		str = formatCompletedText(str, true)
-	}
-
-	fullContent := textStyle.Render(str)
+	body := title
 	if desc != "" {
-		fullContent += "\n" + textStyle.Render(desc)
+		body += "\n" + desc
 	}
-	fmt.Fprint(w, itemStyle.Render(fullContent))
+
+	contentWidth := max(1, m.Width()-4)
+	cardWidth := max(1, contentWidth-4)
+	style := lipgloss.NewStyle().
+		Width(cardWidth).
+		Padding(0, 1).
+		Foreground(textColor)
+	if index == m.Index() {
+		style = style.
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(primaryColor).
+			Background(surfaceAltColor)
+	} else {
+		style = style.
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(borderColor).
+			Background(surfaceColor)
+	}
+
+	fmt.Fprint(w, style.Render(body))
 }

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Todo Control Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="backdrop"></div>
+  <main class="app-shell">
+    <header class="hero panel">
+      <div>
+        <p class="eyebrow">SchemaFlow Demo</p>
+        <h1>Smart Todo Control Room</h1>
+        <p class="hero-copy">Capture messy notes, shape them into structured work, then ask the board for a focus recommendation, a review, or a day plan.</p>
+      </div>
+      <div class="hero-side">
+        <div class="metric-stack">
+          <div class="metric-card">
+            <span>Tasks</span>
+            <strong id="metric-total">0</strong>
+          </div>
+          <div class="metric-card">
+            <span>Open</span>
+            <strong id="metric-open">0</strong>
+          </div>
+          <div class="metric-card">
+            <span>Overdue</span>
+            <strong id="metric-overdue">0</strong>
+          </div>
+        </div>
+        <div class="status-chip" id="wasm-status">Loading WASM bridge</div>
+      </div>
+    </header>
+
+    <section class="key-gate panel">
+      <div>
+        <p class="eyebrow">Bring Your Own Key</p>
+        <h2>Connect OpenAI for live AI flows</h2>
+        <p>Static GitHub Pages cannot safely proxy your credentials. This demo stores the key only in browser storage and uses it directly for live requests.</p>
+      </div>
+      <div class="key-controls">
+        <input id="api-key-input" type="password" placeholder="sk-proj-...">
+        <label class="remember-toggle">
+          <input id="remember-key" type="checkbox">
+          <span>Remember on this device</span>
+        </label>
+        <button class="button primary" id="connect-key">Connect</button>
+        <button class="button secondary" id="forget-key">Forget Key</button>
+      </div>
+      <p class="inline-note" id="key-status">No API key connected.</p>
+    </section>
+
+    <section class="toolbar panel">
+      <div class="toolbar-left">
+        <button class="button primary" data-action="prioritize">Prioritize Board</button>
+        <button class="button secondary" data-action="focus">Recommend Next</button>
+        <button class="button secondary" data-action="review">Review Board</button>
+        <button class="button secondary" data-action="plan">Plan My Day</button>
+      </div>
+      <div class="toolbar-right">
+        <input id="context-input" type="text" placeholder="Current context for planning, e.g. office morning with 2 hours free">
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="panel terminal-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Virtual CLI</p>
+            <h2>Command Deck</h2>
+          </div>
+          <div class="terminal-hints">Commands: <code>/prioritize</code> <code>/focus</code> <code>/review</code> <code>/plan</code> <code>/filter</code> <code>/clear</code></div>
+        </div>
+        <div id="terminal-output" class="terminal-output"></div>
+        <form id="command-form" class="command-form">
+          <label class="command-prompt" for="command-input">todo&gt;</label>
+          <input id="command-input" type="text" autocomplete="off" placeholder="Type a natural language task or a slash command">
+          <button class="button primary" type="submit">Run</button>
+        </form>
+      </div>
+
+      <div class="panel board-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Board</p>
+            <h2>Execution Lanes</h2>
+          </div>
+          <input id="search-input" type="search" placeholder="Filter rendered cards locally">
+        </div>
+        <div class="board-grid">
+          <section>
+            <h3>Hot</h3>
+            <div id="lane-hot" class="lane"></div>
+          </section>
+          <section>
+            <h3>Ready</h3>
+            <div id="lane-ready" class="lane"></div>
+          </section>
+          <section>
+            <h3>Done</h3>
+            <div id="lane-done" class="lane"></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="panel insights-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">AI Outputs</p>
+            <h2>Review and Planning</h2>
+          </div>
+        </div>
+        <div class="insight-stack">
+          <article class="insight-card">
+            <h3>Board Review</h3>
+            <p id="review-summary">Run <code>/review</code> to synthesize a board brief.</p>
+            <ul id="review-focus" class="bullet-list"></ul>
+            <ul id="review-risks" class="bullet-list tone-warn"></ul>
+          </article>
+          <article class="insight-card">
+            <h3>Day Plan</h3>
+            <p id="plan-headline">Run <code>/plan</code> to project the board into time blocks.</p>
+            <div id="plan-blocks" class="plan-blocks"></div>
+          </article>
+          <article class="insight-card compact">
+            <h3>Recommended Start</h3>
+            <p id="focus-recommendation">Run <code>/focus</code> to choose the next task.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="wasm_exec.js"></script>
+  <script src="app.js" type="module"></script>
+</body>
+</html>

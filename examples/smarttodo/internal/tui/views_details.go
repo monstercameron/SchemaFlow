@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -14,128 +13,64 @@ func (m Model) detailViewRender() string {
 	}
 
 	todo := m.selectedTodo
-	// Create professional header for detail view
-	headerStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(primaryColor).
-		Padding(0, 2).
-		Width(60)
-
-	title := headerStyle.Render(
-		lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(fmt.Sprintf("Task Details • %s", todo.Title)),
+	header := renderShellHeader(
+		m.width,
+		"Task detail",
+		truncateText(todo.Title, 60),
+		[]string{
+			renderPriorityLabel(todo.Priority),
+			lipgloss.NewStyle().Foreground(mutedColor).Render(stripANSI(renderDeadlineSummary(todo.Deadline))),
+		},
 	)
 
-	// Build details
-	details := []string{}
-
-	// Description
+	mainLines := []string{
+		fmt.Sprintf("Category: %s", getCategoryEmoji(strings.ToLower(todo.Category))),
+		fmt.Sprintf("Effort: %s", getEffortEmoji(strings.ToLower(todo.Effort))),
+		fmt.Sprintf("Location: %s", renderLocationSummary(todo.Context, todo.Location)),
+		fmt.Sprintf("Created: %s", todo.CreatedAt.Format("Jan 2 2006 3:04 PM")),
+	}
 	if todo.Description != "" {
-		details = append(details, fmt.Sprintf("%s\n%s",
-			focusedStyle.Render("Description:"),
-			todo.Description))
+		mainLines = append(mainLines, "", "Description:", todo.Description)
 	}
-
-	// Tasks/Subtasks
-	if len(todo.Tasks) > 0 {
-		completedCount := 0
-		for _, task := range todo.Tasks {
-			if task.Completed {
-				completedCount++
-			}
-		}
-
-		progressBar := m.renderProgressBar((completedCount * 100) / len(todo.Tasks))
-		tasksStr := fmt.Sprintf("%s (%d/%d)\n%s\n",
-			focusedStyle.Render("Tasks:"),
-			completedCount,
-			len(todo.Tasks),
-			progressBar,
-		)
-
-		for i, task := range todo.Tasks {
-			checkbox := "☐"
-			taskStyle := lipgloss.NewStyle()
-			if task.Completed {
-				checkbox = "☑"
-				taskStyle = taskStyle.Foreground(mutedColor).Strikethrough(true)
-			}
-			tasksStr += fmt.Sprintf("  %d. %s %s\n", i+1, checkbox, taskStyle.Render(task.Text))
-		}
-
-		details = append(details, tasksStr)
+	if todo.Context != "" {
+		mainLines = append(mainLines, "", "Notes:", todo.Context)
 	}
-
-	// Priority
-	var priorityStr string
-	switch todo.Priority {
-	case "high":
-		priorityStr = priorityHighStyle.Render("HIGH PRIORITY")
-	case "medium":
-		priorityStr = priorityMediumStyle.Render("MEDIUM PRIORITY")
-	case "low":
-		priorityStr = priorityLowStyle.Render("LOW PRIORITY")
-	}
-	details = append(details, fmt.Sprintf("%s %s",
-		focusedStyle.Render("Priority:"),
-		priorityStr))
-
-	// Category
-	details = append(details, fmt.Sprintf("%s %s %s",
-		focusedStyle.Render("Category:"),
-		getCategoryEmoji(todo.Category),
-		todo.Category))
-
-	// Effort
-	details = append(details, fmt.Sprintf("%s %s %s",
-		focusedStyle.Render("Effort:"),
-		getEffortEmoji(todo.Effort),
-		todo.Effort))
-
-	// Deadline
-	if todo.Deadline != nil {
-		daysUntil := int(time.Until(*todo.Deadline).Hours() / 24)
-		deadlineStr := todo.Deadline.Format("Monday, January 2, 2006")
-		if daysUntil < 0 {
-			deadlineStr = lipgloss.NewStyle().Foreground(errorColor).Render(fmt.Sprintf("%s (OVERDUE by %d days)", deadlineStr, -daysUntil))
-		} else if daysUntil == 0 {
-			deadlineStr = lipgloss.NewStyle().Foreground(warningColor).Render(fmt.Sprintf("%s (TODAY!)", deadlineStr))
-		} else if daysUntil == 1 {
-			deadlineStr = lipgloss.NewStyle().Foreground(warningColor).Render(fmt.Sprintf("%s (Tomorrow)", deadlineStr))
-		} else {
-			deadlineStr = fmt.Sprintf("%s (%d days)", deadlineStr, daysUntil)
-		}
-		details = append(details, fmt.Sprintf("%s %s",
-			focusedStyle.Render("Deadline:"),
-			deadlineStr))
-	}
-
-	// Dependencies
 	if len(todo.Dependencies) > 0 {
-		details = append(details, fmt.Sprintf("%s\n  • %s",
-			focusedStyle.Render("Dependencies:"),
-			strings.Join(todo.Dependencies, "\n  • ")))
+		mainLines = append(mainLines, "", "Dependencies:", "- "+strings.Join(todo.Dependencies, "\n- "))
 	}
 
-	// Context advice
-	if todo.Context != "" && todo.Context != "No specific context required" {
-		details = append(details, fmt.Sprintf("%s\n%s",
-			focusedStyle.Render("💡 Best Context:"),
-			lipgloss.NewStyle().Foreground(secondaryColor).Render(todo.Context)))
-	}
+	left := renderPanel("Overview", strings.Join(mainLines, "\n"), clamp((m.width/2)-4, 36, 70))
 
-	// Created
-	details = append(details, fmt.Sprintf("%s %s",
-		focusedStyle.Render("Created:"),
-		todo.CreatedAt.Format("Jan 2, 2006 at 3:04 PM")))
+	taskBody := "No subtasks yet"
+	if len(todo.Tasks) > 0 {
+		completed := 0
+		rows := []string{}
+		for _, task := range todo.Tasks {
+			marker := "[ ]"
+			text := task.Text
+			if task.Completed {
+				marker = "[x]"
+				completed++
+				text = stripANSI(formatCompletedText(text, true))
+			}
+			rows = append(rows, fmt.Sprintf("%s %s", marker, text))
+		}
+		taskBody = fmt.Sprintf("Progress %s\n\n%s", renderProgressBar((completed*100)/len(todo.Tasks)), strings.Join(rows, "\n"))
+	}
+	right := renderPanel("Subtasks", taskBody, clamp((m.width/2)-4, 36, 70))
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
-		title,
-		"",
-		borderStyle.Render(strings.Join(details, "\n\n")),
-		"",
-		helpStyle.Render("Press Esc or Enter to go back"),
+		header,
+		lipgloss.JoinHorizontal(lipgloss.Top, left, right),
+		renderStatusLine(m.width-2, "info", "Esc or Enter returns to the board."),
 	)
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	return renderViewport(
+		m.width,
+		m.height,
+		lipgloss.Left,
+		lipgloss.Top,
+		lipgloss.NewStyle().Padding(1, 1).Render(content),
+	)
 }

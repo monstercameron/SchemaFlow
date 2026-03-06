@@ -6,294 +6,169 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/models"
 )
 
 func (m Model) splashViewRender() string {
-	// Different splash for new vs returning users
-	if m.userName == "" {
-		// New user splash
-		titleStyle := lipgloss.NewStyle().
-			Foreground(primaryColor).
-			Bold(true).
-			MarginBottom(2)
-
-		welcomeStyle := lipgloss.NewStyle().
-			Foreground(secondaryColor).
-			MarginBottom(2)
-
-		featuresStyle := lipgloss.NewStyle().
-			Foreground(mutedColor).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(primaryColor).
-			Padding(1, 3)
-
-		instructionStyle := lipgloss.NewStyle().
-			Foreground(primaryColor).
-			Bold(true).
-			MarginTop(2)
-
-		content := lipgloss.JoinVertical(
-			lipgloss.Center,
-			titleStyle.Render("Smart Todo"),
-			welcomeStyle.Render("AI-Powered Task Management"),
-			"",
-			featuresStyle.Render(lipgloss.JoinVertical(
-				lipgloss.Left,
-				"• Intelligent task processing",
-				"• Smart deadline management",
-				"• Context-aware suggestions",
-				"• Automatic task organization",
-			)),
-			"",
-			instructionStyle.Render("Press Enter to get started"),
-		)
-
-		// Add decorative border
-		modalStyle := lipgloss.NewStyle().
-			Border(lipgloss.DoubleBorder()).
-			BorderForeground(primaryColor).
-			Padding(2, 4)
-
-		return lipgloss.Place(
-			m.width,
-			m.height,
-			lipgloss.Center,
-			lipgloss.Center,
-			modalStyle.Render(content),
-		)
+	title := "Smart Todo"
+	subtitle := "AI-assisted capture, prioritization, and review for a serious working queue."
+	if m.userName != "" {
+		subtitle = fmt.Sprintf("Welcome back, %s. %s", m.userName, fallbackLabel(m.listTitle, "Your board is ready."))
 	}
 
-	// Returning user splash
-	titleStyle := lipgloss.NewStyle().
-		Foreground(primaryColor).
-		Bold(true).
-		MarginBottom(2)
-
-	greetingStyle := lipgloss.NewStyle().
-		Foreground(secondaryColor).
-		MarginBottom(1)
-
-	dateStyle := lipgloss.NewStyle().
-		Foreground(mutedColor).
-		MarginBottom(2)
-
-	statsStyle := lipgloss.NewStyle().
-		Foreground(successColor).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(successColor).
-		Padding(1, 3)
-
-	// Calculate stats for today
-	completedToday := 0
-	pendingCount := 0
-	streakDays := 7 // Placeholder
-
-	for _, todo := range m.todos {
-		if todo.Completed && todo.CreatedAt.Day() == time.Now().Day() {
-			completedToday++
-		}
-		if !todo.Completed {
-			pendingCount++
-		}
+	metrics := []string{
+		renderMetricCard("Pending", fmt.Sprintf("%d", countPending(m.todos)), "Open work in your queue", primaryColor, 24),
+		renderMetricCard("Due today", fmt.Sprintf("%d", countDueToday(m.todos)), "Tasks that need attention now", warningColor, 24),
+		renderMetricCard("Completed", fmt.Sprintf("%d", countCompletedToday(m.todos)), "Finished today", successColor, 24),
 	}
 
-	// Due today count
-	dueTodayCount := 0
-	for _, todo := range m.todos {
-		if todo.Deadline != nil && todo.Deadline.Day() == time.Now().Day() && !todo.Completed {
-			dueTodayCount++
-		}
-	}
-
-	content := lipgloss.JoinVertical(
+	body := lipgloss.JoinVertical(
 		lipgloss.Center,
-		titleStyle.Render(fmt.Sprintf("Welcome back, %s", m.userName)),
-		greetingStyle.Render(m.listTitle),
-		dateStyle.Render(time.Now().Format("Monday, January 2")),
+		lipgloss.NewStyle().Foreground(textColor).Bold(true).Render(title),
+		lipgloss.NewStyle().Foreground(mutedColor).Render(subtitle),
 		"",
-		statsStyle.Render(lipgloss.JoinVertical(
-			lipgloss.Left,
-			"📊 Your Progress:",
-			fmt.Sprintf("• %d tasks completed today", completedToday),
-			fmt.Sprintf("• %d tasks due today", dueTodayCount),
-			fmt.Sprintf("• %d tasks pending", pendingCount),
-			fmt.Sprintf("• Current streak: %d days 🔥", streakDays),
-		)),
+		lipgloss.JoinHorizontal(lipgloss.Top, metrics...),
 		"",
-		lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render("Press Enter to continue"),
+		renderStatusLine(48, "info", "Press Enter to continue."),
 	)
 
-	// Add decorative border
-	modalStyle := lipgloss.NewStyle().
-		Border(lipgloss.DoubleBorder()).
-		BorderForeground(primaryColor).
-		Padding(2, 4)
-
-	return lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		modalStyle.Render(content),
-	)
+	card := renderPanel("Overview", body, 82)
+	return renderViewport(m.width, m.height, lipgloss.Center, lipgloss.Center, card)
 }
 
 func (m Model) setupViewRender() string {
-	title := lipgloss.NewStyle().
-		Foreground(primaryColor).
-		Bold(true).
-		MarginBottom(2).
-		Render("Smart Todo Setup")
-
-	var prompt string
-	if m.userName == "" {
-		prompt = "What's your name?"
-	} else {
-		prompt = fmt.Sprintf("Hi %s! What would you like to call your todo list?", m.userName)
+	prompt := "Enter your name to personalize the board."
+	if m.userName != "" {
+		prompt = fmt.Sprintf("Name the board for %s.", m.userName)
 	}
 
-	promptStyle := lipgloss.NewStyle().
-		Foreground(secondaryColor).
-		MarginBottom(1).
-		Render(prompt)
-
-	inputBox := borderStyle.Render(m.setupInput.View())
-
-	helpText := blurredStyle.Render("Press Enter to continue")
-
-	content := lipgloss.JoinVertical(
-		lipgloss.Center,
-		title,
-		promptStyle,
-		inputBox,
-		helpText,
+	input := borderStyle.Width(56).Render(m.setupInput.View())
+	body := lipgloss.JoinVertical(
+		lipgloss.Left,
+		lipgloss.NewStyle().Foreground(textColor).Bold(true).Render("Initial setup"),
+		lipgloss.NewStyle().Foreground(mutedColor).Render(prompt),
+		"",
+		input,
+		"",
+		renderStatusLine(56, "info", "Press Enter to continue."),
 	)
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	return renderViewport(m.width, m.height, lipgloss.Center, lipgloss.Center, renderPanel("Welcome", body, 66))
 }
 
 func (m Model) closingViewRender() string {
-	// Create a beautiful closing animation (frame animation removed for cleaner look)
-
-	// Progress bar for closing
-	progressBar := m.renderProgressBar(m.closingProgress)
-
-	// Goodbye messages
-	messages := []string{
-		"Saving your progress...",
-		"Closing database connections...",
-		"Tidying up...",
-		"Almost done...",
-		"Goodbye! 👋",
-	}
-
-	messageIdx := m.closingProgress / 20
-	if messageIdx >= len(messages) {
-		messageIdx = len(messages) - 1
-	}
-	currentMessage := messages[messageIdx]
-
-	// Stats summary
-	completedToday := 0
-	pendingCount := 0
+	completed := 0
+	pending := 0
 	for _, todo := range m.todos {
 		if todo.Completed {
-			completedToday++
+			completed++
 		} else {
-			pendingCount++
+			pending++
 		}
 	}
 
-	// Build the closing screen
-	titleStyle := lipgloss.NewStyle().
-		Foreground(primaryColor).
-		Bold(true).
-		MarginBottom(2)
+	messages := []string{"Saving state", "Closing database", "Cleaning up", "Done"}
+	idx := clamp(m.closingProgress/25, 0, len(messages)-1)
 
-	messageStyle := lipgloss.NewStyle().
-		Foreground(secondaryColor).
-		MarginBottom(1)
-
-	statsStyle := lipgloss.NewStyle().
-		Foreground(mutedColor).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(mutedColor).
-		Padding(1, 2).
-		MarginTop(2).
-		MarginBottom(2)
-
-	stats := fmt.Sprintf(`Today's Summary:
-  ✅ Completed: %d tasks
-  ⏳ Remaining: %d tasks
-  
-  Great work, %s! See you next time!`,
-		completedToday,
-		pendingCount,
-		m.userName,
+	body := lipgloss.JoinVertical(
+		lipgloss.Center,
+		lipgloss.NewStyle().Foreground(textColor).Bold(true).Render("Closing Smart Todo"),
+		lipgloss.NewStyle().Foreground(mutedColor).Render(messages[idx]),
+		"",
+		renderProgressBar(m.closingProgress),
+		"",
+		fmt.Sprintf("Completed: %d", completed),
+		fmt.Sprintf("Still open: %d", pending),
 	)
 
-	content := lipgloss.JoinVertical(
-		lipgloss.Center,
-		titleStyle.Render("Smart Todo"),
-		messageStyle.Render(currentMessage),
-		progressBar,
-		statsStyle.Render(stats),
-	)
-
-	return lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		content,
-	)
+	return renderViewport(m.width, m.height, lipgloss.Center, lipgloss.Center, renderPanel("Session summary", body, 56))
 }
 
 func (m Model) statsViewRender() string {
-	// Create professional header for stats view
-	headerStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(primaryColor).
-		Padding(0, 2).
-		Width(50)
-
-	title := headerStyle.Render(
-		lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render("Smart Todo • Statistics"),
-	)
-
-	stats := []string{
-		focusedStyle.Render("Task Statistics"),
-		"",
-		fmt.Sprintf("📝 Total Tasks: %s", lipgloss.NewStyle().Foreground(primaryColor).Render(fmt.Sprintf("%d", m.stats["total"]))),
-		fmt.Sprintf("✅ Completed: %s", lipgloss.NewStyle().Foreground(successColor).Render(fmt.Sprintf("%d", m.stats["completed"]))),
-		fmt.Sprintf("⏳ Pending: %s", lipgloss.NewStyle().Foreground(warningColor).Render(fmt.Sprintf("%d", m.stats["pending"]))),
-		"",
-		focusedStyle.Render("Priority Breakdown"),
-		fmt.Sprintf("🔴 High: %d", m.stats["high"]),
-		fmt.Sprintf("🟡 Medium: %d", m.stats["medium"]),
-		fmt.Sprintf("🟢 Low: %d", m.stats["low"]),
-		"",
+	total := m.stats["total"]
+	completed := m.stats["completed"]
+	pending := m.stats["pending"]
+	overdue := m.stats["overdue"]
+	rate := 0
+	if total > 0 {
+		rate = (completed * 100) / total
 	}
 
-	if m.stats["overdue"] > 0 {
-		stats = append(stats, lipgloss.NewStyle().Foreground(errorColor).Render(fmt.Sprintf("⚠️ OVERDUE: %d tasks", m.stats["overdue"])))
+	left := renderPanel("Totals", strings.Join([]string{
+		fmt.Sprintf("Total tasks: %d", total),
+		fmt.Sprintf("Completed: %d", completed),
+		fmt.Sprintf("Pending: %d", pending),
+		fmt.Sprintf("Overdue: %d", overdue),
+		"",
+		renderProgressBar(rate),
+	}, "\n"), 38)
+
+	fastCalls := 0
+	smartCalls := 0
+	totalCost := 0.0
+	if m.processor != nil {
+		fastCalls = m.processor.FastCalls
+		smartCalls = m.processor.SmartCalls
+		totalCost = m.processor.TotalCost
 	}
 
-	completionRate := 0
-	if m.stats["total"] > 0 {
-		completionRate = (m.stats["completed"] * 100) / m.stats["total"]
-	}
-
-	stats = append(stats, "", focusedStyle.Render("Completion Rate"))
-	stats = append(stats, m.renderProgressBar(completionRate))
+	right := renderPanel("AI usage", strings.Join([]string{
+		fmt.Sprintf("Fast calls: %d", fastCalls),
+		fmt.Sprintf("Smart calls: %d", smartCalls),
+		fmt.Sprintf("Session cost: $%.4f", totalCost),
+		"",
+		fmt.Sprintf("High priority: %d", m.stats["high"]),
+		fmt.Sprintf("Medium priority: %d", m.stats["medium"]),
+		fmt.Sprintf("Low priority: %d", m.stats["low"]),
+	}, "\n"), 38)
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
-		title,
-		borderStyle.Render(strings.Join(stats, "\n")),
-		"",
-		helpStyle.Render("Press Esc to go back"),
+		renderShellHeader(m.width, "Statistics", "Operational snapshot of your board", []string{lipgloss.NewStyle().Foreground(mutedColor).Render(time.Now().Format("15:04"))}),
+		lipgloss.JoinHorizontal(lipgloss.Top, left, right),
+		renderStatusLine(m.width-2, "info", "Esc returns to the board."),
 	)
+	return renderViewport(
+		m.width,
+		m.height,
+		lipgloss.Left,
+		lipgloss.Top,
+		lipgloss.NewStyle().Padding(1, 1).Render(content),
+	)
+}
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+func countCompletedToday(todos []*models.SmartTodo) int {
+	count := 0
+	now := time.Now()
+	for _, todo := range todos {
+		if todo.Completed && sameDay(todo.CreatedAt, now) {
+			count++
+		}
+	}
+	return count
+}
+
+func countDueToday(todos []*models.SmartTodo) int {
+	count := 0
+	now := time.Now()
+	for _, todo := range todos {
+		if todo.Deadline != nil && !todo.Completed && sameDay(*todo.Deadline, now) {
+			count++
+		}
+	}
+	return count
+}
+
+func countPending(todos []*models.SmartTodo) int {
+	count := 0
+	for _, todo := range todos {
+		if !todo.Completed {
+			count++
+		}
+	}
+	return count
+}
+
+func sameDay(a, b time.Time) bool {
+	return a.Year() == b.Year() && a.Month() == b.Month() && a.Day() == b.Day()
 }

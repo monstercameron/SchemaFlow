@@ -8,6 +8,7 @@ import (
 
 	"github.com/monstercameron/schemaflow"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/database"
+	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/intelligence"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/models"
 )
 
@@ -17,11 +18,14 @@ type TodoProcessor struct {
 	LastCost   float64 // Last operation cost
 	FastCalls  int     // Number of fast model calls
 	SmartCalls int     // Number of smart model calls
+	service    *intelligence.Service
 }
 
 // NewTodoProcessor creates a new TodoProcessor instance
 func NewTodoProcessor() *TodoProcessor {
-	return &TodoProcessor{}
+	return &TodoProcessor{
+		service: intelligence.NewService(),
+	}
 }
 
 // RefineTaskText cleans up and improves task text without full AI processing
@@ -81,116 +85,15 @@ func (tp *TodoProcessor) FixTaskGrammar(taskText string) (string, error) {
 
 func (tp *TodoProcessor) ProcessNote(input string) (*models.SmartTodo, error) {
 	// Track cost - estimate for fast model
-	tp.FastCalls++
-	tp.LastCost = 0.0002 // Approximate cost for GPT-3.5 call
+	tp.FastCalls += 4
+	tp.LastCost = 0.0006
 	tp.TotalCost += tp.LastCost
-
-	// Try to extract todo from natural language
-	rawTodo, err := schemaflow.Extract[models.SmartTodo](
-		input,
-		schemaflow.NewExtractOptions().
-			WithMode(schemaflow.TransformMode).
-			WithIntelligence(schemaflow.Quick).
-			WithSteering(`Extract todo information from the input. Infer missing fields intelligently:
-		- Title: Create a clear, actionable title (max 50 chars)
-		- Description: Expand with helpful details
-		- Priority: Determine as high/medium/low based on urgency words
-		- Category: Choose from: work, personal, urgent, health, learning, shopping, social, finance
-		- Location: Extract location (home, office, gym, store, outside, etc) or default to "home"
-		- Tasks: Break down into subtasks if the input mentions multiple steps, bullet points, or a list of things to do
-		- Deadline: Parse any date/time mentions (today, tomorrow, next week, etc)
-		- Effort: Estimate as minimal/low/medium/high/massive based on complexity
-		- Context: Add helpful context or tips for completing the task
-		
-		Be intelligent about parsing natural language. Examples:
-		- "urgent" -> priority: high
-		- "quick" -> effort: minimal
-		- "buy groceries" -> category: shopping, location: store
-		- "workout" -> category: health, location: gym`),
-	)
-
+	todo, err := tp.service.CaptureTodo(input)
 	if err != nil {
-		// Fallback to basic parsing
-		rawTodo = models.SmartTodo{
-			Title:       input,
-			Description: "",
-			Priority:    "medium",
-			Category:    "personal",
-			Location:    "home",
-			Effort:      "medium",
-			CreatedAt:   time.Now(),
-			Cost:        tp.LastCost,
-		}
-
-		if len(input) > 50 {
-			rawTodo.Title = input[:47] + "..."
-			rawTodo.Description = input
-		}
+		return nil, err
 	}
-
-	// Clean up the title
-	if len(rawTodo.Title) > 50 {
-		rawTodo.Title = rawTodo.Title[:47] + "..."
-	}
-
-	// Set location if empty
-	if rawTodo.Location == "" {
-		rawTodo.Location = "home"
-	}
-
-	// Ensure valid priority
-	if rawTodo.Priority != "high" && rawTodo.Priority != "medium" && rawTodo.Priority != "low" {
-		rawTodo.Priority = "medium"
-	}
-
-	// Ensure valid effort
-	validEfforts := map[string]bool{"minimal": true, "low": true, "medium": true, "high": true, "massive": true}
-	if !validEfforts[strings.ToLower(rawTodo.Effort)] {
-		rawTodo.Effort = "medium"
-	}
-
-	// Generate context advice if missing
-	if rawTodo.Context == "" && rawTodo.Priority == "high" {
-		contextPrompt := fmt.Sprintf("Task: %s, Category: %s, Effort: %s",
-			rawTodo.Title, rawTodo.Category, rawTodo.Effort)
-
-		context, err := schemaflow.Generate[string](
-			fmt.Sprintf("Provide a brief (20 words max) helpful tip for completing this task: %s", contextPrompt),
-			schemaflow.NewGenerateOptions().
-				WithIntelligence(schemaflow.Fast),
-		)
-
-		if err == nil && context != "" {
-			rawTodo.Context = context
-		}
-	}
-
-	// Set created time
-	rawTodo.CreatedAt = time.Now()
-
-	// Track cost
-	rawTodo.Cost = tp.LastCost
-
-	// Break down into tasks if description is long but no tasks specified
-	if len(rawTodo.Tasks) == 0 && len(rawTodo.Description) > 100 {
-		// Try to extract subtasks from description
-		type TasksResult struct {
-			Tasks []models.Task `json:"tasks"`
-		}
-
-		tasksResult, err := schemaflow.Extract[TasksResult](
-			rawTodo.Description,
-			schemaflow.NewExtractOptions().
-				WithIntelligence(schemaflow.Fast).
-				WithSteering("Extract 2-5 subtasks from this description. Each task should be a clear action item."),
-		)
-
-		if err == nil && len(tasksResult.Tasks) > 0 {
-			rawTodo.Tasks = tasksResult.Tasks
-		}
-	}
-
-	return &rawTodo, nil
+	todo.Cost = tp.LastCost
+	return todo, nil
 }
 
 func (tp *TodoProcessor) SuggestNext(todos []*models.SmartTodo) (*models.SmartTodo, error) {
@@ -205,92 +108,17 @@ func (tp *TodoProcessor) SuggestNext(todos []*models.SmartTodo) (*models.SmartTo
 
 	// Track cost
 	tp.FastCalls++
-	tp.LastCost = 0.0002
+	tp.SmartCalls++
+	tp.LastCost = 0.0005
 	tp.TotalCost += tp.LastCost
-
-	// Get current time context
-	now := time.Now()
-	timeContext := fmt.Sprintf("Current time: %s (%s)",
-		now.Format("3:04 PM"), now.Format("Monday"))
-	chooseOpts := schemaflow.NewChooseOptions()
-	chooseOpts.CommonOptions = chooseOpts.CommonOptions.WithIntelligence(schemaflow.Fast)
-	chooseOpts.Criteria = []string{"priority", "deadlines", "current time", "effort", "dependencies", "category fit"}
-	chooseOpts.CommonOptions = chooseOpts.CommonOptions.WithSteering(fmt.Sprintf(`%s
-
-		Select the best task to work on right now based on:
-		- Priority (high priority first)
-		- Deadlines (urgent deadlines first)
-		- Current time and day
-		- Effort required vs available time
-		- Dependencies (tasks blocking others go first)
-		- Category fit (work tasks during work hours)
-
-		Return the most suitable task for immediate action.`, timeContext))
-
-	best, err := schemaflow.Choose(
-		todos,
-		chooseOpts,
-	)
-
-	if err != nil {
-		// Fallback: return highest priority or earliest deadline
-		var selected *models.SmartTodo
-		for _, todo := range todos {
-			if selected == nil {
-				selected = todo
-				continue
-			}
-
-			// Prefer high priority
-			if todo.Priority == "high" && selected.Priority != "high" {
-				selected = todo
-			} else if todo.Deadline != nil && selected.Deadline != nil {
-				// Prefer earlier deadline
-				if todo.Deadline.Before(*selected.Deadline) {
-					selected = todo
-				}
-			} else if todo.Deadline != nil && selected.Deadline == nil {
-				// Prefer task with deadline over one without
-				selected = todo
-			}
-		}
-
-		return selected, nil
-	}
-
-	// The Choose function returns the selected item
-	return best, nil
+	return tp.service.RecommendNext(todos)
 }
 
 func (tp *TodoProcessor) FilterByContext(todos []*models.SmartTodo, context string) ([]*models.SmartTodo, error) {
 	if len(todos) <= 1 {
 		return todos, nil
 	}
-	filterOpts := schemaflow.NewFilterOptions()
-	filterOpts.CommonOptions = filterOpts.CommonOptions.WithIntelligence(schemaflow.Quick)
-	filterOpts.Criteria = fmt.Sprintf("Tasks suitable for this context: %s", context)
-	filterOpts.CommonOptions = filterOpts.CommonOptions.WithSteering(fmt.Sprintf(`Filter tasks suitable for this context: "%s"
-
-		Consider:
-		- Location (home, office, gym, etc)
-		- Available time
-		- Energy level (morning = high energy, evening = low energy)
-		- Category relevance
-
-		Include tasks that match the current context.`, context))
-
-	filtered, err := schemaflow.Filter(
-		todos,
-		filterOpts,
-	)
-
-	if err != nil {
-		// Return all todos if filtering fails
-		return todos, nil
-	}
-
-	// Return the filtered list directly
-	return filtered, nil
+	return tp.service.FilterBoard(todos, context)
 }
 
 func (tp *TodoProcessor) GroupByCategory(todos []*models.SmartTodo) map[string][]*models.SmartTodo {
@@ -361,47 +189,12 @@ func (tp *TodoProcessor) ProcessEditContext(todo *models.SmartTodo, context stri
 	tp.LastCost = 0.0003 // Approximate cost
 	tp.TotalCost += tp.LastCost
 
-	prompt := fmt.Sprintf(`Current todo:
-Title: %s
-Description: %s
-Priority: %s
-Category: %s
-Effort: %s
-Context: %s
-
-Edit context: %s
-
-Apply the edit context to update the todo. Rules:
-- If it mentions location, update location
-- If it's a priority change (urgent, asap, etc), update priority
-- If it mentions deadline, update deadline
-- If it mentions effort/time, update effort
-- Keep original information unless explicitly overridden
-- Be smart about what the user intends`,
-		todo.Title, todo.Description, todo.Priority,
-		todo.Category, todo.Effort, todo.Context, context)
-
-	updatedTodo, err := schemaflow.Transform[string, models.SmartTodo](
-		prompt,
-		schemaflow.NewTransformOptions().
-			WithIntelligence(schemaflow.Quick).
-			WithMode(schemaflow.TransformMode),
-	)
-
+	updatedTodo, err := tp.service.ReviseTodo(todo, context)
 	if err != nil {
 		return todo, fmt.Errorf("failed to process edit: %w", err)
 	}
-
-	// Preserve original ID and timestamps
-	updatedTodo.ID = todo.ID
-	updatedTodo.CreatedAt = todo.CreatedAt
-	updatedTodo.Completed = todo.Completed
-	updatedTodo.CompletedAt = todo.CompletedAt
-
-	// Update cost
 	updatedTodo.Cost = todo.Cost + tp.LastCost
-
-	return &updatedTodo, nil
+	return updatedTodo, nil
 }
 
 func (tp *TodoProcessor) EstimateTimeToComplete(todos []*models.SmartTodo) time.Duration {
@@ -434,60 +227,10 @@ func (tp *TodoProcessor) SmartPrioritize(todos []*models.SmartTodo) ([]*models.S
 	}
 
 	// Track cost for smart model
-	tp.SmartCalls++
-	tp.LastCost = 0.001 // Approximate cost for smart model
+	tp.SmartCalls += 2
+	tp.LastCost = 0.0012
 	tp.TotalCost += tp.LastCost
-
-	// Filter only incomplete todos for prioritization
-	var incompleteTodos []*models.SmartTodo
-	var completedTodos []*models.SmartTodo
-
-	for _, todo := range todos {
-		if todo.Completed {
-			completedTodos = append(completedTodos, todo)
-		} else {
-			incompleteTodos = append(incompleteTodos, todo)
-		}
-	}
-
-	if len(incompleteTodos) <= 1 {
-		return todos, nil
-	}
-
-	// Get current context
-	now := time.Now()
-	timeContext := fmt.Sprintf("Current time: %s on %s",
-		now.Format("3:04 PM"), now.Format("Monday, January 2"))
-	sortOpts := schemaflow.NewSortOptions()
-	sortOpts.CommonOptions = sortOpts.CommonOptions.WithIntelligence(schemaflow.Smart)
-	sortOpts.Criteria = "priority considering deadlines, urgency, dependencies, time of day, effort, and category clustering"
-	sortOpts.CommonOptions = sortOpts.CommonOptions.WithSteering(fmt.Sprintf(`Sort these tasks by priority considering:
-
-		%s
-
-		Factors to consider (in order of importance):
-		1. Overdue deadlines (most overdue first)
-		2. Priority level (high > medium > low)
-		3. Today's deadlines
-		4. Dependencies (tasks that block others go first)
-		5. Time of day appropriateness (work tasks during work hours)
-		6. Effort vs available time
-		7. Category clustering (group similar tasks)
-
-		Return tasks ordered from most important to least important.`, timeContext))
-
-	sorted, err := schemaflow.Sort(
-		incompleteTodos,
-		sortOpts,
-	)
-
-	if err != nil {
-		// Fallback to simple priority sort
-		return tp.SortByPriority(todos), nil
-	}
-
-	// Append completed todos at the end
-	return append(sorted, completedTodos...), nil
+	return tp.service.PrioritizeBoard(todos)
 }
 
 // SemanticFilter filters todos using natural language queries
@@ -500,47 +243,23 @@ func (tp *TodoProcessor) SemanticFilter(todos []*models.SmartTodo, query string)
 	tp.FastCalls++
 	tp.LastCost = 0.0002
 	tp.TotalCost += tp.LastCost
-	filterOpts := schemaflow.NewFilterOptions()
-	filterOpts.CommonOptions = filterOpts.CommonOptions.WithIntelligence(schemaflow.Fast)
-	filterOpts.Criteria = query
-	filterOpts.CommonOptions = filterOpts.CommonOptions.WithSteering(fmt.Sprintf(`Filter tasks based on this natural language query: "%s"
+	return tp.service.FilterBoard(todos, query)
+}
 
-Examples of queries to understand:
-- "urgent" - high priority tasks or approaching deadlines
-- "quick tasks" - minimal or low effort tasks
-- "home" - tasks with location=home
-- "today" - tasks due today or without deadline
-- "work stuff" - work category tasks
-- "overdue" - past deadline tasks
-- "almost done" - tasks with high completion percentage
-- "meeting" or other keywords - search in title and description
+func (tp *TodoProcessor) BuildReview(todos []*models.SmartTodo) (intelligence.BoardReview, error) {
+	tp.FastCalls += 2
+	tp.SmartCalls += 3
+	tp.LastCost = 0.0018
+	tp.TotalCost += tp.LastCost
+	return tp.service.BuildReview(todos)
+}
 
-Be intelligent about understanding the user's intent.
-Include tasks that match the query semantics.`, query))
-
-	filtered, err := schemaflow.Filter(
-		todos,
-		filterOpts,
-	)
-
-	if err != nil {
-		// Fallback to simple substring matching
-		var fallbackFiltered []*models.SmartTodo
-		queryLower := strings.ToLower(query)
-
-		for _, todo := range todos {
-			if strings.Contains(strings.ToLower(todo.Title), queryLower) ||
-				strings.Contains(strings.ToLower(todo.Description), queryLower) ||
-				strings.Contains(strings.ToLower(todo.Category), queryLower) ||
-				strings.Contains(strings.ToLower(todo.Priority), queryLower) {
-				fallbackFiltered = append(fallbackFiltered, todo)
-			}
-		}
-
-		return fallbackFiltered, nil
-	}
-
-	return filtered, nil
+func (tp *TodoProcessor) PlanDay(todos []*models.SmartTodo, context string) (intelligence.DayPlan, error) {
+	tp.FastCalls++
+	tp.SmartCalls++
+	tp.LastCost = 0.001
+	tp.TotalCost += tp.LastCost
+	return tp.service.PlanDay(todos, context)
 }
 
 // UpdateDeadlines checks and updates deadline-based priorities

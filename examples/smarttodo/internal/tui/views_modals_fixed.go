@@ -2,82 +2,41 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
 func (m Model) addViewRenderFixed() string {
-	// Render the background (main list view)
 	background := m.listViewRender()
+	modalWidth := clamp(m.width-10, 44, 66)
 
-	// Modal dimensions with safe bounds
-	modalWidth := 60
-	if modalWidth > m.width-10 {
-		modalWidth = m.width - 10
-	}
-	if modalWidth < 40 {
-		modalWidth = 40
-	}
-
-	// Ensure input is focused
 	if !m.input.Focused() {
 		m.input.Focus()
 	}
-	m.input.Width = modalWidth - 6
+	m.input.Width = modalWidth - 8
 
-	// AI capabilities hint
-	aiHint := lipgloss.NewStyle().
-		Foreground(mutedColor).
-		Italic(true).
-		Render(lipgloss.JoinVertical(
-			lipgloss.Left,
-			"🤖 AI will extract:",
-			"• Priority, deadline, category",
-			"• Subtasks if mentioned",
-			"• Location context",
-		))
-
-	// Input section
-	inputSection := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(successColor).
-		Padding(0, 1).
-		Width(modalWidth - 4).
-		Render(lipgloss.JoinVertical(
-			lipgloss.Left,
-			lipgloss.NewStyle().Foreground(successColor).Bold(true).Render("📝 What needs to be done?"),
-			m.input.View(),
-		))
-
-	// Instructions
-	instructions := lipgloss.NewStyle().
-		Foreground(mutedColor).
-		Render("Enter: Add • Esc: Cancel")
-
-	// Build modal content
-	modalContent := lipgloss.JoinVertical(
+	body := lipgloss.JoinVertical(
 		lipgloss.Left,
-		inputSection,
+		lipgloss.NewStyle().Foreground(successColor).Bold(true).Render("Capture a task in plain language"),
+		lipgloss.NewStyle().Foreground(mutedColor).Render("Examples: call Sam tomorrow at 9, prep board notes, buy groceries and plan dinner."),
 		"",
-		aiHint,
+		borderStyle.Width(modalWidth-4).Render(m.input.View()),
 		"",
-		instructions,
+		renderPanel("AI extraction", strings.Join([]string{
+			"The assistant will infer:",
+			"- priority and urgency",
+			"- deadline or timing",
+			"- category and location",
+			"- subtasks when the note implies a sequence",
+		}, "\n"), modalWidth-8),
+		"",
+		lipgloss.NewStyle().Foreground(mutedColor).Render("Enter adds the task. Esc cancels."),
 	)
 
-	// Create modal using the new modal box helper
-	modal := createModalBox("New Task", modalContent, modalWidth, primaryColor)
-
-	// Place modal centered
-	centeredModal := lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		modal,
-	)
-
-	// Use the new overlay function for proper rendering
-	return renderModalOverlay(background, centeredModal, m.width, m.height)
+	modal := createModalBox("New task", body, modalWidth, successColor)
+	centered := lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, modal)
+	return renderModalOverlay(background, centered, m.width, m.height)
 }
 
 func (m Model) editViewRenderFixed() string {
@@ -85,190 +44,81 @@ func (m Model) editViewRenderFixed() string {
 		return m.listViewRender()
 	}
 
-	// Render the background (main list view)
 	background := m.listViewRender()
+	modalWidth := clamp(m.width-10, 50, 74)
 
-	// Modal dimensions with safe bounds
-	modalWidth := 70
-	if modalWidth > m.width-10 {
-		modalWidth = m.width - 10
-	}
-	if modalWidth < 50 {
-		modalWidth = 50
-	}
+	currentInfo := renderPanel("Current task", strings.Join([]string{
+		truncateText(m.selectedTodo.Title, modalWidth-12),
+		fmt.Sprintf("Priority: %s", m.selectedTodo.Priority),
+		fmt.Sprintf("Category: %s", m.selectedTodo.Category),
+		fmt.Sprintf("Deadline: %s", stripANSI(renderDeadlineSummary(m.selectedTodo.Deadline))),
+	}, "\n"), modalWidth-8)
 
-	// Current todo info
-	currentInfo := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(mutedColor).
-		Padding(0, 1).
-		Width(modalWidth - 4).
-		Render(lipgloss.JoinVertical(
-			lipgloss.Left,
-			lipgloss.NewStyle().Foreground(mutedColor).Bold(true).Render("Current Todo:"),
-			truncateText(m.selectedTodo.Title, modalWidth-8),
-			"",
-			lipgloss.NewStyle().Foreground(mutedColor).Render(fmt.Sprintf("Priority: %s | Category: %s",
-				m.selectedTodo.Priority, m.selectedTodo.Category)),
-		))
-
-	// Edit input
-	if !m.editInput.Focused() {
+	if !m.editInput.Focused() && !m.editProcessing {
 		m.editInput.Focus()
 	}
-	m.editInput.Width = modalWidth - 6
+	m.editInput.Width = modalWidth - 8
 
-	// Processing indicator
-	var processingIndicator string
+	var body string
 	if m.editProcessing {
-		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-		frame := frames[m.loadingFrame%len(frames)]
-
-		steps := []string{
-			"Analyzing changes...",
-			"Understanding intent...",
-			"Merging with existing data...",
-			"Updating todo...",
-		}
-
-		currentStep := steps[(m.loadingFrame/10)%len(steps)]
-		processingIndicator = lipgloss.NewStyle().
-			Foreground(warningColor).
-			Bold(true).
-			Render(fmt.Sprintf("%s %s", frame, currentStep))
-	}
-
-	// Input section
-	inputSection := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(secondaryColor).
-		Padding(0, 1).
-		Width(modalWidth - 4).
-		Render(lipgloss.JoinVertical(
-			lipgloss.Left,
-			lipgloss.NewStyle().Foreground(secondaryColor).Bold(true).Render("✏️ Add context or updates:"),
-			lipgloss.NewStyle().Foreground(mutedColor).Italic(true).Render("AI will merge with existing todo"),
-			m.editInput.View(),
-		))
-
-	// Instructions
-	instructions := lipgloss.NewStyle().
-		Foreground(mutedColor).
-		Render("Enter: Save • Esc: Cancel")
-
-	// Build modal content
-	var modalContent string
-	if m.editProcessing {
-		modalContent = lipgloss.JoinVertical(
+		steps := []string{"Analyzing changes", "Merging intent", "Updating task", "Finalizing"}
+		step := steps[(m.loadingFrame/10)%len(steps)]
+		body = lipgloss.JoinVertical(
 			lipgloss.Left,
 			currentInfo,
 			"",
-			processingIndicator,
+			lipgloss.NewStyle().Foreground(warningColor).Bold(true).Render(step+"..."),
 			"",
-			instructions,
+			lipgloss.NewStyle().Foreground(mutedColor).Render("The assistant is applying your requested change."),
 		)
 	} else {
-		modalContent = lipgloss.JoinVertical(
+		body = lipgloss.JoinVertical(
 			lipgloss.Left,
 			currentInfo,
 			"",
-			inputSection,
+			lipgloss.NewStyle().Foreground(secondaryColor).Bold(true).Render("Describe the change"),
+			lipgloss.NewStyle().Foreground(mutedColor).Render("Examples: move to Friday, make this urgent, split into 3 subtasks, change location to office."),
+			borderStyle.Width(modalWidth-4).Render(m.editInput.View()),
 			"",
-			instructions,
+			lipgloss.NewStyle().Foreground(mutedColor).Render("Enter saves. Esc cancels."),
 		)
 	}
 
-	// Create modal
-	modal := createModalBox("Edit Task", modalContent, modalWidth, secondaryColor)
-
-	// Place modal centered
-	centeredModal := lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		modal,
-	)
-
-	// Use the new overlay function
-	return renderModalOverlay(background, centeredModal, m.width, m.height)
+	modal := createModalBox("Edit task", body, modalWidth, secondaryColor)
+	centered := lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, modal)
+	return renderModalOverlay(background, centered, m.width, m.height)
 }
 
 func (m Model) suggestViewRenderFixed() string {
-	// Render the background
 	background := m.listViewRender()
-
-	// Modal dimensions
-	modalWidth := 60
-	if modalWidth > m.width-10 {
-		modalWidth = m.width - 10
-	}
-	if modalWidth < 40 {
-		modalWidth = 40
-	}
+	modalWidth := clamp(m.width-10, 46, 64)
 
 	var content string
-
-	if m.loading {
-		// Loading animation
-		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-		frame := frames[m.loadingFrame%len(frames)]
-
-		loadingText := lipgloss.NewStyle().
-			Foreground(warningColor).
-			Bold(true).
-			Padding(2, 0).
-			Align(lipgloss.Center).
-			Render(fmt.Sprintf("%s Analyzing your tasks...\n\nFinding the best next action...", frame))
-
-		content = loadingText
-	} else if m.selectedTodo != nil && m.mode == suggestView {
-		// Show suggestion
-		suggestionBox := lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(successColor).
-			Padding(0, 1).
-			Width(modalWidth - 4).
-			Render(lipgloss.JoinVertical(
-				lipgloss.Left,
-				lipgloss.NewStyle().Foreground(successColor).Bold(true).Render("💡 Suggested Next Task:"),
-				"",
-				truncateText(m.selectedTodo.Title, modalWidth-8),
-				"",
-				lipgloss.NewStyle().Foreground(mutedColor).Render(
-					fmt.Sprintf("Priority: %s | Category: %s",
-						m.selectedTodo.Priority, m.selectedTodo.Category)),
-			))
-
-		instructions := lipgloss.NewStyle().
-			Foreground(mutedColor).
-			Render("Enter: Start Task • Esc: Dismiss")
-
+	switch {
+	case m.loading:
+		content = lipgloss.JoinVertical(
+			lipgloss.Center,
+			lipgloss.NewStyle().Foreground(warningColor).Bold(true).Render("Reviewing the board"),
+			"",
+			lipgloss.NewStyle().Foreground(mutedColor).Render("Choosing the next best move based on urgency, timing, and effort."),
+		)
+	case m.selectedTodo != nil && m.mode == suggestView:
 		content = lipgloss.JoinVertical(
 			lipgloss.Left,
-			suggestionBox,
+			renderPanel("Recommended next task", strings.Join([]string{
+				truncateText(m.selectedTodo.Title, modalWidth-12),
+				fmt.Sprintf("Priority: %s", m.selectedTodo.Priority),
+				fmt.Sprintf("Category: %s", m.selectedTodo.Category),
+				fmt.Sprintf("Deadline: %s", stripANSI(renderDeadlineSummary(m.selectedTodo.Deadline))),
+			}, "\n"), modalWidth-8),
 			"",
-			instructions,
+			lipgloss.NewStyle().Foreground(mutedColor).Render("Enter marks this as your focus. Esc dismisses the recommendation."),
 		)
-	} else {
-		content = lipgloss.NewStyle().
-			Foreground(mutedColor).
-			Padding(2, 0).
-			Align(lipgloss.Center).
-			Render("No suggestions available")
+	default:
+		content = lipgloss.NewStyle().Foreground(mutedColor).Render("No suggestion is available right now.")
 	}
 
-	// Create modal
-	modal := createModalBox("AI Suggestion", content, modalWidth, primaryColor)
-
-	// Place modal centered
-	centeredModal := lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		modal,
-	)
-
-	return renderModalOverlay(background, centeredModal, m.width, m.height)
+	modal := createModalBox("AI suggestion", content, modalWidth, primaryColor)
+	centered := lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, modal)
+	return renderModalOverlay(background, centered, m.width, m.height)
 }
