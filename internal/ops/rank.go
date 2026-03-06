@@ -52,6 +52,7 @@ func NewRankOptions() RankOptions {
 			Mode:         types.TransformMode,
 			Intelligence: types.Fast,
 		},
+		Query:              "overall relevance",
 		TopK:               0, // Return all
 		IncludeScores:      true,
 		MinScore:           0.0,

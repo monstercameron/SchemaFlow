@@ -7,7 +7,8 @@ import (
 	"strings"
 	"time"
 
-	)
+	schemaflow "github.com/monstercameron/SchemaFlow"
+)
 
 // ErrorSeverity defines the severity of errors
 type ErrorSeverity int
@@ -151,5 +152,3 @@ func SafeExecute(fn func() error, context string) error {
 	}()
 	return fn()
 }
-
-

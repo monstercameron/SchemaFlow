@@ -298,6 +298,28 @@ Rules:
 		}
 	}
 
+	// Accept a single suggestion object as a one-item result.
+	var singleObject map[string]any
+	if err := json.Unmarshal([]byte(response), &singleObject); err == nil && len(singleObject) > 0 {
+		var t T
+		if _, ok := any(t).(string); ok {
+			for _, key := range []string{"suggestion", "text", "content", "name", "value", "description"} {
+				if val, ok := singleObject[key]; ok {
+					if str, ok := val.(string); ok && strings.TrimSpace(str) != "" {
+						return []T{any(str).(T)}, nil
+					}
+				}
+			}
+		}
+
+		if bytes, err := json.Marshal(singleObject); err == nil {
+			var parsed T
+			if err := json.Unmarshal(bytes, &parsed); err == nil {
+				return []T{parsed}, nil
+			}
+		}
+	}
+
 	log.Error("Suggest operation parse failed", "requestID", opts.CommonOptions.RequestID, "response", response[:min(200, len(response))])
 	return nil, fmt.Errorf("failed to parse suggestions from response")
 }

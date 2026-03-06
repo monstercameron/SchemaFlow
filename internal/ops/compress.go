@@ -3,6 +3,7 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -289,20 +290,30 @@ Return a JSON object with:
 	}
 
 	// Parse the response
-	var parsed struct {
-		Compressed    T        `json:"compressed"`
-		PreservedInfo []string `json:"preserved_info"`
-		RemovedInfo   []string `json:"removed_info"`
+	var envelope struct {
+		Compressed    json.RawMessage `json:"compressed"`
+		PreservedInfo []string        `json:"preserved_info"`
+		RemovedInfo   []string        `json:"removed_info"`
 	}
 
-	if err := ParseJSON(response, &parsed); err != nil {
+	if err := ParseJSON(response, &envelope); err != nil {
 		log.Error("Compress operation failed: parse error", "error", err)
 		return result, fmt.Errorf("failed to parse compressed result: %w", err)
 	}
 
-	result.Compressed = parsed.Compressed
-	result.PreservedInfo = parsed.PreservedInfo
-	result.RemovedInfo = parsed.RemovedInfo
+	if err := json.Unmarshal(envelope.Compressed, &result.Compressed); err != nil {
+		var compressedString string
+		if err2 := json.Unmarshal(envelope.Compressed, &compressedString); err2 != nil {
+			log.Error("Compress operation failed: compressed payload parse error", "error", err)
+			return result, fmt.Errorf("failed to parse compressed payload: %w", err)
+		}
+		if err2 := ParseJSON(compressedString, &result.Compressed); err2 != nil {
+			log.Error("Compress operation failed: compressed string parse error", "error", err2)
+			return result, fmt.Errorf("failed to parse compressed payload string: %w", err2)
+		}
+	}
+	result.PreservedInfo = envelope.PreservedInfo
+	result.RemovedInfo = envelope.RemovedInfo
 
 	// Calculate compressed size
 	compressedStr, _ := NormalizeInput(result.Compressed)

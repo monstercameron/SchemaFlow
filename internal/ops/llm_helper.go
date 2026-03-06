@@ -3,6 +3,7 @@ package ops
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/monstercameron/SchemaFlow/internal/config"
 	"github.com/monstercameron/SchemaFlow/internal/llm"
@@ -48,19 +49,16 @@ func CallLLM(ctx context.Context, provider llm.Provider, systemPrompt, userPromp
 	model := config.GetModel(opts.Intelligence, provider.Name())
 	maxTokens := config.GetMaxTokens(opts.Intelligence)
 	temperature := config.GetTemperature(opts.Mode)
+	effectiveSystemPrompt := applySteering(systemPrompt, opts.Steering)
+	responseFormat := inferResponseFormat(effectiveSystemPrompt, userPrompt)
 
 	req := llm.CompletionRequest{
-		Model:        model,
-		SystemPrompt: systemPrompt,
-		UserPrompt:   userPrompt,
-		Temperature:  float64(temperature),
-		MaxTokens:    maxTokens,
-	}
-
-	// Set response format if needed (e.g. for strict mode or extraction)
-	// This logic might need to be more sophisticated based on the operation
-	if opts.Mode == types.Strict {
-		// req.ResponseFormat = "json" // Maybe?
+		Model:          model,
+		SystemPrompt:   strengthenSystemPrompt(effectiveSystemPrompt, responseFormat),
+		UserPrompt:     userPrompt,
+		Temperature:    float64(temperature),
+		MaxTokens:      maxTokens,
+		ResponseFormat: responseFormat,
 	}
 
 	resp, err := provider.Complete(ctx, req)
@@ -68,4 +66,48 @@ func CallLLM(ctx context.Context, provider llm.Provider, systemPrompt, userPromp
 		return "", err
 	}
 	return resp.Content, nil
+}
+
+func applySteering(systemPrompt, steering string) string {
+	steering = strings.TrimSpace(steering)
+	if steering == "" {
+		return systemPrompt
+	}
+	return strings.TrimSpace(systemPrompt + "\n\nAdditional instructions:\n" + steering)
+}
+
+func inferResponseFormat(systemPrompt, userPrompt string) string {
+	combined := strings.ToLower(systemPrompt + "\n" + userPrompt)
+	jsonSignals := []string{
+		"return a json object",
+		"return a json array",
+		"return only valid json",
+		"return only json",
+		"valid json",
+		"json object",
+		"json array",
+		"matching the schema",
+	}
+	for _, signal := range jsonSignals {
+		if strings.Contains(combined, signal) {
+			return "json"
+		}
+	}
+	return "text"
+}
+
+func strengthenSystemPrompt(systemPrompt, responseFormat string) string {
+	baseRules := strings.TrimSpace(`Perform the semantic task faithfully using the provided input.
+Do not merely restate schemas, field names, or type descriptions.
+Infer, compare, rank, validate, transform, or summarize based on the actual content.`)
+
+	if responseFormat != "json" {
+		return strings.TrimSpace(baseRules + "\n\n" + systemPrompt)
+	}
+
+	jsonRules := strings.TrimSpace(`After reasoning about the task, return only the final JSON answer.
+Do not include markdown fences, prose, placeholders, or schema descriptions.
+Every field must be populated with task-relevant values supported by the input or clearly inferred from it.`)
+
+	return strings.TrimSpace(baseRules + "\n\n" + jsonRules + "\n\n" + systemPrompt)
 }

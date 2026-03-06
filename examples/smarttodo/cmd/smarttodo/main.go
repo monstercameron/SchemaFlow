@@ -9,7 +9,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/SchemaFlow"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/database"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/localization"
 	"github.com/monstercameron/schemaflow/examples/smarttodo/internal/models"
@@ -43,9 +43,6 @@ func main() {
 		fmt.Println("  export SCHEMAFLOW_API_KEY='your-api-key'")
 		os.Exit(1)
 	}
-
-	// Ensure debug mode is off
-	schemaflow.SetDebugMode(false)
 
 	// Initialize localization system
 	localization.InitLocalization()
@@ -122,5 +119,3 @@ func main() {
 	schemaflow.GetLogger().Info("Smart Todo closed successfully")
 	os.Exit(0)
 }
-
-

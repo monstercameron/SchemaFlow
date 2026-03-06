@@ -91,3 +91,22 @@ func TestGetSpanID(t *testing.T) {
 		t.Error("Expected span ID to be set")
 	}
 }
+
+func TestTracingEnvEnabled(t *testing.T) {
+	t.Setenv("SCHEMAFLOW_ENABLE_TRACING", "")
+	t.Setenv("SCHEMAFLOW_TRACE", "")
+	if tracingEnvEnabled() {
+		t.Fatal("expected tracing to be disabled when env vars are unset")
+	}
+
+	t.Setenv("SCHEMAFLOW_TRACE", "true")
+	if !tracingEnvEnabled() {
+		t.Fatal("expected SCHEMAFLOW_TRACE=true to enable tracing")
+	}
+
+	t.Setenv("SCHEMAFLOW_TRACE", "")
+	t.Setenv("SCHEMAFLOW_ENABLE_TRACING", "1")
+	if !tracingEnvEnabled() {
+		t.Fatal("expected SCHEMAFLOW_ENABLE_TRACING=1 to enable tracing")
+	}
+}

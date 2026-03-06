@@ -2,7 +2,9 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -82,6 +84,88 @@ func TestProviders(t *testing.T) {
 
 		if cost <= 0 {
 			t.Error("Expected positive cost estimate")
+		}
+	})
+
+	t.Run("OpenAIProvider JSON mode omits unsupported temperature and parses later message output", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("failed to read request body: %v", err)
+			}
+
+			var req map[string]any
+			if err := json.Unmarshal(body, &req); err != nil {
+				t.Fatalf("failed to unmarshal request: %v", err)
+			}
+
+			if _, ok := req["temperature"]; ok {
+				t.Fatalf("temperature should be omitted for gpt-5 models: %s", string(body))
+			}
+
+			textCfg, ok := req["text"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected text config in request body: %s", string(body))
+			}
+			formatCfg, ok := textCfg["format"].(map[string]any)
+			if !ok || formatCfg["type"] != "json_object" {
+				t.Fatalf("expected json_object response format: %s", string(body))
+			}
+			input, ok := req["input"].(string)
+			if !ok || !strings.Contains(strings.ToLower(input), "json") {
+				t.Fatalf("expected json hint in input prompt: %s", string(body))
+			}
+			reasoningCfg, ok := req["reasoning"].(map[string]any)
+			if !ok || reasoningCfg["effort"] != "minimal" {
+				t.Fatalf("expected model-specific reasoning effort: %s", string(body))
+			}
+			if textCfg["verbosity"] != "low" {
+				t.Fatalf("expected low verbosity for gpt-5 JSON mode: %s", string(body))
+			}
+
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "resp_json",
+				"output": [
+					{ "type": "reasoning", "summary": [] },
+					{
+						"type": "message",
+						"content": [
+							{ "type": "output_text", "text": "{\"ok\":true}" }
+						]
+					}
+				],
+				"model": "gpt-5-nano-2025-08-07",
+				"usage": {
+					"input_tokens": 10,
+					"output_tokens": 20,
+					"total_tokens": 30
+				}
+			}`))
+		}))
+		defer server.Close()
+
+		provider, err := NewOpenAIProvider(ProviderConfig{
+			APIKey:  "test-key",
+			BaseURL: server.URL,
+			Timeout: 5 * time.Second,
+		})
+		if err != nil {
+			t.Fatalf("Failed to create OpenAI provider: %v", err)
+		}
+
+		resp, err := provider.Complete(context.Background(), CompletionRequest{
+			Model:          "gpt-5-nano-2025-08-07",
+			SystemPrompt:   "Return a JSON object",
+			UserPrompt:     "Test",
+			Temperature:    0.3,
+			ResponseFormat: "json",
+		})
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if resp.Content != `{"ok":true}` {
+			t.Fatalf("expected parsed JSON content, got %q", resp.Content)
 		}
 	})
 
@@ -250,6 +334,65 @@ func TestProviders(t *testing.T) {
 			t.Errorf("Expected custom response, got: %s", resp.Content)
 		}
 	})
+}
+
+func TestOpenAIProviderUsesSupportedReasoningEffortForGPT54(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("failed to read request body: %v", err)
+		}
+
+		var req map[string]any
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Fatalf("failed to unmarshal request: %v", err)
+		}
+
+		reasoningCfg, ok := req["reasoning"].(map[string]any)
+		if !ok || reasoningCfg["effort"] != "none" {
+			t.Fatalf("expected reasoning effort none for gpt-5.4: %s", string(body))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{
+			"id": "resp_json",
+			"status": "completed",
+			"output": [
+				{
+					"type": "message",
+					"content": [
+						{ "type": "output_text", "text": "{\"ok\":true}" }
+					]
+				}
+			],
+			"model": "gpt-5.4",
+			"usage": {
+				"input_tokens": 10,
+				"output_tokens": 20,
+				"total_tokens": 30
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	provider, err := NewOpenAIProvider(ProviderConfig{
+		APIKey:  "test-key",
+		BaseURL: server.URL,
+		Timeout: 5 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create OpenAI provider: %v", err)
+	}
+
+	_, err = provider.Complete(context.Background(), CompletionRequest{
+		Model:          "gpt-5.4",
+		SystemPrompt:   "Return a JSON object",
+		UserPrompt:     "Test",
+		ResponseFormat: "json",
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 }
 
 func TestProviderRegistry(t *testing.T) {

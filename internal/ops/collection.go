@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/monstercameron/SchemaFlow/internal/config"
@@ -199,8 +200,14 @@ Rules:
 - Evaluate each item against the criteria
 - Include items that match the criteria
 - Return a JSON array containing the COMPLETE objects that should be kept
+- If the items are primitive values like strings, return a JSON array of those same primitive values
+- Never return an object wrapper such as {} or {"item": ...}
 - Return ONLY the JSON array of objects, nothing else
-- Do NOT wrap in markdown code blocks`
+- Do NOT wrap in markdown code blocks
+
+Examples:
+- Input ["a", "b"] -> Output ["a"]
+- Input [{"id":1},{"id":2}] -> Output [{"id":2}]`
 
 	userPrompt := fmt.Sprintf("Filter these items:\n%s", string(itemsJSON))
 
@@ -227,6 +234,10 @@ Rules:
 	// Parse the filtered objects directly
 	var result []T
 	if err := json.Unmarshal([]byte(response), &result); err != nil {
+		var single T
+		if strings.TrimSpace(response) != "{}" && json.Unmarshal([]byte(response), &single) == nil {
+			return []T{single}, nil
+		}
 		return nil, types.FilterError{
 			Items:  interfaceSlice(items),
 			Reason: fmt.Sprintf("failed to parse filtered items: %v (response: %s)", err, response),
@@ -305,15 +316,22 @@ func Sort[T any](items []T, opts SortOptions) ([]T, error) {
 	}
 
 	// Use object-based sorting instead of index-based
-	systemPrompt := `You are a sorting expert. Sort items based on the specified criteria.
+	systemPrompt := fmt.Sprintf(`You are a sorting expert. Sort items based on the specified criteria.
 
 Rules:
 - Evaluate all items according to the sorting criteria
 - Arrange them in the proper order
 - Return a JSON array containing ALL the COMPLETE objects in sorted order
+- If the items are primitive values like strings, return a JSON array of those same primitive values in sorted order
+- Never return an object wrapper such as {"item": ...}
 - Return ONLY the JSON array of objects, nothing else
 - Do NOT wrap in markdown code blocks
-- Include every item exactly once in the sorted output`
+- Include every item exactly once in the sorted output
+- The output is invalid unless it contains exactly %d items
+
+Examples:
+- Input ["low", "critical", "medium"] -> Output ["critical", "medium", "low"]
+- Input [{"id":1},{"id":2}] -> Output [{"id":2},{"id":1}]`, len(items))
 
 	userPrompt := fmt.Sprintf("Sort these items:\n%s", string(itemsJSON))
 
@@ -340,6 +358,10 @@ Rules:
 	// Parse the sorted objects directly
 	var result []T
 	if err := json.Unmarshal([]byte(response), &result); err != nil {
+		fallback, fallbackErr := sortByScoringFallback(items, opts, opOptions)
+		if fallbackErr == nil {
+			return fallback, nil
+		}
 		return nil, types.SortError{
 			Items:  interfaceSlice(items),
 			Reason: fmt.Sprintf("failed to parse sorted items: %v (response: %s)", err, response),
@@ -347,12 +369,86 @@ Rules:
 	}
 
 	if len(result) != len(items) {
+		fallback, fallbackErr := sortByScoringFallback(items, opts, opOptions)
+		if fallbackErr == nil {
+			return fallback, nil
+		}
 		return nil, types.SortError{
 			Items:  interfaceSlice(items),
 			Reason: fmt.Sprintf("received %d items for %d input items", len(result), len(items)),
 		}
 	}
 
+	return result, nil
+}
+
+func sortByScoringFallback[T any](items []T, opts SortOptions, opOptions types.OpOptions) ([]T, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), config.GetTimeout())
+	defer cancel()
+
+	type scoredItem struct {
+		Index int
+		Item  T
+		Score float64
+	}
+
+	scored := make([]scoredItem, 0, len(items))
+	for i, item := range items {
+		itemJSON, err := json.Marshal(item)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal item %d: %w", i, err)
+		}
+
+		systemPrompt := `You are a sorting scorer.
+
+Return a JSON object with:
+{
+  "rank_score": 0.0-1.0
+}
+
+Rules:
+- Higher rank_score means the item should appear EARLIER in the final sorted output
+- Score according to the requested sort order and criteria
+- Consider all criteria together
+- Return only valid JSON`
+
+		userPrompt := fmt.Sprintf("Sorting criteria: %s\nDirection: %s\nSecondary criteria: %s\n\nItem:\n%s",
+			opts.Criteria,
+			opts.Direction,
+			strings.Join(opts.SecondaryCriteria, ", "),
+			string(itemJSON),
+		)
+
+		response, err := callLLM(ctx, systemPrompt, userPrompt, opOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		var parsed struct {
+			RankScore float64 `json:"rank_score"`
+		}
+		if err := ParseJSON(response, &parsed); err != nil {
+			return nil, err
+		}
+
+		scored = append(scored, scoredItem{
+			Index: i,
+			Item:  item,
+			Score: parsed.RankScore,
+		})
+	}
+
+	sort.SliceStable(scored, func(i, j int) bool {
+		if scored[i].Score == scored[j].Score {
+			return scored[i].Index < scored[j].Index
+		}
+		return scored[i].Score > scored[j].Score
+	})
+
+	result := make([]T, len(scored))
+	for i, item := range scored {
+		result[i] = item.Item
+	}
 	return result, nil
 }
 

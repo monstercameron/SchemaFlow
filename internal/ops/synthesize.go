@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/monstercameron/SchemaFlow/internal/config"
@@ -299,10 +300,16 @@ func Synthesize[T any](sources []any, opts SynthesizeOptions) (SynthesizeResult[
 		excludeDesc = fmt.Sprintf("\nExclude: %s", strings.Join(opts.ExcludeAspects, ", "))
 	}
 
+	var zero T
+	targetSchema := GenerateTypeSchema(reflect.TypeOf(zero))
+
 	systemPrompt := fmt.Sprintf(`You are an expert at synthesizing information from multiple sources.
 
 Strategy: %s
 Conflict resolution: %s%s%s%s%s
+
+The "synthesized" field must match this target schema:
+%s
 
 Return a JSON object with:
 {
@@ -330,7 +337,12 @@ Return a JSON object with:
     }
   ],
   "source_coverage": {"0": 0.8, "1": 0.9}
-}`, strategyDesc, resolutionDesc, citeNote, insightsNote, focusDesc, excludeDesc)
+}
+
+Rules for "synthesized":
+- It must be a valid instance of the target schema above
+- Do not replace it with a free-form string unless the target schema itself is a string
+- Populate fields with task-relevant synthesized content`, strategyDesc, resolutionDesc, citeNote, insightsNote, focusDesc, excludeDesc, targetSchema)
 
 	userPrompt := fmt.Sprintf("Synthesize these sources:\n\n%s", strings.Join(sourcesJSON, "\n\n"))
 
@@ -342,7 +354,7 @@ Return a JSON object with:
 
 	// Parse the response
 	var parsed struct {
-		Synthesized    T                   `json:"synthesized"`
+		Synthesized    json.RawMessage     `json:"synthesized"`
 		Facts          []SynthesisFact     `json:"facts"`
 		Insights       []SynthesisInsight  `json:"insights"`
 		Conflicts      []SynthesisConflict `json:"conflicts"`
@@ -354,7 +366,28 @@ Return a JSON object with:
 		return result, fmt.Errorf("failed to parse synthesis result: %w", err)
 	}
 
-	result.Synthesized = parsed.Synthesized
+	if err := json.Unmarshal(parsed.Synthesized, &result.Synthesized); err != nil {
+		var synthesizedString string
+		if err2 := json.Unmarshal(parsed.Synthesized, &synthesizedString); err2 == nil {
+			if err3 := ParseJSON(synthesizedString, &result.Synthesized); err3 != nil {
+				var zero T
+				if _, ok := any(zero).(string); ok {
+					result.Synthesized = any(synthesizedString).(T)
+				} else {
+					log.Error("Synthesize operation failed: synthesized payload parse error", "error", err3)
+					return result, fmt.Errorf("failed to parse synthesized payload: %w", err3)
+				}
+			}
+		} else {
+			var zero T
+			if _, ok := any(zero).(string); ok {
+				result.Synthesized = any(string(parsed.Synthesized)).(T)
+			} else {
+				log.Error("Synthesize operation failed: synthesized payload parse error", "error", err)
+				return result, fmt.Errorf("failed to parse synthesized payload: %w", err)
+			}
+		}
+	}
 	result.Facts = parsed.Facts
 	result.Insights = parsed.Insights
 	result.Conflicts = parsed.Conflicts

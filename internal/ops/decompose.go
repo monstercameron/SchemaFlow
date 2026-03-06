@@ -396,8 +396,20 @@ Return a JSON array of parts matching the output schema.`, inputSchema, outputSc
 	}
 
 	if err := ParseJSON(response, &result); err != nil {
-		log.Error("DecomposeToSlice failed: parse error", "error", err)
-		return result, fmt.Errorf("failed to parse parts: %w", err)
+		var wrapped struct {
+			Parts []U `json:"parts"`
+		}
+		if err2 := ParseJSON(response, &wrapped); err2 == nil && len(wrapped.Parts) > 0 {
+			result = wrapped.Parts
+		} else {
+			var single U
+			if err2 := ParseJSON(response, &single); err2 == nil {
+				result = []U{single}
+			} else {
+				log.Error("DecomposeToSlice failed: parse error", "error", err)
+				return result, fmt.Errorf("failed to parse parts: %w", err)
+			}
+		}
 	}
 
 	log.Debug("DecomposeToSlice succeeded", "partCount", len(result))

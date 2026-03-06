@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	schemaflow "github.com/monstercameron/schemaflow"
+	schemaflow "github.com/monstercameron/SchemaFlow"
 )
 
 // Localization handles dynamic translation of UI strings
@@ -120,10 +120,12 @@ Text to translate: "%s"`, l.getLanguageName(), text)
 		Translation string `json:"translation" jsonschema:"description=The translated text"`
 	}
 
-	result, err := schemaflow.Generate[TranslationResult](prompt, schemaflow.OpOptions{
-		Intelligence: schemaflow.Fast, // Use fast model for translations
-		Mode:         schemaflow.TransformMode,
-	})
+	result, err := schemaflow.Generate[TranslationResult](
+		prompt,
+		schemaflow.NewGenerateOptions().
+			WithIntelligence(schemaflow.Fast).
+			WithMode(schemaflow.TransformMode),
+	)
 
 	if err != nil {
 		// Fall back to original text if translation fails
@@ -250,10 +252,12 @@ Texts to translate:
 		Translations []string `json:"translations" jsonschema:"description=List of translated texts in order"`
 	}
 
-	result, err := schemaflow.Generate[BatchTranslationResult](prompt, schemaflow.OpOptions{
-		Intelligence: schemaflow.Fast, // Use fast model for batch translations
-		Mode:         schemaflow.TransformMode,
-	})
+	result, err := schemaflow.Generate[BatchTranslationResult](
+		prompt,
+		schemaflow.NewGenerateOptions().
+			WithIntelligence(schemaflow.Fast).
+			WithMode(schemaflow.TransformMode),
+	)
 
 	if err != nil {
 		// Return original texts if translation fails
@@ -310,5 +314,3 @@ func PreloadCommonStrings() {
 	// Batch translate for efficiency
 	BatchTranslate(commonStrings)
 }
-
-

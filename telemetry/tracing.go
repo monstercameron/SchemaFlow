@@ -40,7 +40,7 @@ var (
 // InitTracing initializes OpenTelemetry tracing with configured exporters
 func InitTracing(serviceName string) error {
 	// Check if tracing is enabled
-	if enabled := os.Getenv("SCHEMAFLOW_ENABLE_TRACING"); enabled != "true" && enabled != "1" {
+	if !tracingEnvEnabled() {
 		logger.GetLogger().Info("Tracing disabled")
 		return nil
 	}
@@ -346,4 +346,14 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+func tracingEnvEnabled() bool {
+	for _, key := range []string{"SCHEMAFLOW_ENABLE_TRACING", "SCHEMAFLOW_TRACE"} {
+		switch os.Getenv(key) {
+		case "true", "1":
+			return true
+		}
+	}
+	return false
 }

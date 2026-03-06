@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/monstercameron/schemaflow"
+	"github.com/monstercameron/SchemaFlow"
 )
 
 // apiKeyViewRender renders the API key setup view
@@ -95,9 +95,11 @@ func validateAPIKey(apiKey string) error {
 	os.Setenv("OPENAI_API_KEY", apiKey)
 
 	// Try a simple API call to validate
-	_, err := schemaflow.Generate[string]("Say 'test'", schemaflow.OpOptions{
-		Intelligence: schemaflow.Fast,
-	})
+	_, err := schemaflow.Generate[string](
+		"Say 'test'",
+		schemaflow.NewGenerateOptions().
+			WithIntelligence(schemaflow.Fast),
+	)
 
 	if err != nil {
 		// Clear the invalid key
@@ -138,4 +140,3 @@ func saveAPIKey(apiKey string) error {
 	newContent := strings.Join(existingLines, "\n")
 	return os.WriteFile(envPath, []byte(newContent), 0600)
 }
-

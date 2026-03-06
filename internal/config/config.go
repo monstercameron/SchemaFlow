@@ -71,7 +71,7 @@ func GetTraceEnabled() bool {
 	if traceEnabled {
 		return true
 	}
-	return os.Getenv("SCHEMAFLOW_TRACE") == "true"
+	return envEnabled("SCHEMAFLOW_TRACE") || envEnabled("SCHEMAFLOW_ENABLE_TRACING")
 }
 
 // SetTraceEnabled sets tracing mode
@@ -96,6 +96,16 @@ func SetMetricsEnabled(enabled bool) {
 	mu.Lock()
 	defer mu.Unlock()
 	metricsEnabled = enabled
+}
+
+func envEnabled(keys ...string) bool {
+	for _, key := range keys {
+		switch os.Getenv(key) {
+		case "true", "1":
+			return true
+		}
+	}
+	return false
 }
 
 // GetModel returns the appropriate model based on intelligence level
@@ -162,13 +172,13 @@ func GetModel(intelligence types.Speed, provider string) string {
 
 	switch intelligence {
 	case types.Smart:
-		return "gpt-5-2025-08-07"
+		return "gpt-5.4"
 	case types.Fast:
-		return "gpt-5-nano-2025-08-07"
+		return "gpt-5-mini"
 	case types.Quick:
-		return "gpt-5-mini-2025-08-07"
+		return "gpt-5-nano"
 	default:
-		return "gpt-5-nano-2025-08-07"
+		return "gpt-5-mini"
 	}
 }
 

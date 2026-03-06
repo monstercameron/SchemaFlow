@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/monstercameron/SchemaFlow/internal/config"
@@ -244,13 +245,13 @@ Rules:
 
 	// Parse response
 	var parsed struct {
-		Solution            json.RawMessage    `json:"solution"`
-		Satisfaction        map[string]float64 `json:"satisfaction"`
-		OverallSatisfaction float64            `json:"overall_satisfaction"`
-		Tradeoffs           []Tradeoff         `json:"tradeoffs"`
-		Alternatives        []json.RawMessage  `json:"alternatives"`
-		Reasoning           string             `json:"reasoning"`
-		Confidence          float64            `json:"confidence"`
+		Solution            json.RawMessage   `json:"solution"`
+		Satisfaction        map[string]any    `json:"satisfaction"`
+		OverallSatisfaction float64           `json:"overall_satisfaction"`
+		Tradeoffs           []Tradeoff        `json:"tradeoffs"`
+		Alternatives        []json.RawMessage `json:"alternatives"`
+		Reasoning           string            `json:"reasoning"`
+		Confidence          float64           `json:"confidence"`
 	}
 
 	if err := json.Unmarshal([]byte(response), &parsed); err != nil {
@@ -274,7 +275,11 @@ Rules:
 		}
 	}
 
-	result.Satisfaction = parsed.Satisfaction
+	for key, value := range parsed.Satisfaction {
+		if score, ok := normalizeFloat(value); ok {
+			result.Satisfaction[key] = score
+		}
+	}
 	result.OverallSatisfaction = parsed.OverallSatisfaction
 	result.Tradeoffs = parsed.Tradeoffs
 	result.Reasoning = parsed.Reasoning
@@ -318,6 +323,29 @@ func mergeNegotiateOptions(defaults, user NegotiateOptions) NegotiateOptions {
 		defaults.Context = user.Context
 	}
 	return defaults
+}
+
+func normalizeFloat(value any) (float64, bool) {
+	switch v := value.(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case json.Number:
+		f, err := v.Float64()
+		return f, err == nil
+	case string:
+		f, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		return f, err == nil
+	default:
+		return 0, false
+	}
 }
 
 // =============================================================================

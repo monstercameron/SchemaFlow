@@ -99,14 +99,19 @@ func (provider *OpenAIProvider) Complete(ctx context.Context, req CompletionRequ
 		url = strings.TrimRight(provider.config.BaseURL, "/") + "/responses"
 	}
 
+	input := req.UserPrompt
+	if req.ResponseFormat == "json" && !strings.Contains(strings.ToLower(input), "json") {
+		input = "Return valid JSON only.\n\n" + input
+	}
+
 	// Construct request body
 	requestBody := map[string]interface{}{
 		"model":        req.Model,
-		"input":        req.UserPrompt,
+		"input":        input,
 		"instructions": req.SystemPrompt,
 	}
 
-	if req.Temperature > 0 {
+	if req.Temperature > 0 && supportsTemperature(req.Model) {
 		requestBody["temperature"] = req.Temperature
 	}
 
@@ -114,14 +119,20 @@ func (provider *OpenAIProvider) Complete(ctx context.Context, req CompletionRequ
 		requestBody["max_output_tokens"] = req.MaxTokens
 	}
 
-	// Handle response format
+	textConfig := map[string]interface{}{}
 	if req.ResponseFormat == "json" {
-		// The Responses API uses "text" object configuration
-		requestBody["text"] = map[string]interface{}{
-			"format": map[string]string{
-				"type": "json_object", // Assuming json_object is supported or fallback to text with prompt
-			},
+		textConfig["format"] = map[string]string{
+			"type": "json_object",
 		}
+	}
+	if supportsReasoningControls(req.Model) {
+		requestBody["reasoning"] = map[string]string{
+			"effort": reasoningEffort(req.Model),
+		}
+		textConfig["verbosity"] = "low"
+	}
+	if len(textConfig) > 0 {
+		requestBody["text"] = textConfig
 	}
 
 	jsonData, err := json.Marshal(requestBody)
@@ -160,8 +171,13 @@ func (provider *OpenAIProvider) Complete(ctx context.Context, req CompletionRequ
 
 	// Parse response
 	var response struct {
-		ID     string `json:"id"`
+		ID               string `json:"id"`
+		Status           string `json:"status"`
+		IncompleteReason struct {
+			Reason string `json:"reason"`
+		} `json:"incomplete_details"`
 		Output []struct {
+			Type    string `json:"type"`
 			Content []struct {
 				Type string `json:"type"`
 				Text string `json:"text"`
@@ -179,16 +195,24 @@ func (provider *OpenAIProvider) Complete(ctx context.Context, req CompletionRequ
 		return CompletionResponse{}, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	if len(response.Output) == 0 || len(response.Output[0].Content) == 0 {
+	if len(response.Output) == 0 {
 		return CompletionResponse{}, fmt.Errorf("empty response from OpenAI")
 	}
 
 	// Extract text content
 	content := ""
-	for _, item := range response.Output[0].Content {
-		if item.Type == "output_text" {
-			content += item.Text
+	for _, output := range response.Output {
+		for _, item := range output.Content {
+			if item.Text != "" {
+				content += item.Text
+			}
 		}
+	}
+	if content == "" {
+		if response.Status == "incomplete" && response.IncompleteReason.Reason != "" {
+			return CompletionResponse{}, fmt.Errorf("OpenAI response incomplete: %s", response.IncompleteReason.Reason)
+		}
+		return CompletionResponse{}, fmt.Errorf("empty response from OpenAI")
 	}
 
 	return CompletionResponse{
@@ -223,6 +247,27 @@ func (provider *OpenAIProvider) EstimateCost(req CompletionRequest) float64 {
 	completionCost := float64(estimatedCompletionTokens) * outputRate
 
 	return promptCost + completionCost
+}
+
+func supportsTemperature(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if strings.HasPrefix(model, "gpt-5") {
+		return false
+	}
+	return true
+}
+
+func supportsReasoningControls(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	return strings.HasPrefix(model, "gpt-5")
+}
+
+func reasoningEffort(model string) string {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if strings.HasPrefix(model, "gpt-5.4") {
+		return "none"
+	}
+	return "minimal"
 }
 
 // AnthropicProvider implements Provider for Anthropic Claude

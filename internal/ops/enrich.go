@@ -61,9 +61,6 @@ func (e EnrichOptions) Validate() error {
 	if err := e.CommonOptions.Validate(); err != nil {
 		return err
 	}
-	if len(e.DeriveFields) == 0 && len(e.DerivationRules) == 0 {
-		return fmt.Errorf("at least one derive field or derivation rule is required")
-	}
 	validDepths := map[string]bool{"shallow": true, "deep": true}
 	if e.Depth != "" && !validDepths[e.Depth] {
 		return fmt.Errorf("invalid depth: %s", e.Depth)
@@ -221,6 +218,9 @@ func Enrich[T any, U any](input T, opts EnrichOptions) (EnrichResult[U], error) 
 	for field, rule := range opts.DerivationRules {
 		derivationInstructions = append(derivationInstructions, fmt.Sprintf("- %s: %s", field, rule))
 	}
+	if len(derivationInstructions) == 0 {
+		derivationInstructions = append(derivationInstructions, "- infer the most useful missing or derived fields from the available data")
+	}
 
 	contextDesc := ""
 	if len(opts.Context) > 0 {
@@ -338,6 +338,9 @@ func EnrichInPlace[T any](input T, opts EnrichOptions) (T, error) {
 	}
 	for field, rule := range opts.DerivationRules {
 		derivationInstructions = append(derivationInstructions, fmt.Sprintf("- %s: %s", field, rule))
+	}
+	if len(derivationInstructions) == 0 {
+		derivationInstructions = append(derivationInstructions, "- infer the most useful missing or derived fields from the available data")
 	}
 
 	systemPrompt := fmt.Sprintf(`You are an expert at data enrichment. Fill in or enhance fields in the input data.
