@@ -3,10 +3,7 @@ name: smarttodo-demo
 on:
   push:
     branches: [main]
-    paths:
-      - 'examples/smarttodo/**'
-      - 'web/smarttodo-demo/**'
-      - '.github/workflows/smarttodo-demo.yml'
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -30,25 +27,64 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Prepare dist
-        run: |
-          mkdir -p dist/smarttodo-demo
-          cp -R web/smarttodo-demo/. dist/smarttodo-demo/
-          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/smarttodo-demo/
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-      - name: Build smarttodo wasm
+      - name: Test root module
+        run: go test ./...
+
+      - name: Test smarttodo module
         working-directory: examples/smarttodo
-        run: GOOS=js GOARCH=wasm go build -o ../../dist/smarttodo-demo/smarttodo.wasm ./cmd/smarttodo-wasm
+        run: go test ./...
+
+      - name: Build demo bundle
+        run: bash scripts/build-smarttodo-demo.sh
+
+      - name: Install Playwright
+        run: |
+          npm init -y >/dev/null 2>&1 || true
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Start demo server
+        run: |
+          python3 -m http.server 4173 --directory dist/smarttodo-demo >/tmp/smarttodo-demo-http.log 2>&1 &
+          echo $! > /tmp/smarttodo-demo-http.pid
+
+      - name: Smoke test browser TUI
+        env:
+          SMARTTODO_DEMO_URL: http://127.0.0.1:4173/
+          SMARTTODO_SMOKE_OUTPUT: artifacts/smarttodo-demo-smoke
+        run: node scripts/smarttodo-demo-smoke.mjs
+
+      - name: Upload smoke artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smarttodo-demo-smoke
+          path: artifacts/smarttodo-demo-smoke
+
+      - name: Stop demo server
+        if: always()
+        run: |
+          if [ -f /tmp/smarttodo-demo-http.pid ]; then
+            kill "$(cat /tmp/smarttodo-demo-http.pid)" || true
+          fi
 
       - name: Configure Pages
+        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist/smarttodo-demo
 
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment:

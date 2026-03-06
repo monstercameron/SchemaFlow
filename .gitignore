@@ -37,3 +37,5 @@ tmp_live_smoke/
 dist/
 *.wasm
 smarttodo-wasm
+!examples/smarttodo/cmd/smarttodo-wasm/
+!examples/smarttodo/cmd/smarttodo-wasm/main.go
